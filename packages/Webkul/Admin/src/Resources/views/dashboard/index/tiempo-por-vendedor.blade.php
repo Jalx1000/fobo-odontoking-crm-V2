@@ -1,0 +1,149 @@
+{!! view_render_event('admin.dashboard.index.tiempo_por_vendedor.before') !!}
+
+<v-dashboard-tiempo-por-vendedor>
+    <x-admin::shimmer.dashboard.index.total-leads />
+</v-dashboard-tiempo-por-vendedor>
+
+{!! view_render_event('admin.dashboard.index.tiempo_por_vendedor.after') !!}
+
+@pushOnce('scripts')
+    <script type="text/x-template" id="v-dashboard-tiempo-por-vendedor-template">
+        <template v-if="isLoading">
+            <x-admin::shimmer.dashboard.index.total-leads />
+        </template>
+
+        <template v-else>
+            <div class="grid gap-4 rounded-lg border border-gray-200 bg-white px-4 py-2 dark:border-gray-800 dark:bg-gray-900">
+                <div class="flex flex-col justify-between gap-1">
+                    <p class="text-base font-semibold dark:text-gray-300">Tiempo en responder</p>
+                    <p class="text-sm font-semibold text-gray-600 dark:text-gray-300">Promedio total: @{{ averageHoursPerLead }} h</p>
+                </div>
+
+                <div class="flex w-full max-w-full flex-col gap-4">
+                    <x-admin::charts.bar
+                        ::labels="chartLabels"
+                        ::datasets="chartDatasets"
+                    />
+
+                    <div class="flex flex-wrap justify-center gap-5">
+                        <div class="flex items-center gap-2" v-for="(color, index) in colors" :key="index">
+                            <span class="h-3.5 w-3.5 rounded-sm" :style="{ backgroundColor: color }"></span>
+                            <p class="text-xs dark:text-gray-300">@{{ legendLabels[index] }} — @{{ dataHoursPerLead[index] }} h</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </script>
+
+    <script type="module">
+        app.component('v-dashboard-tiempo-por-vendedor', {
+            template: '#v-dashboard-tiempo-por-vendedor-template',
+
+            data() {
+                return {
+                    report: [],
+                    colors: [],
+                    isLoading: true,
+                    legendLabels: [],
+                    leadCountsByUser: {},
+                }
+            },
+
+            computed: {
+                chartLabels() {
+                    return this.report.statistics?.labels ?? [];
+                },
+
+                chartDatasets() {
+                    const labels = this.report.statistics?.labels ?? [];
+                    const data = this.dataHoursPerLead;
+                    this.colors = labels.map((l) => this.getColorForLabel(l));
+                    this.legendLabels = labels;
+                    return [{
+                        data: data,
+                        backgroundColor: this.colors,
+                    }];
+                },
+                dataHoursPerLead() {
+                    const labels = this.report.statistics?.labels ?? [];
+                    const dataSeconds = this.report.statistics?.data ?? [];
+                    return labels.map((label, i) => {
+                        const seconds = typeof dataSeconds[i] === 'number' ? dataSeconds[i] : 0;
+                        const count = this.leadCountsByUser[label] ?? 0;
+                        if (!count || !seconds) return 0;
+                        return Number(((seconds / count) / 72000).toFixed(1));
+                    });
+                },
+                averageHoursPerLead() {
+                    const values = this.dataHoursPerLead;
+                    const valid = values.filter((v) => typeof v === 'number' && v > 0);
+                    if (!valid.length) return 0;
+                    return Number((valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1));
+                },
+            },
+
+            mounted() {
+                this.getStats({});
+                this.$emitter.on('reporting-filter-updated', this.getStats);
+            },
+
+            methods: {
+                getColorForLabel(label) {
+                    if (this.$admin && typeof this.$admin.getLabelColor === 'function') {
+                        return this.$admin.getLabelColor(label);
+                    }
+
+                    if (! window.__labelColorMap) {
+                        window.__labelColorMap = {};
+                    }
+
+                    const palette = [
+                        '#BA2831',
+                        '#8979FF',
+                        '#63CFE5',
+                        '#F59E0B',
+                        '#10B981',
+                        '#EF4444',
+                        '#3B82F6',
+                        '#8B5CF6',
+                        '#F472B6',
+                        '#14B8A6',
+                    ];
+
+                    if (! window.__labelColorMap[label]) {
+                        const index = Object.keys(window.__labelColorMap).length % palette.length;
+                        window.__labelColorMap[label] = palette[index];
+                    }
+
+                    return window.__labelColorMap[label];
+                },
+                getStats(filters) {
+                    this.isLoading = true;
+                    const params1 = Object.assign({}, filters, { type: 'tiempo-por-vendedor' });
+                    const params2 = Object.assign({}, filters, { type: 'leads-by-users' });
+                    Promise.all([
+                        this.$axios.get("{{ route('admin.dashboard.stats') }}", { params: params1 }),
+                        this.$axios.get("{{ route('admin.dashboard.stats') }}", { params: params2 }),
+                    ])
+                    .then(([r1, r2]) => {
+                        this.report = r1.data;
+                        const labels = r2.data?.statistics?.labels ?? [];
+                        const counts = r2.data?.statistics?.data ?? [];
+                        this.leadCountsByUser = {};
+                        labels.forEach((label, i) => {
+                            this.leadCountsByUser[label] = typeof counts[i] === 'number' ? counts[i] : 0;
+                        });
+                        this.isLoading = false;
+                    })
+                    .catch(error => {
+                        this.isLoading = false;
+                        this.report = { statistics: { labels: [], data: [] } };
+                        this.leadCountsByUser = {};
+                    });
+                },
+
+            }
+        });
+    </script>
+@endPushOnce
