@@ -29,8 +29,8 @@
     <div class="dwc-container">
         <div class="dwc-controls">
             <div class="flex items-center gap-2">
-                <button class="px-2 py-1 rounded border dark:border-gray-800" @click="prevDay">←</button>
-                <button class="px-2 py-1 rounded border dark:border-gray-800" @click="goThisDay">Hoy</button>
+                <button class="px-2 py-1 rounded border dark:border-gray-800" @click="prevPeriod">←</button>
+                <button class="px-2 py-1 rounded border dark:border-gray-800" @click="goToday">Hoy</button>
                 <button
                     type="button"
                     class="px-3 py-1 rounded border dark:border-gray-800 text-sm font-semibold dark:text-white"
@@ -38,7 +38,7 @@
                 >
                     @{{ dayLabel }}
                 </button>
-                <button class="px-2 py-1 rounded border dark:border-gray-800" @click="nextDay">→</button>
+                <button class="px-2 py-1 rounded border dark:border-gray-800" @click="nextPeriod">→</button>
             </div>
 
             <div class="dwc-filters">
@@ -46,15 +46,12 @@
                 <button type="button" class="px-2 py-1 rounded border text-xs dark:border-gray-800" @click="selectAllDoctors">Todos</button>
                 <button type="button" class="px-2 py-1 rounded border text-xs dark:border-gray-800" @click="clearDoctors">Ninguno</button>
                 <v-doctor-multiselect style="max-width:350px;min-width:350px;max-height:100%" :items="doctors" v-model="selectedDoctorIds"></v-doctor-multiselect>
-                <select
-                class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
-                v-model="appointmentForm.doctor_id"
-                >
-                    <option :value="1" disabled>Hoy</option>
-                    <option :value="2" disabled>Semana</option>
-                    <option :value="3" disabled>Mes</option>
-            </select>
-            
+                
+                <div class="flex items-center rounded border dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900">
+                    <button type="button" class="px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" :class="viewType==='day'?'bg-gray-100 dark:bg-gray-800 font-semibold text-blue-600':''" @click="setView('day')">Día</button>
+                    <button type="button" class="px-3 py-2 text-sm border-l dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800" :class="viewType==='week'?'bg-gray-100 dark:bg-gray-800 font-semibold text-blue-600':''" @click="setView('week')">Semana</button>
+                    <button type="button" class="px-3 py-2 text-sm border-l dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800" :class="viewType==='month'?'bg-gray-100 dark:bg-gray-800 font-semibold text-blue-600':''" @click="setView('month')">Mes</button>
+                </div>
             </div>
         </div>
 
@@ -144,7 +141,31 @@
             </div>
         </div>
 
-        <div class="dwc-grid" :style="{ gridTemplateColumns: gridCols }">
+        <div v-if="viewType === 'month'" class="dwc-month-view">
+            <div class="ddc-date-weekdays mb-0">
+                <span v-for="w in weekdays" :key="'mw-'+w" class="ddc-date-weekday">@{{ w }}</span>
+            </div>
+            <div class="ddc-date-grid">
+                <div v-for="cell in monthGridCells" :key="'mc-'+cell.key" class="ddc-date-day dwc-month-cell" 
+                    :class="{ 'is-out': !cell.inMonth, 'is-today': cell.iso === todayISO() }"
+                >
+                    <div class="dwc-month-cell-header">
+                        <span :class="{'font-bold text-blue-600': cell.iso === todayISO()}">@{{ cell.day }}</span>
+                    </div>
+                    <div class="dwc-month-cell-events custom-scrollbar">
+                         <div v-for="ev in getEventsForDay(cell.iso)" :key="'mev-'+ev.id" 
+                              class="dwc-month-event"
+                              :title="ev.title || ev.type"
+                              @click="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null"
+                         >
+                             <span class="font-semibold">@{{ formatTime(ev.start) }}</span> @{{ ev.title || ev.type }}
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-else class="dwc-grid" :style="{ gridTemplateColumns: gridCols }">
             <div
                 v-if="showNowLine"
                 class="dwc-now-line"
@@ -521,6 +542,7 @@
                 editUrlTemplate: "{{ route('admin.activities.edit', 'replaceId') }}",
                 deleteUrlTemplate: "{{ route('admin.activities.delete', 'replaceId') }}",
                 scheduleStoreUrl: "{{ route('admin.schedules.store') }}",
+                viewType: 'day',
             };
         },
         computed: {
@@ -534,6 +556,16 @@
                 return this.days.length * this.dayHeight;
             },
             dayLabel() {
+                if (this.viewType === 'week' && this.days.length) {
+                    const s = new Date(this.days[0].date);
+                    const e = new Date(this.days[this.days.length - 1].date);
+                    return `${this.formatDate(s)} — ${this.formatDate(e)}`;
+                }
+                if (this.viewType === 'month') {
+                    const d = this.parseISODate(this.startISO);
+                    const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                    return `${months[d.getMonth()]} ${d.getFullYear()}`;
+                }
                 const d = this.parseISODate(this.startISO);
                 const names = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
                 const dd = String(d.getDate()).padStart(2, '0');
@@ -546,8 +578,15 @@
                 return this.doctors.filter(d => d && d.id && ids.has(Number(d.id)));
             },
             gridCols() {
+                if (this.viewType === 'month') return 'repeat(7, 1fr)';
                 const count = this.columns.length;
                 return count ? `80px repeat(${count}, 1fr)` : '80px';
+            },
+            monthGridCells() {
+                if (this.viewType !== 'month') return [];
+                const d = this.parseISODate(this.startISO);
+                // Ensure we are working with the month of startISO
+                return this.buildMonthCells(new Date(d.getFullYear(), d.getMonth(), 1));
             },
             showNowLine() {
                 return this.startISO === this.todayISO();
@@ -739,22 +778,29 @@
                 const t = new Date(dt);
                 return `${this.pad2(t.getHours())}:${this.pad2(t.getMinutes())}`;
             },
-            prevDay() {
+            setView(type) {
+                this.viewType = type;
+                this.fetch();
+            },
+            prevPeriod() {
                 const d = this.parseISODate(this.startISO);
-                d.setDate(d.getDate() - 1);
+                if (this.viewType === 'week') d.setDate(d.getDate() - 7);
+                else if (this.viewType === 'month') d.setMonth(d.getMonth() - 1);
+                else d.setDate(d.getDate() - 1);
                 this.startISO = this.toISO(d);
                 this.fetch();
             },
-            nextDay() {
+            nextPeriod() {
                 const d = this.parseISODate(this.startISO);
-                d.setDate(d.getDate() + 1);
+                if (this.viewType === 'week') d.setDate(d.getDate() + 7);
+                else if (this.viewType === 'month') d.setMonth(d.getMonth() + 1);
+                else d.setDate(d.getDate() + 1);
                 this.startISO = this.toISO(d);
                 this.fetch();
             },
-            goThisDay() {
+            goToday() {
                 const today = new Date();
-                const start = new Date(today);
-                this.startISO = this.toISO(start);
+                this.startISO = this.toISO(today);
                 this.fetch();
             },
             fetch() {
@@ -764,7 +810,7 @@
                         params: {
                             view_type: 'calendar',
                             calendar_mode: 'doctor',
-                            calendar_view: 'day',
+                            calendar_view: this.viewType,
                             start: this.startISO
                         }
                     })
@@ -787,6 +833,14 @@
             },
             clearDoctors() {
                 this.selectedDoctorIds = [];
+            },
+            getEventsForDay(isoDate) {
+                if (!this.selectedDoctorIds.length) return [];
+                const ids = new Set(this.selectedDoctorIds.map(id => String(id)));
+                return this.appointments.filter(a => 
+                    a.start.startsWith(isoDate) && 
+                    ids.has(String(a.doctor_id))
+                );
             },
             dayDoctorEvents(dateStr, doctorId) {
                 return this.appointments
@@ -1538,5 +1592,51 @@
         .ddc-date-month-title {
             font-size: 16px
         }
+    }
+
+    .dwc-month-view {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        background: var(--hours-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 10px;
+    }
+    .dwc-month-cell {
+        height: 120px;
+        align-items: flex-start;
+        justify-content: flex-start;
+        flex-direction: column;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
+    .dwc-month-cell-header {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 8px;
+    }
+    .dwc-month-cell-events {
+        width: 100%;
+        padding: 0 4px;
+        overflow-y: auto;
+        max-height: 90px;
+    }
+    .dwc-month-event {
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 4px;
+        padding: 2px 4px;
+        border-radius: 4px;
+        background: #dbeafe;
+        color: #1e40af;
+        cursor: pointer;
+    }
+    .dark .dwc-month-event {
+        background: #1e3a8a;
+        color: #dbeafe;
     }
 </style>
