@@ -165,6 +165,37 @@
             </div>
         </div>
 
+        <div v-else-if="viewType === 'week'" class="dwc-week-view">
+            <div class="dwc-week-header">
+                <div class="dwc-week-header-cell doctor-col">Doctores</div>
+                <div v-for="day in days" :key="'wh-'+day.date" class="dwc-week-header-cell">
+                    @{{ day.label }}
+                </div>
+            </div>
+            <div class="dwc-week-body">
+                <div v-for="col in columns" :key="'wrow-'+col.id" class="dwc-week-row">
+                    <div class="dwc-week-doctor-cell">
+                        <span class="font-semibold text-sm">@{{ col.name }}</span>
+                        <span class="text-xs text-gray-500">@{{ totalCount(col.id) }} citas</span>
+                    </div>
+                    <div v-for="day in days" :key="'wcell-'+col.id+'-'+day.date" 
+                         class="dwc-week-day-cell"
+                         :class="{ 'is-today': day.date === todayISO() }"
+                         @click="onWeekCellClick($event, day, col.id)"
+                    >
+                        <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'wev-'+ev.id"
+                             class="dwc-week-event"
+                             :title="ev.title || ev.type"
+                             @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null"
+                        >
+                            <span class="font-bold">@{{ formatTime(ev.start) }}</span>
+                            <span class="truncate">@{{ ev.title || ev.type }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div v-else class="dwc-grid" :style="{ gridTemplateColumns: gridCols }">
             <div
                 v-if="showNowLine"
@@ -903,6 +934,29 @@
                 this.quickMenu.endTime = `${this.pad2(eh)}:${this.pad2(em)}`;
                 this.quickMenu.timeText = `${this.pad2(h)}:${this.pad2(m)}`;
             },
+            onWeekCellClick(e, day, doctorId) {
+                const xView = e.clientX;
+                const yView = e.clientY;
+                const desiredLeft = xView + 8;
+                const maxLeft = window.innerWidth - this.quickMenu.width - 8;
+                const left = desiredLeft <= maxLeft ? desiredLeft : Math.max(8, xView - this.quickMenu.width - 8);
+
+                const desiredTop = yView - this.quickMenu.height - 8;
+                const minTop = 8;
+                const maxTop = window.innerHeight - this.quickMenu.height - 8;
+                const top = desiredTop >= minTop ? desiredTop : Math.min(maxTop, yView + 8);
+
+                this.quickMenu.visible = true;
+                this.quickMenu.left = left;
+                this.quickMenu.top = top;
+                this.quickMenu.dayISO = day.date;
+                this.quickMenu.dayLabel = day.label;
+                this.quickMenu.doctorId = doctorId;
+                this.quickMenu.doctorLabel = (this.doctors.find(d => String(d.id) === String(doctorId))?.name || '');
+                this.quickMenu.startTime = '09:00';
+                this.quickMenu.endTime = '10:00';
+                this.quickMenu.timeText = '09:00';
+            },
             closeQuickMenu() {
                 this.quickMenu.visible = false;
             },
@@ -1638,5 +1692,87 @@
     .dark .dwc-month-event {
         background: #1e3a8a;
         color: #dbeafe;
+    }
+
+    .dwc-week-view {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background: var(--hours-bg);
+        overflow: auto;
+    }
+    .dwc-week-header {
+        display: grid;
+        grid-template-columns: 150px repeat(7, 1fr);
+        border-bottom: 1px solid var(--border-color);
+        background: var(--gray-50);
+    }
+    .dark .dwc-week-header {
+        background: var(--hours-bg);
+    }
+    .dwc-week-header-cell {
+        padding: 10px;
+        text-align: center;
+        font-weight: 600;
+        border-right: 1px solid var(--border-color);
+        font-size: 13px;
+        color: var(--day-text);
+    }
+    .dwc-week-header-cell.doctor-col {
+        text-align: left;
+        padding-left: 16px;
+    }
+    .dwc-week-body {
+        display: flex;
+        flex-direction: column;
+    }
+    .dwc-week-row {
+        display: grid;
+        grid-template-columns: 150px repeat(7, 1fr);
+        border-bottom: 1px solid var(--border-color);
+        min-height: 80px;
+    }
+    .dwc-week-doctor-cell {
+        padding: 10px;
+        border-right: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        background: var(--gray-50);
+        color: var(--day-text);
+    }
+    .dark .dwc-week-doctor-cell {
+        background: var(--hours-bg);
+    }
+    .dwc-week-day-cell {
+        padding: 4px;
+        border-right: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        cursor: pointer;
+    }
+    .dwc-week-day-cell:hover {
+        background-color: rgba(0,0,0,0.02);
+    }
+    .dwc-week-day-cell.is-today {
+        background-color: rgba(59, 130, 246, 0.05);
+    }
+    .dwc-week-event {
+        font-size: 11px;
+        background: #e0f2fe;
+        color: #0369a1;
+        padding: 2px 4px;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        overflow: hidden;
+    }
+    .dark .dwc-week-event {
+        background: #075985;
+        color: #e0f2fe;
     }
 </style>
