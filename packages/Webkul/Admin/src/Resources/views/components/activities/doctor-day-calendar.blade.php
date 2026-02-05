@@ -217,6 +217,11 @@
 
                 <div class="dwc-days-stack" :style="{ height: totalHeight + 'px' }" @click="onColumnClick($event, col.id)">
                     <div v-for="(day, di) in days" :key="'day-'+di" class="dwc-day-block" :style="{ height: dayHeight + 'px' }">
+                        <div v-for="av in getDoctorAvailability(day.date, col.id)" :key="'av-'+av.id" 
+                             class="dwc-availability-block" 
+                             :style="{ top: av.top + 'px', height: av.height + 'px' }">
+                        </div>
+
                         <div v-for="idx in 24" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
                         <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }">
@@ -510,6 +515,7 @@
                 days: [],
                 doctors: [],
                 appointments: [],
+                availability: [],
                 selectedDoctorIds: [],
                 doctorFilterInitialized: false,
                 nowMinutes: 0,
@@ -840,6 +846,7 @@
                         this.days = r.data.days;
                         this.doctors = (r.data.doctors || []).filter(d => d && d.id);
                         this.appointments = r.data.appointments;
+                        this.availability = r.data.availability || [];
 
                         if (!this.doctorFilterInitialized) {
                             this.selectedDoctorIds = this.doctors.map(d => String(d.id));
@@ -863,6 +870,17 @@
                     a.start.startsWith(isoDate) && 
                     ids.has(String(a.doctor_id))
                 );
+            },
+            getDoctorAvailability(dateStr, doctorId) {
+                return this.availability
+                    .filter(s => s.date === dateStr && String(s.doctor_id) === String(doctorId))
+                    .map(s => {
+                        const startMin = this.timeToMinutes(s.start_time);
+                        const endMin = this.timeToMinutes(s.end_time);
+                        const top = startMin * this.minuteHeight;
+                        const height = (endMin - startMin) * this.minuteHeight;
+                        return { ...s, top, height };
+                    });
             },
             dayDoctorEvents(dateStr, doctorId) {
                 return this.appointments
@@ -1539,22 +1557,32 @@
     }
 
     .dwc-days-stack {
-        position: relative
+        position: relative;
+        background: #ecececff;
     }
-
+    .dark .dwc-days-stack {
+        background: #111827;
+    }
+    .dwc-availability-block {
+        position: absolute;
+        left: 0;
+        right: 0;
+        background: var(--hours-bg, #fff);
+        z-index: 0;
+    }
     .dwc-day-block {
         position: relative;
         border-bottom: 1px solid var(--border-color)
     }
-
     .dwc-hour-line {
         position: absolute;
         left: 0;
         right: 0;
         height: 1px;
-        background: var(--grid-line)
+        background: var(--grid-line);
+        z-index: 1;
+        pointer-events: none;
     }
-
     .dwc-event {
         position: absolute;
         left: 6px;
@@ -1565,7 +1593,8 @@
         border-radius: 6px;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
         padding: 6px 8px;
-        font-size: 12px
+        font-size: 12px;
+        z-index: 2;
     }
 
     .dwc-event-title {
