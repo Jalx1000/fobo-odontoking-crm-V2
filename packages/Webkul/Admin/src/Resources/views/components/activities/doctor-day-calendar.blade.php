@@ -240,10 +240,9 @@
                                 </div>
 
                                 <div class="dwc-event-status-wrapper" @click.stop>
-                                    <div class="dwc-status-indicator" :class="getStatusClass(ev.is_done)"></div>
-                                    <select class="dwc-event-status" :class="getStatusClass(ev.is_done)" v-model="ev.is_done" @change="updateStatus(ev)">
-                                        <option :value="0">Prospecto</option>
-                                        <option :value="1">Completada</option>
+                                    <div class="dwc-status-indicator status-pipeline"></div>
+                                    <select class="dwc-event-status" v-model="ev.lead_pipeline_stage_id" @change="updateStatus(ev)">
+                                        <option v-for="stage in stages" :key="'st-'+stage.id" :value="stage.id">@{{ stage.name }}</option>
                                     </select>
                                 </div>
                             </div>
@@ -532,6 +531,7 @@
                 doctors: [],
                 appointments: [],
                 availability: [],
+                stages: [],
                 selectedDoctorIds: [],
                 doctorFilterInitialized: false,
                 nowMinutes: 0,
@@ -863,6 +863,7 @@
                         this.doctors = (r.data.doctors || []).filter(d => d && d.id);
                         this.appointments = r.data.appointments;
                         this.availability = r.data.availability || [];
+                        this.stages = r.data.stages || [];
 
                         if (!this.doctorFilterInitialized) {
                             this.selectedDoctorIds = this.doctors.map(d => String(d.id));
@@ -1173,32 +1174,25 @@
                 return `${h} h ${m} min`;
             },
             getStatusClass(status) {
-                // 0 = Prospecto (Pendiente), 1 = Completada (Realizada)
-                return status == 1 ? 'status-completed' : 'status-pending';
+                // If status is a stage ID (number/string), we might not have a specific class unless we map stages to colors.
+                // For now, let's keep it simple or use a default class.
+                // Or if 'is_done' is still used for legacy reasons, we keep it.
+                // But user wants pipeline stages. Let's return a generic status class.
+                return 'status-pipeline';
             },
             updateStatus(ev) {
-                // To implement: call backend to update status
-                // For now just console log or basic feedback
-                const newStatus = ev.is_done;
-                // Assuming we have an update endpoint or use massUpdate logic
-                // For simplicity, let's assume we can use the mass-update endpoint for single item or similar
-                // But the controller 'update' method updates 'is_done' if we pass it.
-                // We need the updateUrl. The component has editUrlTemplate but not a direct updateUrl for XHR PUT easily exposed without replacing ID.
-                
-                // Construct update URL
-                // The route is admin.activities.update -> PUT /activities/edit/{id}
-                const url = "{{ route('admin.activities.update', 'replaceId') }}".replace('replaceId', ev.id);
+                if (!ev.lead_id || !ev.lead_pipeline_stage_id) return;
+
+                const url = "{{ route('admin.leads.stage.update', 'replaceId') }}".replace('replaceId', ev.lead_id);
                 
                 this.$axios.put(url, {
-                    is_done: newStatus
+                    lead_pipeline_stage_id: ev.lead_pipeline_stage_id
                 })
                 .then(() => {
                     this.$emitter.emit('add-flash', { type: 'success', message: 'Estado actualizado' });
                 })
                 .catch(() => {
                     this.$emitter.emit('add-flash', { type: 'error', message: 'Error al actualizar estado' });
-                    // Revert on error
-                    ev.is_done = !newStatus; 
                 });
             },
         },
@@ -1758,40 +1752,22 @@
         background-color: #fff;
     }
 
-    .status-pending {
-        color: #b45309; /* Amber 700 */
-        background-color: #fef3c7; /* Amber 100 */
+    .status-pipeline {
+        color: #0f172a;
+        background-color: #f1f5f9;
     }
     
-    .dwc-status-indicator.status-pending {
-        background-color: #f59e0b;
+    .dwc-status-indicator.status-pipeline {
+        background-color: #64748b;
     }
 
-    .status-completed {
-        color: #047857; /* Emerald 700 */
-        background-color: #d1fae5; /* Emerald 100 */
+    .dark .status-pipeline {
+        color: #f3f4f6;
+        background-color: #374151;
     }
     
-    .dwc-status-indicator.status-completed {
-        background-color: #10b981;
-    }
-
-    .dark .dwc-event-patient { color: #f3f4f6; }
-    .dark .dwc-event-doctor { color: #9ca3af; }
-    .dark .dwc-event-time { 
-        color: #d1d5db; 
-        background: rgba(255,255,255,0.05);
-    }
-    .dark .dwc-event-reason { color: #9ca3af; }
-    
-    .dark .status-pending {
-        color: #fbbf24; 
-        background-color: #451a03;
-    }
-    
-    .dark .status-completed {
-        color: #34d399;
-        background-color: #064e3b;
+    .dark .dwc-status-indicator.status-pipeline {
+        background-color: #9ca3af;
     }
 
     .dwc-add-overlay {

@@ -19,6 +19,7 @@ use Webkul\Admin\Http\Requests\MassUpdateRequest;
 use Webkul\Admin\Http\Resources\ActivityResource;
 use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\Lead\Repositories\LeadRepository;
+use Webkul\Lead\Repositories\PipelineRepository;
 use Illuminate\Support\Facades\Schema;
 
 class ActivityController extends Controller
@@ -33,6 +34,7 @@ class ActivityController extends Controller
         protected FileRepository $fileRepository,
         protected AttributeRepository $attributeRepository,
         protected LeadRepository $leadRepository,
+        protected PipelineRepository $pipelineRepository,
     ) {}
 
     /**
@@ -105,6 +107,9 @@ class ActivityController extends Controller
                 ->orderBy('activities.schedule_from')
                 ->get();
 
+            $pipeline = $this->pipelineRepository->getDefaultPipeline();
+            $stages = $pipeline ? $pipeline->stages()->get() : [];
+
             // Enrich appointments with calculated duration and doctor names if needed
             // For now, doctor_id is present. We can join doctors table if we want multiple doctor names per appointment,
             // but the current structure assumes one main doctor per doctor_activities entry or we group them.
@@ -117,6 +122,8 @@ class ActivityController extends Controller
                 ->leftJoin('doctors', 'doctor_activities.doctor_id', '=', 'doctors.id')
                 ->leftJoin('activity_participants', 'activities.id', '=', 'activity_participants.activity_id')
                 ->leftJoin('persons as p', 'activity_participants.person_id', '=', 'p.id')
+                ->leftJoin('lead_activities', 'activities.id', '=', 'lead_activities.activity_id')
+                ->leftJoin('leads', 'lead_activities.lead_id', '=', 'leads.id')
                 ->select([
                     'activities.id',
                     'activities.title',
@@ -127,6 +134,8 @@ class ActivityController extends Controller
                     'activities.schedule_to as end',
                     'doctor_activities.doctor_id',
                     'doctors.name as doctor_name',
+                    'leads.id as lead_id',
+                    'leads.lead_pipeline_stage_id',
                     DB::raw('COALESCE(' . $prefix . 'p.name, "") as person_name'),
                 ])
                 ->whereBetween('activities.schedule_from', [$startDate, $endDate])
@@ -180,6 +189,7 @@ class ActivityController extends Controller
                 'appointments' => $appointments,
                 'availability' => $availability,
                 'calendar_view'=> $view,
+                'stages'       => $stages,
             ]);
         }
 
