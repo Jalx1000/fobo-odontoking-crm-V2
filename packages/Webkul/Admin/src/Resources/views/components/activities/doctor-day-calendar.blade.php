@@ -224,12 +224,28 @@
 
                         <div v-for="idx in 24" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
-                        <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }">
-                            <div class="dwc-event-title">@{{ ev.title || ev.type }}</div>
-                            <div class="dwc-event-time">@{{ formatTime(ev.start) }} — @{{ formatTime(ev.end) }} · @{{ day.label }}</div>
-                            <div class="flex items-center gap-2 mt-1">
-                                <a :href="editUrl(ev.id)" class="icon-edit text-xl"></a>
-                                <button type="button" class="icon-delete text-xl text-red-600" @click.stop="remove(ev)"></button>
+                        <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
+                            <div class="dwc-event-content">
+                                <div class="dwc-event-patient" :title="ev.person_name">@{{ ev.person_name || 'Sin Paciente' }}</div>
+                                <div class="dwc-event-doctor" :title="ev.doctor_name">Dr. @{{ ev.doctor_name }}</div>
+                                
+                                <div class="dwc-event-time">
+                                    <span class="icon-clock text-xs"></span>
+                                    <span>@{{ formatTime(ev.start) }} - @{{ formatTime(ev.end) }}</span>
+                                    <span class="dwc-event-duration">(@{{ getDuration(ev.start, ev.end) }})</span>
+                                </div>
+
+                                <div v-if="ev.comment" class="dwc-event-reason" :title="ev.comment">
+                                    @{{ ev.comment }}
+                                </div>
+
+                                <div class="dwc-event-status-wrapper" @click.stop>
+                                    <div class="dwc-status-indicator" :class="getStatusClass(ev.is_done)"></div>
+                                    <select class="dwc-event-status" :class="getStatusClass(ev.is_done)" v-model="ev.is_done" @change="updateStatus(ev)">
+                                        <option :value="0">Prospecto</option>
+                                        <option :value="1">Completada</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1137,6 +1153,54 @@
                     .then(() => this.fetch())
                     .catch(() => {});
             },
+            getDuration(start, end) {
+                const s = new Date(start);
+                const e = new Date(end);
+                const diffMs = e - s;
+                const diffMins = Math.round(diffMs / 60000);
+                
+                if (diffMins < 60) {
+                    return `${diffMins} min`;
+                }
+                
+                const h = Math.floor(diffMins / 60);
+                const m = diffMins % 60;
+                
+                if (m === 0) {
+                    return `${h} h`;
+                }
+                
+                return `${h} h ${m} min`;
+            },
+            getStatusClass(status) {
+                // 0 = Prospecto (Pendiente), 1 = Completada (Realizada)
+                return status == 1 ? 'status-completed' : 'status-pending';
+            },
+            updateStatus(ev) {
+                // To implement: call backend to update status
+                // For now just console log or basic feedback
+                const newStatus = ev.is_done;
+                // Assuming we have an update endpoint or use massUpdate logic
+                // For simplicity, let's assume we can use the mass-update endpoint for single item or similar
+                // But the controller 'update' method updates 'is_done' if we pass it.
+                // We need the updateUrl. The component has editUrlTemplate but not a direct updateUrl for XHR PUT easily exposed without replacing ID.
+                
+                // Construct update URL
+                // The route is admin.activities.update -> PUT /activities/edit/{id}
+                const url = "{{ route('admin.activities.update', 'replaceId') }}".replace('replaceId', ev.id);
+                
+                this.$axios.put(url, {
+                    is_done: newStatus
+                })
+                .then(() => {
+                    this.$emitter.emit('add-flash', { type: 'success', message: 'Estado actualizado' });
+                })
+                .catch(() => {
+                    this.$emitter.emit('add-flash', { type: 'error', message: 'Error al actualizar estado' });
+                    // Revert on error
+                    ev.is_done = !newStatus; 
+                });
+            },
         },
     });
 </script>
@@ -1591,19 +1655,143 @@
         background: var(--event-bg);
         color: var(--event-text);
         border-radius: 6px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         padding: 6px 8px;
         font-size: 12px;
         z-index: 2;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        cursor: pointer;
+        transition: transform 0.1s, box-shadow 0.1s;
+    }
+    
+    .dwc-event:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+        z-index: 10;
+    }
+    
+    .dwc-event-content {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        height: 100%;
     }
 
-    .dwc-event-title {
-        font-weight: 600
+    .dwc-event-patient {
+        font-weight: 700;
+        font-size: 13px;
+        color: #111827;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.2;
+    }
+    
+    .dwc-event-doctor {
+        font-size: 11px;
+        color: #4b5563;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-style: italic;
     }
 
     .dwc-event-time {
         font-size: 11px;
-        opacity: .85
+        color: #374151;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(0,0,0,0.03);
+        padding: 2px 4px;
+        border-radius: 4px;
+        margin-top: 2px;
+        white-space: nowrap;
+    }
+
+    .dwc-event-reason {
+        font-size: 11px;
+        color: #6b7280;
+        margin-top: 2px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        line-height: 1.3;
+        font-style: italic;
+    }
+
+    .dwc-event-status-wrapper {
+        margin-top: auto;
+        padding-top: 4px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .dwc-status-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .dwc-event-status {
+        width: 100%;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        background-color: transparent;
+        appearance: none;
+        -webkit-appearance: none;
+        font-weight: 500;
+        transition: background-color 0.2s;
+    }
+    
+    .dwc-event-status:focus {
+        outline: none;
+        border-color: var(--event-accent);
+        background-color: #fff;
+    }
+
+    .status-pending {
+        color: #b45309; /* Amber 700 */
+        background-color: #fef3c7; /* Amber 100 */
+    }
+    
+    .dwc-status-indicator.status-pending {
+        background-color: #f59e0b;
+    }
+
+    .status-completed {
+        color: #047857; /* Emerald 700 */
+        background-color: #d1fae5; /* Emerald 100 */
+    }
+    
+    .dwc-status-indicator.status-completed {
+        background-color: #10b981;
+    }
+
+    .dark .dwc-event-patient { color: #f3f4f6; }
+    .dark .dwc-event-doctor { color: #9ca3af; }
+    .dark .dwc-event-time { 
+        color: #d1d5db; 
+        background: rgba(255,255,255,0.05);
+    }
+    .dark .dwc-event-reason { color: #9ca3af; }
+    
+    .dark .status-pending {
+        color: #fbbf24; 
+        background-color: #451a03;
+    }
+    
+    .dark .status-completed {
+        color: #34d399;
+        background-color: #064e3b;
     }
 
     .dwc-add-overlay {

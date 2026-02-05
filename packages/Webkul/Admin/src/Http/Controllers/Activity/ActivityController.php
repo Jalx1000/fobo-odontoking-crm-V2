@@ -105,6 +105,43 @@ class ActivityController extends Controller
                 ->orderBy('activities.schedule_from')
                 ->get();
 
+            // Enrich appointments with calculated duration and doctor names if needed
+            // For now, doctor_id is present. We can join doctors table if we want multiple doctor names per appointment,
+            // but the current structure assumes one main doctor per doctor_activities entry or we group them.
+            // Given the current query structure (leftJoin doctor_activities), if an activity has multiple doctors, it might duplicate rows or we need group_concat.
+            // Let's assume for this view we want to show the doctor name.
+            
+            // Re-query to get better details including doctor name and lead status/pipeline stage if applicable.
+            $appointments = DB::table('activities')
+                ->leftJoin('doctor_activities', 'activities.id', '=', 'doctor_activities.activity_id')
+                ->leftJoin('doctors', 'doctor_activities.doctor_id', '=', 'doctors.id')
+                ->leftJoin('activity_participants', 'activities.id', '=', 'activity_participants.activity_id')
+                ->leftJoin('persons as p', 'activity_participants.person_id', '=', 'p.id')
+                ->select([
+                    'activities.id',
+                    'activities.title',
+                    'activities.type',
+                    'activities.comment',
+                    'activities.is_done',
+                    'activities.schedule_from as start',
+                    'activities.schedule_to as end',
+                    'doctor_activities.doctor_id',
+                    'doctors.name as doctor_name',
+                    DB::raw('COALESCE(' . $prefix . 'p.name, "") as person_name'),
+                ])
+                ->whereBetween('activities.schedule_from', [$startDate, $endDate])
+                ->whereIn('activities.type', (function () {
+                    $allowed = ['call', 'meeting', 'lunch'];
+                    $types = request()->get('activity_types');
+                    if (is_array($types)) {
+                        $filtered = array_values(array_intersect($types, $allowed));
+                        return count($filtered) ? $filtered : $allowed;
+                    }
+                    return $allowed;
+                })())
+                ->orderBy('activities.schedule_from')
+                ->get();
+
             $availability = DB::table('doctor_shifts')
                 ->select(['id', 'doctor_id', 'date', 'start_time', 'end_time'])
                 ->whereBetween('date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
