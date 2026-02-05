@@ -124,6 +124,8 @@ class ActivityController extends Controller
                 ->leftJoin('persons as p', 'activity_participants.person_id', '=', 'p.id')
                 ->leftJoin('lead_activities', 'activities.id', '=', 'lead_activities.activity_id')
                 ->leftJoin('leads', 'lead_activities.lead_id', '=', 'leads.id')
+                ->leftJoin('product_activities', 'activities.id', '=', 'product_activities.activity_id')
+                ->leftJoin('products', 'product_activities.product_id', '=', 'products.id')
                 ->select([
                     'activities.id',
                     'activities.title',
@@ -136,6 +138,8 @@ class ActivityController extends Controller
                     'doctors.name as doctor_name',
                     'leads.id as lead_id',
                     'leads.lead_pipeline_stage_id',
+                    'products.id as product_id',
+                    'products.name as product_name',
                     DB::raw('COALESCE(' . $prefix . 'p.name, "") as person_name'),
                 ])
                 ->whereBetween('activities.schedule_from', [$startDate, $endDate])
@@ -420,6 +424,22 @@ class ActivityController extends Controller
             $activity->leads()->sync(
                 ! empty($data['lead_id'])
                     ? [$data['lead_id']]
+                    : []
+            );
+        }
+
+        if (isset($data['product_id'])) {
+            $activity->products()->sync(
+                ! empty($data['product_id'])
+                    ? [$data['product_id']]
+                    : []
+            );
+        }
+
+        if (isset($data['doctor_id'])) {
+            $activity->doctors()->sync(
+                ! empty($data['doctor_id'])
+                    ? [$data['doctor_id']]
                     : []
             );
         }

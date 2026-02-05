@@ -1119,12 +1119,9 @@
                     name: ev.person_name 
                 };
                 
-                // We need product info if available. Currently not in event object but we might need it.
-                // Assuming basic edit for now. If product_id missing, user might need to reselect.
-                // Or we fetch details.
-                // Let's assume we just open for editing basic fields available.
-                this.appointmentForm.product_id = null; // Placeholder
-                this.appointmentForm.product_name = '';
+                // Set product info from event
+                this.appointmentForm.product_id = ev.product_id || null;
+                this.appointmentForm.product_name = ev.product_name || '';
 
                 this.$refs.appointmentModal.open();
             },
@@ -1229,9 +1226,9 @@
                         schedule_from: startDateTime,
                         schedule_to: endDateTime,
                         comment: this.appointmentForm.reason,
-                        // For doctor and participants, it's more complex as they are relations.
-                        // ActivityController@update handles basic fields. Relations might need extra handling or overrides.
-                        // Let's send what we can.
+                        product_id: this.appointmentForm.product_id,
+                        doctor_id: this.appointmentForm.doctor_id,
+                        lead_id: this.appointmentForm.person.id,
                     };
                     promise = this.$axios.put(url, updatePayload);
                 } else {
