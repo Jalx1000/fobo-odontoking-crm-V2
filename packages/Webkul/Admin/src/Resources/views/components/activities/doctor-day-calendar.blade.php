@@ -714,15 +714,6 @@
                         iso: ''
                     });
                 }
-                while (cells.length < 42) {
-                    const i = cells.length;
-                    cells.push({
-                        key: `p-${y}-${m}-${i}`,
-                        inMonth: false,
-                        day: '',
-                        iso: ''
-                    });
-                }
                 return cells;
             },
             todayISO() {
@@ -866,7 +857,7 @@
                 this.selectedDoctorIds = [];
             },
             getEventsForDay(isoDate) {
-                if (!this.selectedDoctorIds.length) return [];
+                if (!isoDate || !this.selectedDoctorIds.length) return [];
                 const ids = new Set(this.selectedDoctorIds.map(id => String(id)));
                 return this.appointments.filter(a => 
                     a.start.startsWith(isoDate) && 
