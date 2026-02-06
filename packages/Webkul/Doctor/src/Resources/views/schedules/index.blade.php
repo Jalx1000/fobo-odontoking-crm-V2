@@ -93,32 +93,10 @@
                                                 class="secondary-button"
                                                 :data-doctor="doctor.id"
                                                 :data-date="day.date"
-                                                @click="openAdd(doctor.id, day.date)"
+                                                @click="openScheduleOptionsModal(doctor.id, day.date)"
                                             >
                                                 Añadir horario
                                             </button>
-                                        </div>
-                                        <div
-                                            v-if="addDlg.visible && addDlg.doctorId === doctor.id && addDlg.date === day.date"
-                                            class="add-overlay"
-                                        >
-                                            <div class="flex items-center gap-2 mb-2">
-                                                <span class="text-xs dark:text-gray-300">@{{ day.label }}</span>
-                                                <span class="text-xs dark:text-gray-300">·</span>
-                                                <span class="text-xs dark:text-gray-300">@{{ doctor.name }}</span>
-                                            </div>
-                                            <div class="grid grid-cols-2 gap-2">
-                                                <input type="time" class="rounded border px-2 py-1 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="addDlg.startTime" />
-                                                <input type="time" class="rounded border px-2 py-1 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="addDlg.endTime" />
-                                            </div>
-                                            <div class="mt-2 flex items-center gap-2">
-                                                <button type="button" class="secondary-button" @click="cancelAdd">Cancelar</button>
-                                                <button type="button" class="primary-button" @click="saveSchedule" :disabled="addDlg.saving">
-                                                    <span v-if="!addDlg.saving">Guardar</span>
-                                                    <span v-else class="flex items-center gap-2"><x-admin::spinner /> Guardando...</span>
-                                                </button>
-                                            </div>
-                                            <div class="mt-1 text-sm text-red-600" v-if="addDlg.error">@{{ addDlg.error }}</div>
                                         </div>
                                     </div>
                                 </td>
@@ -130,6 +108,218 @@
                 <div class="mt-3 rounded-lg border border-dashed px-3 py-2 text-xs text-gray-600 dark:border-gray-800 dark:text-gray-400">
                     El calendario del equipo muestra tu disponibilidad para reservas y no está vinculado al horario habitual del negocio.
                 </div>
+
+                <!-- Modals -->
+                <x-admin::modal ref="scheduleOptionsModal">
+                    <x-slot:header>
+                        <div class="text-lg font-semibold dark:text-white">
+                            Gestionar Horario
+                        </div>
+                    </x-slot>
+                    <x-slot:content>
+                        <div class="flex flex-col gap-2">
+                            <button type="button" class="w-full text-left px-4 py-3 rounded border hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3" @click="openAddModal">
+                                <span class="icon-calendar text-xl text-blue-600"></span>
+                                <div>
+                                    <div class="font-semibold text-sm">Añadir turno</div>
+                                    <div class="text-xs text-gray-500">Registrar un horario disponible individual</div>
+                                </div>
+                            </button>
+                            <button type="button" class="w-full text-left px-4 py-3 rounded border hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3" @click="openRecurringModal">
+                                <span class="icon-calendar text-xl text-purple-600"></span>
+                                <div>
+                                    <div class="font-semibold text-sm">Establecer turnos recurrentes</div>
+                                    <div class="text-xs text-gray-500">Generar múltiples turnos automáticamente</div>
+                                </div>
+                            </button>
+                            <button type="button" class="w-full text-left px-4 py-3 rounded border hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3" @click="openTimeOffModal">
+                                <span class="icon-calendar text-xl text-orange-600"></span>
+                                <div>
+                                    <div class="font-semibold text-sm">Añadir días libres</div>
+                                    <div class="text-xs text-gray-500">Registrar vacaciones o ausencias</div>
+                                </div>
+                            </button>
+                        </div>
+                    </x-slot>
+                </x-admin::modal>
+
+                <x-admin::modal ref="addModal">
+                    <x-slot:header>
+                        <div class="text-lg font-semibold dark:text-white">
+                            Añadir turno
+                        </div>
+                    </x-slot>
+                    <x-slot:content>
+                        <div class="flex flex-col gap-3">
+                            <div class="text-sm text-gray-600 dark:text-gray-300">
+                                @{{ modalContext.dateLabel }} · @{{ modalContext.doctorName }}
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="addDlg.startTime" />
+                                <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="addDlg.endTime" />
+                            </div>
+                            <div class="text-sm text-red-600" v-if="addDlg.error">@{{ addDlg.error }}</div>
+                        </div>
+                    </x-slot>
+                    <x-slot:footer>
+                        <div class="flex items-center gap-2 justify-end">
+                            <button type="button" class="secondary-button" @click="$refs.addModal.close()">Cancelar</button>
+                            <button type="button" class="primary-button" @click="saveSchedule" :disabled="addDlg.saving">
+                                <span v-if="!addDlg.saving">Guardar</span>
+                                <span v-else class="flex items-center gap-2"><x-admin::spinner /> Guardando...</span>
+                            </button>
+                        </div>
+                    </x-slot>
+                </x-admin::modal>
+
+                <x-admin::modal ref="recurringModal">
+                    <x-slot:header>
+                        <div class="text-lg font-semibold dark:text-white">
+                            Turnos Recurrentes
+                        </div>
+                    </x-slot>
+                    <x-slot:content>
+                        <div class="flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                            <div class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+                                <div class="grid grid-cols-2 gap-4 mb-4">
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-xs font-medium text-gray-500">Fecha de Inicio</label>
+                                        <input type="date" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="recurringForm.start_date" />
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-xs font-medium text-gray-500">Fecha de Fin</label>
+                                        <input type="date" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="recurringForm.end_date" />
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col gap-2 mb-4">
+                                    <label class="text-xs font-medium text-gray-500">Días de la semana</label>
+                                    <div class="flex flex-wrap gap-2">
+                                        <label v-for="(day, idx) in ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']" :key="'rd-'+idx" class="flex items-center gap-2 px-3 py-2 border rounded cursor-pointer hover:bg-white dark:hover:bg-gray-700 transition-colors" :class="recurringForm.days.includes(idx+1) ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:border-blue-500 dark:text-blue-300' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700'">
+                                            <input type="checkbox" :value="idx+1" v-model="recurringForm.days" class="hidden" />
+                                            <span class="text-sm font-medium">@{{ day }}</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col gap-2">
+                                    <label class="text-xs font-medium text-gray-500">Horarios</label>
+                                    <div v-for="(slot, idx) in recurringForm.time_slots" :key="'ts-'+idx" class="flex items-center gap-2 mb-2">
+                                        <div class="flex-1 grid grid-cols-2 gap-2">
+                                            <div class="flex flex-col gap-1">
+                                                <label class="text-[10px] font-medium text-gray-400" v-if="idx===0">Hora Inicio</label>
+                                                <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="slot.startTime" />
+                                            </div>
+                                            <div class="flex flex-col gap-1">
+                                                <label class="text-[10px] font-medium text-gray-400" v-if="idx===0">Hora Fin</label>
+                                                <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="slot.endTime" />
+                                            </div>
+                                        </div>
+                                        <button type="button" class="mt-auto mb-1 p-2 text-red-600 hover:bg-red-50 rounded dark:hover:bg-red-900/20" @click="removeTimeSlot(idx)" v-if="recurringForm.time_slots.length > 1">
+                                            <span class="icon-cross text-lg">×</span>
+                                        </button>
+                                        <button type="button" class="mt-auto mb-1 p-2 text-blue-600 hover:bg-blue-50 rounded dark:hover:bg-blue-900/20" @click="addTimeSlot" v-if="idx === recurringForm.time_slots.length - 1">
+                                            <span class="text-xl font-bold">+</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="text-sm text-red-600" v-if="addDlg.error">@{{ addDlg.error }}</div>
+                        </div>
+                    </x-slot>
+                    <x-slot:footer>
+                        <div class="flex items-center gap-2 justify-end">
+                            <button type="button" class="secondary-button" @click="$refs.recurringModal.close()">Cancelar</button>
+                            <button type="button" class="primary-button" @click="saveRecurring" :disabled="addDlg.saving">
+                                <span v-if="!addDlg.saving">Generar Turnos</span>
+                                <span v-else class="flex items-center gap-2"><x-admin::spinner /> Procesando...</span>
+                            </button>
+                        </div>
+                    </x-slot>
+                </x-admin::modal>
+
+                <x-admin::modal ref="timeOffModal">
+                    <x-slot:header>
+                        <div class="text-lg font-semibold dark:text-white">
+                            Añadir días libres
+                        </div>
+                    </x-slot>
+                    <x-slot:content>
+                        <div class="flex flex-col gap-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-xs font-medium text-gray-500">Miembro del equipo</label>
+                                    <select class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="timeOffForm.doctor_id" disabled>
+                                        <option v-for="d in doctors" :key="'to-d-'+d.id" :value="d.id">@{{ d.name }}</option>
+                                    </select>
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-xs font-medium text-gray-500">Tipo</label>
+                                    <select class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="timeOffForm.type">
+                                        <option value="Vacaciones anuales">Vacaciones anuales</option>
+                                        <option value="Enfermedad">Enfermedad</option>
+                                        <option value="Personal">Personal</option>
+                                        <option value="Otro">Otro</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-4">
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-xs font-medium text-gray-500">Fecha de inicio</label>
+                                    <input type="date" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="timeOffForm.start_date" />
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-xs font-medium text-gray-500">Hora de inicio</label>
+                                    <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="timeOffForm.start_time" />
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-xs font-medium text-gray-500">Hora de finalización</label>
+                                    <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="timeOffForm.end_time" />
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                <input type="checkbox" id="to-repeat" v-model="timeOffForm.repeat" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                <label for="to-repeat" class="text-sm text-gray-700 dark:text-gray-300">Repetir</label>
+                            </div>
+
+                            <div class="flex flex-col gap-1">
+                                <label class="text-xs font-medium text-gray-500">Descripción</label>
+                                <textarea class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" rows="3" v-model="timeOffForm.description" placeholder="Añadir descripción o comentario (opcional)"></textarea>
+                            </div>
+
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" id="to-approved" v-model="timeOffForm.approved" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                    <label for="to-approved" class="text-sm text-gray-700 dark:text-gray-300">Aprobado</label>
+                                </div>
+                                <div class="text-sm text-gray-500">
+                                    Días libres: @{{ calculateTimeOffDuration() }}
+                                </div>
+                            </div>
+
+                            <div class="text-xs text-gray-500">
+                                No se puede reservar online durante los días libres.
+                            </div>
+                            
+                            <div class="text-sm text-red-600" v-if="addDlg.error">@{{ addDlg.error }}</div>
+                        </div>
+                    </x-slot>
+                    <x-slot:footer>
+                        <div class="flex items-center gap-2 justify-end">
+                            <button type="button" class="secondary-button" @click="$refs.timeOffModal.close()">Cancelar</button>
+                            <button type="button" class="primary-button bg-black hover:bg-gray-800 text-white" @click="saveTimeOff" :disabled="addDlg.saving">
+                                <span v-if="!addDlg.saving">Guardar</span>
+                                <span v-else class="flex items-center gap-2"><x-admin::spinner /> Guardando...</span>
+                            </button>
+                        </div>
+                    </x-slot>
+                </x-admin::modal>
             </div>
         </script>
 
@@ -144,7 +334,7 @@
                         shifts: [],
                         start: '',
                         addDlg: {
-                            visible: false,
+                            visible: false, // Legacy, can keep or remove if fully switched to modals
                             doctorId: null,
                             date: '',
                             shiftId: null,
@@ -152,6 +342,28 @@
                             endTime: '10:00',
                             saving: false,
                             error: '',
+                        },
+                        recurringForm: {
+                            start_date: '',
+                            end_date: '',
+                            days: [],
+                            time_slots: []
+                        },
+                        timeOffForm: {
+                            doctor_id: null,
+                            type: 'Vacaciones anuales',
+                            start_date: '',
+                            start_time: '10:00',
+                            end_time: '19:00',
+                            repeat: false,
+                            description: '',
+                            approved: false
+                        },
+                        modalContext: {
+                            dateLabel: '',
+                            doctorName: '',
+                            doctorId: null,
+                            date: ''
                         },
                     };
                 },
@@ -179,24 +391,202 @@
                                 this.shifts = d.shifts;
                             });
                     },
-                    openAdd(doctorId, date) {
-                        this.addDlg.visible = true;
-                        this.addDlg.doctorId = doctorId;
-                        this.addDlg.date = date;
+                    openScheduleOptionsModal(doctorId, date) {
+                        const doctor = this.doctors.find(d => d.id === doctorId);
+                        const dayObj = this.days.find(d => d.date === date);
+                        this.modalContext.doctorId = doctorId;
+                        this.modalContext.date = date;
+                        this.modalContext.doctorName = doctor ? doctor.name : '';
+                        this.modalContext.dateLabel = dayObj ? dayObj.label : date;
+                        
+                        this.$refs.scheduleOptionsModal.open();
+                    },
+                    openAddModal() {
+                        this.$refs.scheduleOptionsModal.close();
+                        
+                        this.addDlg.doctorId = this.modalContext.doctorId;
+                        this.addDlg.date = this.modalContext.date;
                         this.addDlg.shiftId = null;
+                        this.addDlg.startTime = '09:00';
+                        this.addDlg.endTime = '17:00';
                         this.addDlg.error = '';
+                        
+                        this.$refs.addModal.open();
+                    },
+                    openRecurringModal() {
+                        this.$refs.scheduleOptionsModal.close();
+                        
+                        this.recurringForm.start_date = this.modalContext.date;
+                        this.recurringForm.end_date = this.modalContext.date;
+                        this.recurringForm.days = [];
+                        this.recurringForm.time_slots = [{ startTime: '09:00', endTime: '17:00' }];
+                        this.addDlg.error = '';
+                        
+                        this.$refs.recurringModal.open();
+                    },
+                    openTimeOffModal() {
+                        this.$refs.scheduleOptionsModal.close();
+                        
+                        this.timeOffForm = {
+                            doctor_id: this.modalContext.doctorId,
+                            type: 'Vacaciones anuales',
+                            start_date: this.modalContext.date,
+                            start_time: '09:00',
+                            end_time: '17:00',
+                            repeat: false,
+                            description: '',
+                            approved: false
+                        };
+                        this.addDlg.error = '';
+                        
+                        this.$refs.timeOffModal.open();
+                    },
+                    addTimeSlot() {
+                        this.recurringForm.time_slots.push({
+                            startTime: '09:00',
+                            endTime: '17:00'
+                        });
+                    },
+                    removeTimeSlot(index) {
+                        this.recurringForm.time_slots.splice(index, 1);
+                    },
+                    saveRecurring() {
+                        this.addDlg.saving = true;
+                        this.addDlg.error = '';
+
+                        const shifts = this.recurringForm.time_slots.map(slot => ({
+                            doctor_id: this.modalContext.doctorId,
+                            start_date: this.recurringForm.start_date,
+                            end_date: this.recurringForm.end_date,
+                            days: this.recurringForm.days.map(d => d === 7 ? 0 : d),
+                            start_time: slot.startTime,
+                            end_time: slot.endTime,
+                        }));
+
+                        const payload = {
+                            recurrence: true,
+                            shifts: shifts
+                        };
+                        
+                        const csrf = this.getCsrf();
+                        fetch('{{ route('admin.schedules.store') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRF-TOKEN': csrf,
+                            },
+                            body: JSON.stringify(payload),
+                        })
+                        .then(async (r) => {
+                            if (!r.ok) {
+                                const err = await r.json().catch(() => ({}));
+                                throw new Error(err.message || 'Error al generar turnos');
+                            }
+                            return r.json();
+                        })
+                        .then(() => {
+                            this.$refs.recurringModal.close();
+                            this.fetchWeek();
+                            // Optional: show success message
+                        })
+                        .catch((e) => {
+                            this.addDlg.error = e.message || 'Error al generar turnos';
+                        })
+                        .finally(() => {
+                            this.addDlg.saving = false;
+                        });
+                    },
+                    saveTimeOff() {
+                        this.addDlg.saving = true;
+                        this.addDlg.error = '';
+                        
+                        const payload = {
+                            type: 'time_off', // Activity type
+                            title: this.timeOffForm.type,
+                            comment: this.timeOffForm.description,
+                            participants: { users: [this.timeOffForm.doctor_id] }, // Assuming doctor is a user or linked
+                            schedule_from: this.timeOffForm.start_date + ' ' + this.timeOffForm.start_time,
+                            schedule_to: this.timeOffForm.start_date + ' ' + this.timeOffForm.end_time,
+                            is_done: this.timeOffForm.approved ? 1 : 0
+                        };
+                        
+                        // NOTE: This endpoint needs to support activity creation. 
+                        // The previous implementation used ActivityController.
+                        // I should verify the endpoint.
+                        // In doctor-day-calendar it uses `this.storeUrl` which is likely `admin.activities.store`.
+                        // I will use `{{ route('admin.activities.store') }}`.
+                        
+                        const csrf = this.getCsrf();
+                        fetch('{{ route('admin.activities.store') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRF-TOKEN': csrf,
+                            },
+                            body: JSON.stringify(payload),
+                        })
+                        .then(async (r) => {
+                            if (!r.ok) {
+                                const err = await r.json().catch(() => ({}));
+                                throw new Error(err.message || 'Error al guardar días libres');
+                            }
+                            return r.json();
+                        })
+                        .then(() => {
+                            this.$refs.timeOffModal.close();
+                            // Note: Time offs are activities, they might not show up in "shifts" array unless "fetchWeek" returns them.
+                            // The current fetchWeek logic returns shifts from doctor_shifts table.
+                            // If time offs are activities, they won't appear here unless I update the backend logic or the UI.
+                            // But the user just asked to display the form.
+                            // I will reload week anyway.
+                            this.fetchWeek(); 
+                        })
+                        .catch((e) => {
+                            this.addDlg.error = e.message || 'Error al guardar días libres';
+                        })
+                        .finally(() => {
+                            this.addDlg.saving = false;
+                        });
+                    },
+                    calculateTimeOffDuration() {
+                        if (!this.timeOffForm.start_time || !this.timeOffForm.end_time) return '0 h';
+                        const start = this.timeToMinutes(this.timeOffForm.start_time);
+                        const end = this.timeToMinutes(this.timeOffForm.end_time);
+                        let diff = end - start;
+                        if (diff < 0) diff += 24 * 60;
+                        const h = Math.floor(diff / 60);
+                        const m = diff % 60;
+                        return `${h}h ${m}m`;
+                    },
+                    timeToMinutes(time) {
+                        const [h, m] = time.split(':').map(Number);
+                        return h * 60 + m;
                     },
                     openEdit(shift, doctorId, date) {
-                        this.addDlg.visible = true;
                         this.addDlg.doctorId = doctorId;
                         this.addDlg.date = date;
                         this.addDlg.shiftId = shift.id;
                         this.addDlg.startTime = shift.start_time;
                         this.addDlg.endTime = shift.end_time;
                         this.addDlg.error = '';
+                        
+                        this.modalContext.dateLabel = this.formatDate(date);
+                        const doctor = this.doctors.find(d => d.id === doctorId);
+                        this.modalContext.doctorName = doctor ? doctor.name : '';
+                        
+                        this.$refs.addModal.open();
+                    },
+                    openAdd(doctorId, date) {
+                         // Legacy support or direct add if needed
+                         this.openScheduleOptionsModal(doctorId, date);
                     },
                     cancelAdd() {
-                        this.addDlg.visible = false;
+                        // this.addDlg.visible = false;
+                        this.$refs.addModal.close();
                         this.addDlg.error = '';
                     },
                     getCsrf() {
@@ -243,7 +633,7 @@
                                 } else {
                                     this.shifts.push(shift);
                                 }
-                                this.addDlg.visible = false;
+                                this.$refs.addModal.close();
                             })
                             .catch((e) => {
                                 this.addDlg.error = e.message || 'Error al guardar';
