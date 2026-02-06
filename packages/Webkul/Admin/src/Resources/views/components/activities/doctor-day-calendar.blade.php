@@ -995,6 +995,17 @@
                 const yLocal = e.clientY - rect.top;
                 
                 const minutes = Math.max(0, Math.min(23 * 60 + 59, Math.round(yLocal / this.minuteHeight)));
+
+                // Check availability
+                const availableSlots = this.getDoctorAvailability(day.date, doctorId);
+                const isAvailable = availableSlots.some(slot => {
+                    const start = this.timeToMinutes(slot.start_time);
+                    const end = this.timeToMinutes(slot.end_time);
+                    return minutes >= start && minutes < end;
+                });
+
+                if (!isAvailable) return;
+
                 const h = Math.floor(minutes / 60);
                 const m = minutes % 60;
 
