@@ -28,6 +28,9 @@ class DoctorServiceProvider extends ServiceProvider
         ])
             ->group(__DIR__ . '/../Routes/web.php');
 
+        Route::middleware(['api'])
+            ->group(__DIR__ . '/../Routes/api.php');
+
         $this->loadTranslationsFrom(__DIR__ . '/../Resources/lang', 'doctor');
 
         $this->loadViewsFrom(__DIR__ . '/../Resources/views', 'doctor');
