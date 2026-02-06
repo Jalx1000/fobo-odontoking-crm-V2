@@ -215,8 +215,8 @@
                     <span class="text-xs dark:text-gray-300">@{{ totalCount(col.id) }}</span>
                 </div>
 
-                <div class="dwc-days-stack" :style="{ height: totalHeight + 'px' }" @click="onColumnClick($event, col.id)">
-                    <div v-for="(day, di) in days" :key="'day-'+di" class="dwc-day-block" :style="{ height: dayHeight + 'px' }">
+                <div class="dwc-days-stack" :style="{ height: totalHeight + 'px' }">
+                    <div v-for="(day, di) in days" :key="'day-'+di" class="dwc-day-block" :style="{ height: dayHeight + 'px' }" @click="onDayClick($event, day, col.id)">
                         <div v-for="av in getDoctorAvailability(day.date, col.id)" :key="'av-'+av.id" 
                              class="dwc-availability-block" 
                              :style="{ top: av.top + 'px', height: av.height + 'px' }">
@@ -989,16 +989,12 @@
             totalCount(doctorId) {
                 return this.appointments.filter(a => String(a.doctor_id) === String(doctorId)).length;
             },
-            onColumnClick(e, doctorId) {
+            onDayClick(e, day, doctorId) {
                 const container = e.currentTarget;
                 const rect = container.getBoundingClientRect();
                 const yLocal = e.clientY - rect.top;
-                const dayIndex = Math.floor(yLocal / this.dayHeight);
-                const day = this.days[dayIndex];
-                if (!day) return;
-
-                const within = yLocal - (dayIndex * this.dayHeight);
-                const minutes = Math.max(0, Math.min(23 * 60 + 59, Math.round(within / this.minuteHeight)));
+                
+                const minutes = Math.max(0, Math.min(23 * 60 + 59, Math.round(yLocal / this.minuteHeight)));
                 const h = Math.floor(minutes / 60);
                 const m = minutes % 60;
 
@@ -1784,7 +1780,8 @@
     }
     .dwc-day-block {
         position: relative;
-        border-bottom: 1px solid var(--border-color)
+        border-bottom: 1px solid var(--border-color);
+        cursor: pointer;
     }
     .dwc-hour-line {
         position: absolute;
