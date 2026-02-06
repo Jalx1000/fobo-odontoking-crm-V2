@@ -78,6 +78,54 @@ class ScheduleController extends Controller
 
     public function store(Request $request): RedirectResponse|JsonResponse
     {
+        if ($request->has('recurrence')) {
+             $request->validate([
+                'doctor_id'  => ['required', 'integer', 'exists:doctors,id'],
+                'start_date' => ['required', 'date'],
+                'end_date'   => ['required', 'date', 'after_or_equal:start_date'],
+                'days'       => ['required', 'array'], // 0=Sun, 1=Mon... or 1=Mon? JS usually 0=Sun. Carbon dayOfWeek 0=Sun.
+                'start_time' => ['required', 'date_format:H:i'],
+                'end_time'   => ['required', 'date_format:H:i', 'after:start_time'],
+             ]);
+
+             $startDate = Carbon::parse($request->input('start_date'));
+             $endDate = Carbon::parse($request->input('end_date'));
+             $days = $request->input('days'); // Array of integers
+             $createdCount = 0;
+
+             $cursor = $startDate->copy();
+             while ($cursor->lte($endDate)) {
+                 if (in_array($cursor->dayOfWeek, $days)) {
+                     // Try create
+                     $dateStr = $cursor->toDateString();
+                     
+                     $conflict = DB::table('doctor_shifts')
+                        ->where('doctor_id', $request->input('doctor_id'))
+                        ->where('date', $dateStr)
+                        ->where('start_time', '<', $request->input('end_time'))
+                        ->where('end_time', '>', $request->input('start_time'))
+                        ->exists();
+                     
+                     if (!$conflict) {
+                         $this->shiftRepository->create([
+                             'doctor_id' => $request->input('doctor_id'),
+                             'date' => $dateStr,
+                             'start_time' => $request->input('start_time'),
+                             'end_time' => $request->input('end_time'),
+                             'notes' => $request->input('notes'),
+                         ]);
+                         $createdCount++;
+                     }
+                 }
+                 $cursor->addDay();
+             }
+             
+             if ($request->ajax()) {
+                 return new JsonResponse(['message' => "$createdCount turnos creados correctamente."], 201);
+             }
+             return redirect()->back()->with('success', "$createdCount turnos creados.");
+        }
+
         $validated = $request->validate([
             'doctor_id'  => ['required', 'integer', 'exists:doctors,id'],
             'date'       => ['required', 'date'],

@@ -96,7 +96,7 @@ class ActivityController extends Controller
                 ])
                 ->whereBetween('activities.schedule_from', [$startDate, $endDate])
                 ->whereIn('activities.type', (function () {
-                    $allowed = ['call', 'meeting', 'lunch'];
+                    $allowed = ['call', 'meeting', 'lunch', 'time_off'];
                     $types = request()->get('activity_types');
                     if (is_array($types)) {
                         $filtered = array_values(array_intersect($types, $allowed));
@@ -144,7 +144,7 @@ class ActivityController extends Controller
                 ])
                 ->whereBetween('activities.schedule_from', [$startDate, $endDate])
                 ->whereIn('activities.type', (function () {
-                    $allowed = ['call', 'meeting', 'lunch'];
+                    $allowed = ['call', 'meeting', 'lunch', 'time_off'];
                     $types = request()->get('activity_types');
                     if (is_array($types)) {
                         $filtered = array_values(array_intersect($types, $allowed));

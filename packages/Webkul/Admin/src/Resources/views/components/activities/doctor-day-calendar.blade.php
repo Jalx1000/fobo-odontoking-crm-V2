@@ -76,9 +76,9 @@
                     <span class="icon-calendar text-xl"></span>
                     <span>Añadir cita de grupo</span>
                 </button>
-                <button type="button" class="ddc-quick-menu-item" @click="openUnavailableModal">
+                <button type="button" class="ddc-quick-menu-item" @click="openScheduleOptionsModal">
                     <span class="icon-calendar text-xl"></span>
-                    <span>Añadir horario no disponible</span>
+                    <span>Gestionar horario</span>
                 </button>
                 <a class="ddc-quick-menu-link" href="#">Ajustes de acciones rápidas</a>
             </div>
@@ -347,6 +347,178 @@
                 <div class="flex items-center gap-2 justify-end">
                     <button type="button" class="secondary-button" @click="$refs.appointmentModal.close()">Cancelar</button>
                     <button type="button" class="primary-button" @click="saveAppointment" :disabled="modalSaving">
+                        <span v-if="!modalSaving">Guardar</span>
+                        <span v-else class="flex items-center gap-2"><x-admin::spinner /> Guardando...</span>
+                    </button>
+                </div>
+            </x-slot>
+        </x-admin::modal>
+
+        <!-- Schedule Options Modal (Small) -->
+        <x-admin::modal ref="scheduleOptionsModal">
+            <x-slot:header>
+                <div class="text-lg font-semibold dark:text-white">
+                    Gestionar Horario
+                </div>
+            </x-slot>
+            <x-slot:content>
+                <div class="flex flex-col gap-2">
+                    <button type="button" class="w-full text-left px-4 py-3 rounded border hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3" @click="openUnavailableModal">
+                        <span class="icon-calendar text-xl text-blue-600"></span>
+                        <div>
+                            <div class="font-semibold text-sm">Añadir turno</div>
+                            <div class="text-xs text-gray-500">Registrar un horario disponible individual</div>
+                        </div>
+                    </button>
+                    <button type="button" class="w-full text-left px-4 py-3 rounded border hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3" @click="openRecurringModal">
+                        <span class="icon-calendar text-xl text-purple-600"></span>
+                        <div>
+                            <div class="font-semibold text-sm">Establecer turnos recurrentes</div>
+                            <div class="text-xs text-gray-500">Generar múltiples turnos automáticamente</div>
+                        </div>
+                    </button>
+                    <button type="button" class="w-full text-left px-4 py-3 rounded border hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3" @click="openTimeOffModal">
+                        <span class="icon-calendar text-xl text-orange-600"></span>
+                        <div>
+                            <div class="font-semibold text-sm">Añadir días libres</div>
+                            <div class="text-xs text-gray-500">Registrar vacaciones o ausencias</div>
+                        </div>
+                    </button>
+                </div>
+            </x-slot>
+        </x-admin::modal>
+
+        <!-- Recurring Shifts Modal -->
+        <x-admin::modal ref="recurringModal">
+            <x-slot:header>
+                <div class="text-lg font-semibold dark:text-white">
+                    Turnos Recurrentes
+                </div>
+            </x-slot>
+            <x-slot:content>
+                <div class="flex flex-col gap-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-medium text-gray-500">Fecha de Inicio</label>
+                            <input type="date" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="recurringForm.start_date" />
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-medium text-gray-500">Fecha de Fin</label>
+                            <input type="date" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="recurringForm.end_date" />
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs font-medium text-gray-500">Días de la semana</label>
+                        <div class="flex flex-wrap gap-2">
+                            <label v-for="(day, idx) in ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']" :key="'rd-'+idx" class="flex items-center gap-2 px-3 py-2 border rounded cursor-pointer hover:bg-gray-50" :class="recurringForm.days.includes(idx+1) ? 'bg-blue-50 border-blue-500 text-blue-700' : ''">
+                                <input type="checkbox" :value="idx+1" v-model="recurringForm.days" class="hidden" />
+                                <span class="text-sm font-medium">@{{ day }}</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-medium text-gray-500">Hora Inicio</label>
+                            <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="recurringForm.startTime" />
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-medium text-gray-500">Hora Fin</label>
+                            <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="recurringForm.endTime" />
+                        </div>
+                    </div>
+                    
+                    <div class="text-sm text-red-600" v-if="modalError">@{{ modalError }}</div>
+                </div>
+            </x-slot>
+            <x-slot:footer>
+                <div class="flex items-center gap-2 justify-end">
+                    <button type="button" class="secondary-button" @click="$refs.recurringModal.close()">Cancelar</button>
+                    <button type="button" class="primary-button" @click="saveRecurring" :disabled="modalSaving">
+                        <span v-if="!modalSaving">Generar Turnos</span>
+                        <span v-else class="flex items-center gap-2"><x-admin::spinner /> Procesando...</span>
+                    </button>
+                </div>
+            </x-slot>
+        </x-admin::modal>
+
+        <!-- Time Off Modal -->
+        <x-admin::modal ref="timeOffModal">
+            <x-slot:header>
+                <div class="text-lg font-semibold dark:text-white">
+                    Añadir días libres
+                </div>
+            </x-slot>
+            <x-slot:content>
+                <div class="flex flex-col gap-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-medium text-gray-500">Miembro del equipo</label>
+                            <select class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="timeOffForm.doctor_id">
+                                <option v-for="d in doctors" :key="'to-d-'+d.id" :value="d.id">@{{ d.name }}</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-medium text-gray-500">Tipo</label>
+                            <select class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="timeOffForm.type">
+                                <option value="Vacaciones anuales">Vacaciones anuales</option>
+                                <option value="Enfermedad">Enfermedad</option>
+                                <option value="Personal">Personal</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4">
+                         <div class="flex flex-col gap-1">
+                            <label class="text-xs font-medium text-gray-500">Fecha de inicio</label>
+                            <input type="date" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="timeOffForm.start_date" />
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-medium text-gray-500">Hora de inicio</label>
+                            <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="timeOffForm.start_time" />
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-medium text-gray-500">Hora de finalización</label>
+                            <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="timeOffForm.end_time" />
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="to-repeat" v-model="timeOffForm.repeat" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                        <label for="to-repeat" class="text-sm text-gray-700 dark:text-gray-300">Repetir</label>
+                    </div>
+
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-medium text-gray-500">Descripción</label>
+                        <textarea class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" rows="3" v-model="timeOffForm.description" placeholder="Añadir descripción o comentario (opcional)"></textarea>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                         <div class="flex items-center gap-2">
+                            <input type="checkbox" id="to-approved" v-model="timeOffForm.approved" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                            <label for="to-approved" class="text-sm text-gray-700 dark:text-gray-300">Aprobado</label>
+                         </div>
+                         <div class="text-sm text-gray-500">
+                             Días libres: @{{ calculateTimeOffDuration() }}
+                         </div>
+                    </div>
+
+                    <div class="text-xs text-gray-500">
+                        No se puede reservar online durante los días libres.
+                    </div>
+                    
+                    <div class="text-sm text-red-600" v-if="modalError">@{{ modalError }}</div>
+                </div>
+            </x-slot>
+            <x-slot:footer>
+                <div class="flex items-center gap-2 justify-end">
+                    <button type="button" class="secondary-button" @click="$refs.timeOffModal.close()">Cancelar</button>
+                    <button type="button" class="primary-button bg-black hover:bg-gray-800 text-white" @click="saveTimeOff" :disabled="modalSaving">
                         <span v-if="!modalSaving">Guardar</span>
                         <span v-else class="flex items-center gap-2"><x-admin::spinner /> Guardando...</span>
                     </button>
@@ -655,6 +827,23 @@
                     startTime: '09:00',
                     endTime: '10:00',
                 },
+                recurringForm: {
+                    start_date: '',
+                    end_date: '',
+                    days: [],
+                    startTime: '09:00',
+                    endTime: '17:00',
+                },
+                timeOffForm: {
+                    doctor_id: null,
+                    type: 'Vacaciones anuales',
+                    start_date: '',
+                    start_time: '10:00',
+                    end_time: '19:00',
+                    repeat: false,
+                    description: '',
+                    approved: false
+                },
                 modalSaving: false,
                 modalError: '',
                 endpoint: "{{ route('admin.activities.get') }}",
@@ -715,7 +904,7 @@
                 return this.startISO === this.todayISO();
             },
             nowTop() {
-                return this.nowMinutes * this.minuteHeight;
+                return this.nowMinutes * this.minuteHeight + 30;
             },
             month1Date() {
                 const base = this.datePickerMonthISO ? this.parseISODate(this.datePickerMonthISO) : this
@@ -1301,11 +1490,118 @@
                         this.modalSaving = false;
                         this.$refs.unavailableModal.close();
                         this.fetch();
+                        this.$emitter.emit('add-flash', { type: 'success', message: 'Turno añadido correctamente' });
                     })
                     .catch(err => {
                         this.modalSaving = false;
                         this.modalError = err?.response?.data?.message || 'Error al guardar';
                     });
+            },
+            openScheduleOptionsModal() {
+                this.modalContext = {
+                    doctorId: this.quickMenu.doctorId,
+                    doctorLabel: this.quickMenu.doctorLabel,
+                    dayISO: this.quickMenu.dayISO,
+                    dayLabel: this.quickMenu.dayLabel,
+                    timeText: this.quickMenu.timeText,
+                };
+                this.closeQuickMenu();
+                this.$refs.scheduleOptionsModal.open();
+            },
+            openRecurringModal() {
+                this.$refs.scheduleOptionsModal.close();
+                this.modalError = '';
+                this.modalSaving = false;
+                
+                // Defaults
+                this.recurringForm.start_date = this.modalContext.dayISO || this.toISO(new Date());
+                this.recurringForm.end_date = this.recurringForm.start_date;
+                this.recurringForm.days = [new Date(this.recurringForm.start_date).getDay() || 7]; 
+                this.recurringForm.startTime = this.quickMenu.startTime;
+                this.recurringForm.endTime = this.quickMenu.endTime;
+
+                this.$refs.recurringModal.open();
+            },
+            openTimeOffModal() {
+                this.$refs.scheduleOptionsModal.close();
+                this.modalError = '';
+                this.modalSaving = false;
+                
+                this.timeOffForm.doctor_id = this.modalContext.doctorId;
+                this.timeOffForm.start_date = this.modalContext.dayISO || this.toISO(new Date());
+                this.timeOffForm.start_time = this.quickMenu.startTime;
+                this.timeOffForm.end_time = this.quickMenu.endTime;
+                this.timeOffForm.description = '';
+                this.timeOffForm.approved = false;
+                this.timeOffForm.repeat = false;
+
+                this.$refs.timeOffModal.open();
+            },
+            saveRecurring() {
+                this.modalSaving = true;
+                this.modalError = '';
+
+                const payload = {
+                    doctor_id: this.modalContext.doctorId || this.selectedDoctorIds[0],
+                    start_date: this.recurringForm.start_date,
+                    end_date: this.recurringForm.end_date,
+                    days: this.recurringForm.days.map(d => d === 7 ? 0 : d),
+                    start_time: this.recurringForm.startTime,
+                    end_time: this.recurringForm.endTime,
+                    recurrence: true
+                };
+
+                this.$axios.post(this.scheduleStoreUrl, payload)
+                    .then((response) => {
+                        this.modalSaving = false;
+                        this.$refs.recurringModal.close();
+                        this.fetch();
+                        this.$emitter.emit('add-flash', { type: 'success', message: response.data.message });
+                    })
+                    .catch(err => {
+                        this.modalSaving = false;
+                        this.modalError = err?.response?.data?.message || 'Error al generar turnos';
+                    });
+            },
+            saveTimeOff() {
+                this.modalSaving = true;
+                this.modalError = '';
+
+                const start = `${this.timeOffForm.start_date} ${this.timeOffForm.start_time}`;
+                const end = `${this.timeOffForm.start_date} ${this.timeOffForm.end_time}`;
+                
+                const payload = {
+                    type: 'time_off',
+                    title: `${this.timeOffForm.type}`,
+                    schedule_from: start,
+                    schedule_to: end,
+                    participants: {
+                        doctors: [this.timeOffForm.doctor_id]
+                    },
+                    comment: this.timeOffForm.description + (this.timeOffForm.approved ? ' [Aprobado]' : ''),
+                };
+
+                this.$axios.post(this.storeUrl, payload)
+                    .then(() => {
+                        this.modalSaving = false;
+                        this.$refs.timeOffModal.close();
+                        this.fetch();
+                        this.$emitter.emit('add-flash', { type: 'success', message: 'Días libres registrados' });
+                    })
+                    .catch(err => {
+                        this.modalSaving = false;
+                        this.modalError = err?.response?.data?.message || 'Error al guardar';
+                    });
+            },
+            calculateTimeOffDuration() {
+                if (!this.timeOffForm.start_time || !this.timeOffForm.end_time) return '0 h';
+                const s = this.timeToMinutes(this.timeOffForm.start_time);
+                const e = this.timeToMinutes(this.timeOffForm.end_time);
+                const diff = e - s;
+                if (diff <= 0) return '0 h';
+                const h = Math.floor(diff / 60);
+                const m = diff % 60;
+                return m > 0 ? `${h} h ${m} min` : `${h} h`;
             },
             editUrl(id) {
                 return this.editUrlTemplate.replace('replaceId', id);
