@@ -13131,6 +13131,42 @@
     },
     "components": {
         "schemas": {
+            "DoctorSchedule": {
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2023-10-27"
+                    },
+                    "slots": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TimeSlot"
+                        }
+                    }
+                }
+            },
+            "TimeSlot": {
+                "type": "object",
+                "properties": {
+                    "start_time": {
+                        "type": "string",
+                        "format": "HH:mm",
+                        "example": "09:00"
+                    },
+                    "end_time": {
+                        "type": "string",
+                        "format": "HH:mm",
+                        "example": "09:30"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["available", "booked"],
+                        "example": "available"
+                    }
+                }
+            },
             "Specialty": {
                 "type": "object",
                 "properties": {
@@ -13210,6 +13246,12 @@
                                     "example": "Cardiología"
                                 }
                             }
+                        }
+                    },
+                    "schedule": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DoctorSchedule"
                         }
                     }
                 }

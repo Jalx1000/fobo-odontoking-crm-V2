@@ -2,15 +2,19 @@
 
 namespace Webkul\Doctor\Http\Controllers\Api;
 
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Doctor\Repositories\DoctorRepository;
+use Webkul\Doctor\Repositories\ShiftRepository;
 
 class DoctorController extends Controller
 {
     public function __construct(
-        protected DoctorRepository $doctorRepository
+        protected DoctorRepository $doctorRepository,
+        protected ShiftRepository $shiftRepository
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -66,10 +70,95 @@ class DoctorController extends Controller
                 return response()->json(['message' => 'Doctor not found'], 404);
             }
 
-            return response()->json($doctor);
+            // --- Availability Calculation Logic ---
+            $startDate = Carbon::now();
+            $endDate = $startDate->copy()->addDays(6);
+
+            // Fetch Shifts for the next 7 days
+            $shifts = $this->shiftRepository->findWhere([
+                ['doctor_id', '=', $id],
+                ['date', '>=', $startDate->toDateString()],
+                ['date', '<=', $endDate->toDateString()],
+            ]);
+
+            // Fetch Bookings/Activities
+            $bookings = DB::table('activities')
+                ->join('doctor_activities', 'activities.id', '=', 'doctor_activities.activity_id')
+                ->where('doctor_activities.doctor_id', $id)
+                ->whereBetween('activities.schedule_from', [$startDate->format('Y-m-d H:i:s'), $endDate->endOfDay()->format('Y-m-d H:i:s')])
+                ->select('activities.schedule_from', 'activities.schedule_to', 'activities.type')
+                ->get();
+
+            $schedule = [];
+            $cursor = $startDate->copy();
+
+            // Iterate through the next 7 days
+            for ($i = 0; $i < 7; $i++) {
+                $dateStr = $cursor->toDateString();
+                
+                // Filter shifts for the current day
+                $dayShifts = $shifts->filter(function ($shift) use ($dateStr) {
+                    return $shift->date instanceof Carbon 
+                        ? $shift->date->toDateString() === $dateStr
+                        : $shift->date === $dateStr;
+                });
+
+                $daySlots = [];
+
+                foreach ($dayShifts as $shift) {
+                    $slotDuration = 30; // minutes
+                    
+                    $shiftStart = Carbon::parse($dateStr . ' ' . $shift->start_time);
+                    $shiftEnd = Carbon::parse($dateStr . ' ' . $shift->end_time);
+                    
+                    $slotCursor = $shiftStart->copy();
+                    
+                    while ($slotCursor->lt($shiftEnd)) {
+                        $slotEnd = $slotCursor->copy()->addMinutes($slotDuration);
+                        if ($slotEnd->gt($shiftEnd)) break;
+                        
+                        $status = 'available';
+                        
+                        // Check for conflicts with bookings
+                        foreach ($bookings as $booking) {
+                            $bStart = Carbon::parse($booking->schedule_from);
+                            $bEnd = Carbon::parse($booking->schedule_to);
+                            
+                            if ($slotCursor->lt($bEnd) && $slotEnd->gt($bStart)) {
+                                $status = 'booked';
+                                break;
+                            }
+                        }
+                        
+                        $daySlots[] = [
+                            'start_time' => $slotCursor->format('H:i'),
+                            'end_time' => $slotEnd->format('H:i'),
+                            'status' => $status
+                        ];
+                        
+                        $slotCursor->addMinutes($slotDuration);
+                    }
+                }
+
+                // Sort slots
+                usort($daySlots, fn($a, $b) => strcmp($a['start_time'], $b['start_time']));
+
+                $schedule[] = [
+                    'date' => $dateStr,
+                    'slots' => $daySlots
+                ];
+
+                $cursor->addDay();
+            }
+
+            // Format response
+            $response = $doctor->toArray();
+            $response['schedule'] = $schedule;
+
+            return response()->json($response);
 
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Internal Server Error'], 500);
+            return response()->json(['message' => 'Internal Server Error', 'error' => $e->getMessage()], 500);
         }
     }
 }
