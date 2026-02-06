@@ -15,6 +15,45 @@
         }
     ],
     "paths": {
+        "/api/specialties": {
+            "get": {
+                "tags": [
+                    "Especialidades"
+                ],
+                "summary": "Obtener todas las especialidades",
+                "description": "Devuelve una lista de todas las especialidades médicas disponibles en el sistema.",
+                "responses": {
+                    "200": {
+                        "description": "Lista de especialidades recuperada exitosamente.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Specialty"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/doctors": {
             "get": {
                 "tags": [
@@ -13092,6 +13131,23 @@
     },
     "components": {
         "schemas": {
+            "Specialty": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Cardiología"
+                    },
+                    "slug": {
+                        "type": "string",
+                        "example": "cardiologia"
+                    }
+                }
+            },
             "PaginationMeta": {
                 "type": "object",
                 "properties": {
@@ -15396,6 +15452,10 @@
         {
             "name": "Médicos",
             "description": "Endpoints relacionados con médicos."
+        },
+        {
+            "name": "Especialidades",
+            "description": "Endpoints relacionados con especialidades médicas."
         }
     ]
 }
