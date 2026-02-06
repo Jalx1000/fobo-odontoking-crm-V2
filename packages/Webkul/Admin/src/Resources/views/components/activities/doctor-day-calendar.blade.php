@@ -396,38 +396,49 @@
                 </div>
             </x-slot>
             <x-slot:content>
-                <div class="flex flex-col gap-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="flex flex-col gap-1">
-                            <label class="text-xs font-medium text-gray-500">Fecha de Inicio</label>
-                            <input type="date" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="recurringForm.start_date" />
+                <div class="flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                    <div v-for="(shift, index) in recurringForm.shifts" :key="'rec-shift-'+index" class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700 relative">
+                        <button v-if="recurringForm.shifts.length > 1" type="button" class="absolute top-2 right-2 text-gray-400 hover:text-red-500" @click="removeRecurringShift(index)">
+                            <span class="icon-cross text-lg">×</span>
+                        </button>
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-xs font-medium text-gray-500">Fecha de Inicio</label>
+                                <input type="date" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="shift.start_date" />
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-xs font-medium text-gray-500">Fecha de Fin</label>
+                                <input type="date" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="shift.end_date" />
+                            </div>
                         </div>
-                        <div class="flex flex-col gap-1">
-                            <label class="text-xs font-medium text-gray-500">Fecha de Fin</label>
-                            <input type="date" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="recurringForm.end_date" />
+
+                        <div class="flex flex-col gap-2 mb-4">
+                            <label class="text-xs font-medium text-gray-500">Días de la semana</label>
+                            <div class="flex flex-wrap gap-2">
+                                <label v-for="(day, idx) in ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']" :key="'rd-'+index+'-'+idx" class="flex items-center gap-2 px-3 py-2 border rounded cursor-pointer hover:bg-white dark:hover:bg-gray-700 transition-colors" :class="shift.days.includes(idx+1) ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:border-blue-500 dark:text-blue-300' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700'">
+                                    <input type="checkbox" :value="idx+1" v-model="shift.days" class="hidden" />
+                                    <span class="text-sm font-medium">@{{ day }}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-xs font-medium text-gray-500">Hora Inicio</label>
+                                <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="shift.startTime" />
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-xs font-medium text-gray-500">Hora Fin</label>
+                                <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="shift.endTime" />
+                            </div>
                         </div>
                     </div>
 
-                    <div class="flex flex-col gap-2">
-                        <label class="text-xs font-medium text-gray-500">Días de la semana</label>
-                        <div class="flex flex-wrap gap-2">
-                            <label v-for="(day, idx) in ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']" :key="'rd-'+idx" class="flex items-center gap-2 px-3 py-2 border rounded cursor-pointer hover:bg-gray-50" :class="recurringForm.days.includes(idx+1) ? 'bg-blue-50 border-blue-500 text-blue-700' : ''">
-                                <input type="checkbox" :value="idx+1" v-model="recurringForm.days" class="hidden" />
-                                <span class="text-sm font-medium">@{{ day }}</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="flex flex-col gap-1">
-                            <label class="text-xs font-medium text-gray-500">Hora Inicio</label>
-                            <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="recurringForm.startTime" />
-                        </div>
-                        <div class="flex flex-col gap-1">
-                            <label class="text-xs font-medium text-gray-500">Hora Fin</label>
-                            <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="recurringForm.endTime" />
-                        </div>
-                    </div>
+                    <button type="button" class="flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all dark:border-gray-700 dark:hover:border-blue-500 dark:hover:bg-blue-900/20" @click="addRecurringShift">
+                        <span class="text-xl font-bold">+</span>
+                        <span class="font-medium">Agregar otro turno</span>
+                    </button>
                     
                     <div class="text-sm text-red-600" v-if="modalError">@{{ modalError }}</div>
                 </div>
@@ -828,11 +839,7 @@
                     endTime: '10:00',
                 },
                 recurringForm: {
-                    start_date: '',
-                    end_date: '',
-                    days: [],
-                    startTime: '09:00',
-                    endTime: '17:00',
+                    shifts: []
                 },
                 timeOffForm: {
                     doctor_id: null,
@@ -1513,14 +1520,34 @@
                 this.modalError = '';
                 this.modalSaving = false;
                 
-                // Defaults
-                this.recurringForm.start_date = this.modalContext.dayISO || this.toISO(new Date());
-                this.recurringForm.end_date = this.recurringForm.start_date;
-                this.recurringForm.days = [new Date(this.recurringForm.start_date).getDay() || 7]; 
-                this.recurringForm.startTime = this.quickMenu.startTime;
-                this.recurringForm.endTime = this.quickMenu.endTime;
+                const defaultStart = this.modalContext.dayISO || this.toISO(new Date());
+                const defaultEnd = defaultStart;
+                const defaultDays = [new Date(defaultStart).getDay() || 7]; 
+                
+                this.recurringForm.shifts = [{
+                    start_date: defaultStart,
+                    end_date: defaultEnd,
+                    days: defaultDays,
+                    startTime: this.quickMenu.startTime,
+                    endTime: this.quickMenu.endTime
+                }];
 
                 this.$refs.recurringModal.open();
+            },
+            addRecurringShift() {
+                const last = this.recurringForm.shifts[this.recurringForm.shifts.length - 1];
+                this.recurringForm.shifts.push({
+                    start_date: last ? last.start_date : (this.modalContext.dayISO || this.toISO(new Date())),
+                    end_date: last ? last.end_date : (this.modalContext.dayISO || this.toISO(new Date())),
+                    days: last ? [...last.days] : [],
+                    startTime: '09:00',
+                    endTime: '17:00'
+                });
+            },
+            removeRecurringShift(index) {
+                if (this.recurringForm.shifts.length > 1) {
+                    this.recurringForm.shifts.splice(index, 1);
+                }
             },
             openTimeOffModal() {
                 this.$refs.scheduleOptionsModal.close();
@@ -1541,14 +1568,18 @@
                 this.modalSaving = true;
                 this.modalError = '';
 
-                const payload = {
+                const shifts = this.recurringForm.shifts.map(s => ({
                     doctor_id: this.modalContext.doctorId || this.selectedDoctorIds[0],
-                    start_date: this.recurringForm.start_date,
-                    end_date: this.recurringForm.end_date,
-                    days: this.recurringForm.days.map(d => d === 7 ? 0 : d),
-                    start_time: this.recurringForm.startTime,
-                    end_time: this.recurringForm.endTime,
-                    recurrence: true
+                    start_date: s.start_date,
+                    end_date: s.end_date,
+                    days: s.days.map(d => d === 7 ? 0 : d),
+                    start_time: s.startTime,
+                    end_time: s.endTime,
+                }));
+
+                const payload = {
+                    recurrence: true,
+                    shifts: shifts
                 };
 
                 this.$axios.post(this.scheduleStoreUrl, payload)
