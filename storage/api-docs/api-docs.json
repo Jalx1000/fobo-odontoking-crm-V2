@@ -15,6 +15,251 @@
         }
     ],
     "paths": {
+        "/api/doctors": {
+            "get": {
+                "tags": [
+                    "Médicos"
+                ],
+                "summary": "Obtener lista de doctores",
+                "description": "Devuelve una lista paginada de todos los doctores disponibles en el sistema, con opciones de filtrado.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Número de página (por defecto 1)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Número de elementos por página (por defecto 10, máximo 100)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 10,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "specialty",
+                        "in": "query",
+                        "description": "Filtrar doctores por nombre de especialidad",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "name",
+                        "in": "query",
+                        "description": "Buscar doctores por nombre (búsqueda parcial)",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Lista de doctores recuperada exitosamente.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Doctor"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Parámetros de consulta inválidos.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/doctors/{id}": {
+            "get": {
+                "tags": [
+                    "Médicos"
+                ],
+                "summary": "Obtener un doctor por ID",
+                "description": "Recupera los detalles completos de un doctor individual utilizando su identificador único.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del doctor",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Detalles del doctor recuperados exitosamente.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Doctor"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Formato de ID inválido.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                },
+                                "example": {
+                                    "message": "Invalid doctor ID format"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Doctor no encontrado.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                },
+                                "example": {
+                                    "message": "Doctor not found"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/doctors/{doctorId}/availability/{year}/{month}": {
+            "get": {
+                "tags": [
+                    "Disponibilidad",
+                    "Médicos"
+                ],
+                "summary": "Consultar disponibilidad horaria de un médico",
+                "description": "Retorna los slots de tiempo disponibles (y opcionalmente los reservados) para un médico en un mes específico.",
+                "parameters": [
+                    {
+                        "name": "doctorId",
+                        "in": "path",
+                        "description": "Identificador único del médico",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "year",
+                        "in": "path",
+                        "description": "Año de la consulta",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 2023
+                        }
+                    },
+                    {
+                        "name": "month",
+                        "in": "path",
+                        "description": "Mes de la consulta (1-12)",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 12,
+                            "example": 10
+                        }
+                    },
+                    {
+                        "name": "includeBooked",
+                        "in": "query",
+                        "description": "Si es true, incluye los horarios reservados marcados como isBooked=true.",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Horarios de disponibilidad del médico para el mes especificado.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/DayAvailability"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Parámetros de entrada inválidos.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                },
+                                "example": {
+                                    "message": "Invalid year or month value"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Médico no encontrado.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                },
+                                "example": {
+                                    "message": "Doctor not found"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/activities": {
             "get": {
                 "tags": [
@@ -12847,6 +13092,115 @@
     },
     "components": {
         "schemas": {
+            "PaginationMeta": {
+                "type": "object",
+                "properties": {
+                    "current_page": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "per_page": {
+                        "type": "integer",
+                        "example": 10
+                    },
+                    "total": {
+                        "type": "integer",
+                        "example": 50
+                    },
+                    "last_page": {
+                        "type": "integer",
+                        "example": 5
+                    }
+                }
+            },
+            "Doctor": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Dr. Juan Pérez"
+                    },
+                    "title": {
+                        "type": "string",
+                        "example": "Cardiólogo"
+                    },
+                    "number": {
+                        "type": "string",
+                        "example": "DOC-001"
+                    },
+                    "unique_id": {
+                        "type": "string",
+                        "example": "DOC-001|Dr. Juan Pérez"
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "specialties": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer",
+                                    "example": 1
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "example": "Cardiología"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "DayAvailability": {
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2023-10-01"
+                    },
+                    "slots": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Slot"
+                        }
+                    }
+                }
+            },
+            "Slot": {
+                "type": "object",
+                "properties": {
+                    "startTime": {
+                        "type": "string",
+                        "format": "HH:mm",
+                        "example": "09:00"
+                    },
+                    "endTime": {
+                        "type": "string",
+                        "format": "HH:mm",
+                        "example": "09:30"
+                    },
+                    "isBooked": {
+                        "type": "boolean",
+                        "example": false
+                    }
+                }
+            },
+            "Error": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    }
+                }
+            },
             "Activity": {
                 "title": "Activity",
                 "description": "Activity Model",
@@ -15034,6 +15388,14 @@
         {
             "name": "DataTransfer",
             "description": "API Endpoints for DataTransfer."
+        },
+        {
+            "name": "Disponibilidad",
+            "description": "Endpoints relacionados con disponibilidad horaria."
+        },
+        {
+            "name": "Médicos",
+            "description": "Endpoints relacionados con médicos."
         }
     ]
 }
