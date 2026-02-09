@@ -209,55 +209,111 @@
                 <div v-for="h in 24" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h-1) }}:00</div>
             </div>
 
-            <div v-for="col in columns" :key="'col-'+col.id" class="dwc-doctor-col">
-                <div class="dwc-doctor-header">
-                    <span>@{{ col && col.name ? col.name : '' }}</span>
-                    <span class="text-xs dark:text-gray-300">@{{ totalCount(col.id) }}</span>
-                </div>
+            <template v-if="isSingleDoctorMode && viewType === 'week'">
+                <div v-for="day in days" :key="'col-day-'+day.date" class="dwc-doctor-col">
+                    <div class="dwc-doctor-header justify-center">
+                        <span class="font-bold">@{{ day.label }}</span>
+                    </div>
 
-                <div class="dwc-days-stack" :style="{ height: totalHeight + 'px' }">
-                    <div v-for="(day, di) in days" :key="'day-'+di" class="dwc-day-block" :style="{ height: dayHeight + 'px' }" @click="onDayClick($event, day, col.id)">
-                        <div v-for="av in getDoctorAvailability(day.date, col.id)" :key="'av-'+av.id" 
-                             class="dwc-availability-block" 
-                             :style="{ top: av.top + 'px', height: av.height + 'px' }">
-                        </div>
+                    <div class="dwc-days-stack" :style="{ height: dayHeight + 'px' }">
+                        <div class="dwc-day-block" :style="{ height: dayHeight + 'px', borderBottom: 'none' }" @click="onDayClick($event, day, columns[0].id)">
+                            <!-- Availability -->
+                            <div v-for="av in getDoctorAvailability(day.date, columns[0].id)" :key="'av-sd-'+av.id" 
+                                 class="dwc-availability-block" 
+                                 :style="{ top: av.top + 'px', height: av.height + 'px' }">
+                            </div>
 
-                        <div v-for="idx in 24" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
+                            <!-- Lines -->
+                            <div v-for="idx in 24" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
-                        <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', minHeight: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
-                            <div class="dwc-event-content">
-                                <div class="dwc-event-patient" :title="ev.person_name">@{{ ev.person_name || 'Sin Paciente' }}</div>
-                                <div class="dwc-event-doctor" :title="ev.doctor_name">Dr. @{{ ev.doctor_name }}</div>
-                                
-                                <div class="dwc-event-time">
-                                    <span class="icon-clock text-xs"></span>
-                                    <span>@{{ formatTime(ev.start) }} - @{{ formatTime(ev.end) }}</span>
-                                    <span class="dwc-event-duration">(@{{ getDuration(ev.start, ev.end) }})</span>
-                                </div>
+                            <!-- Events -->
+                            <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', minHeight: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
+                                <div class="dwc-event-content">
+                                    <div class="dwc-event-patient" :title="ev.person_name">@{{ ev.person_name || 'Sin Paciente' }}</div>
+                                    <div class="dwc-event-doctor" :title="ev.doctor_name">Dr. @{{ ev.doctor_name }}</div>
+                                    
+                                    <div class="dwc-event-time">
+                                        <span class="icon-clock text-xs"></span>
+                                        <span>@{{ formatTime(ev.start) }} - @{{ formatTime(ev.end) }}</span>
+                                        <span class="dwc-event-duration">(@{{ getDuration(ev.start, ev.end) }})</span>
+                                    </div>
 
-                                <div v-if="ev.comment" class="dwc-event-reason" :title="ev.comment">
-                                    @{{ ev.comment }}
-                                </div>
+                                    <div v-if="ev.comment" class="dwc-event-reason" :title="ev.comment">
+                                        @{{ ev.comment }}
+                                    </div>
 
-                                <div class="dwc-event-status-wrapper" @click.stop>
-                                    <div class="dwc-status-indicator status-pipeline"></div>
-                                    <select class="dwc-event-status" v-model="ev.lead_pipeline_stage_id" @change="updateStatus(ev)">
-                                        <option v-for="stage in stages" :key="'st-'+stage.id" :value="stage.id">@{{ stage.name }}</option>
-                                    </select>
-                                </div>
-                                <div class="dwc-event-actions" @click.stop>
-                                    <button type="button" class="dwc-action-btn" title="Ver Detalles" @click="openViewModal(ev)">
-                                        <span class="icon-eye text-lg"></span>
-                                    </button>
-                                    <button type="button" class="dwc-action-btn" title="Editar Cita" @click="openEditModal(ev)">
-                                        <span class="icon-edit text-lg"></span>
-                                    </button>
+                                    <div class="dwc-event-status-wrapper" @click.stop>
+                                        <div class="dwc-status-indicator status-pipeline"></div>
+                                        <select class="dwc-event-status" v-model="ev.lead_pipeline_stage_id" @change="updateStatus(ev)">
+                                            <option v-for="stage in stages" :key="'st-sd-'+stage.id" :value="stage.id">@{{ stage.name }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="dwc-event-actions" @click.stop>
+                                        <button type="button" class="dwc-action-btn" title="Ver Detalles" @click="openViewModal(ev)">
+                                            <span class="icon-eye text-lg"></span>
+                                        </button>
+                                        <button type="button" class="dwc-action-btn" title="Editar Cita" @click="openEditModal(ev)">
+                                            <span class="icon-edit text-lg"></span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </template>
+
+            <template v-else>
+                <div v-for="col in columns" :key="'col-'+col.id" class="dwc-doctor-col">
+                    <div class="dwc-doctor-header">
+                        <span>@{{ col && col.name ? col.name : '' }}</span>
+                        <span class="text-xs dark:text-gray-300">@{{ totalCount(col.id) }}</span>
+                    </div>
+
+                    <div class="dwc-days-stack" :style="{ height: totalHeight + 'px' }">
+                        <div v-for="(day, di) in days" :key="'day-'+di" class="dwc-day-block" :style="{ height: dayHeight + 'px' }" @click="onDayClick($event, day, col.id)">
+                            <div v-for="av in getDoctorAvailability(day.date, col.id)" :key="'av-'+av.id" 
+                                 class="dwc-availability-block" 
+                                 :style="{ top: av.top + 'px', height: av.height + 'px' }">
+                            </div>
+
+                            <div v-for="idx in 24" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
+
+                            <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', minHeight: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
+                                <div class="dwc-event-content">
+                                    <div class="dwc-event-patient" :title="ev.person_name">@{{ ev.person_name || 'Sin Paciente' }}</div>
+                                    <div class="dwc-event-doctor" :title="ev.doctor_name">Dr. @{{ ev.doctor_name }}</div>
+                                    
+                                    <div class="dwc-event-time">
+                                        <span class="icon-clock text-xs"></span>
+                                        <span>@{{ formatTime(ev.start) }} - @{{ formatTime(ev.end) }}</span>
+                                        <span class="dwc-event-duration">(@{{ getDuration(ev.start, ev.end) }})</span>
+                                    </div>
+
+                                    <div v-if="ev.comment" class="dwc-event-reason" :title="ev.comment">
+                                        @{{ ev.comment }}
+                                    </div>
+
+                                    <div class="dwc-event-status-wrapper" @click.stop>
+                                        <div class="dwc-status-indicator status-pipeline"></div>
+                                        <select class="dwc-event-status" v-model="ev.lead_pipeline_stage_id" @change="updateStatus(ev)">
+                                            <option v-for="stage in stages" :key="'st-'+stage.id" :value="stage.id">@{{ stage.name }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="dwc-event-actions" @click.stop>
+                                        <button type="button" class="dwc-action-btn" title="Ver Detalles" @click="openViewModal(ev)">
+                                            <span class="icon-eye text-lg"></span>
+                                        </button>
+                                        <button type="button" class="dwc-action-btn" title="Editar Cita" @click="openEditModal(ev)">
+                                            <span class="icon-edit text-lg"></span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
         </div>
 
         <x-admin::modal ref="appointmentModal">
@@ -903,8 +959,12 @@
             },
             gridCols() {
                 if (this.viewType === 'month') return 'repeat(7, 1fr)';
+                if (this.isSingleDoctorMode && this.viewType === 'week') return `80px repeat(${this.days.length}, 1fr)`;
                 const count = this.columns.length;
                 return count ? `80px repeat(${count}, 1fr)` : '80px';
+            },
+            isSingleDoctorMode() {
+                return this.columns.length === 1;
             },
             monthGridCells() {
                 if (this.viewType !== 'month') return [];

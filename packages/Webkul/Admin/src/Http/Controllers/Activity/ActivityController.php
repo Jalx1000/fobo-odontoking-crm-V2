@@ -91,8 +91,9 @@ class ActivityController extends Controller
                     'activities.is_done',
                     'activities.schedule_from as start',
                     'activities.schedule_to as end',
+                    'activities.location',
                     'doctor_activities.doctor_id',
-                    DB::raw('COALESCE(' . $prefix . 'p.name, "") as person_name'),
+                    DB::raw('GROUP_CONCAT(' . $prefix . 'p.name SEPARATOR ", ") as participants'),
                 ])
                 ->whereBetween('activities.schedule_from', [$startDate, $endDate])
                 ->whereIn('activities.type', (function () {
@@ -104,6 +105,7 @@ class ActivityController extends Controller
                     }
                     return $allowed;
                 })())
+                ->groupBy('activities.id')
                 ->orderBy('activities.schedule_from')
                 ->get();
 
@@ -422,7 +424,7 @@ class ActivityController extends Controller
          */
         if (isset($data['lead_id'])) {
             $activity->leads()->sync(
-                ! empty($data['lead_id'])
+                ! empty($data['lead_id']) && $this->leadRepository->find($data['lead_id'])
                     ? [$data['lead_id']]
                     : []
             );
