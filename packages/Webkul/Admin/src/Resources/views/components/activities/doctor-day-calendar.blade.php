@@ -165,7 +165,7 @@
             </div>
         </div>
 
-        <div v-else-if="viewType === 'week'" class="dwc-week-view">
+        <div v-else-if="viewType === 'week' && !isSingleDoctorMode" class="dwc-week-view">
             <div class="dwc-week-header">
                 <div class="dwc-week-header-cell doctor-col">Doctores</div>
                 <div v-for="day in days" :key="'wh-'+day.date" class="dwc-week-header-cell">
@@ -196,7 +196,7 @@
             </div>
         </div>
 
-        <div v-else class="dwc-grid" :style="{ gridTemplateColumns: gridCols }">
+        <div v-else-if="viewType === 'week' && isSingleDoctorMode" class="dwc-grid" :style="{ gridTemplateColumns: gridCols }">
             <div
                 v-if="showNowLine"
                 class="dwc-now-line"
@@ -209,61 +209,72 @@
                 <div v-for="h in 24" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h-1) }}:00</div>
             </div>
 
-            <template v-if="isSingleDoctorMode && viewType === 'week'">
-                <div v-for="day in days" :key="'col-day-'+day.date" class="dwc-doctor-col">
-                    <div class="dwc-doctor-header justify-center">
-                        <span class="font-bold">@{{ day.label }}</span>
-                    </div>
+            <div v-for="day in days" :key="'col-day-'+day.date" class="dwc-doctor-col">
+                <div class="dwc-doctor-header justify-center">
+                    <span class="font-bold">@{{ day.label }}</span>
+                </div>
 
-                    <div class="dwc-days-stack" :style="{ height: dayHeight + 'px' }">
-                        <div class="dwc-day-block" :style="{ height: dayHeight + 'px', borderBottom: 'none' }" @click="onDayClick($event, day, columns[0].id)">
-                            <!-- Availability -->
-                            <div v-for="av in getDoctorAvailability(day.date, columns[0].id)" :key="'av-sd-'+av.id" 
-                                 class="dwc-availability-block" 
-                                 :style="{ top: av.top + 'px', height: av.height + 'px' }">
-                            </div>
+                <div class="dwc-days-stack" :style="{ height: dayHeight + 'px' }">
+                    <div class="dwc-day-block" :style="{ height: dayHeight + 'px', borderBottom: 'none' }" @click="onDayClick($event, day, columns[0].id)">
+                        <!-- Availability -->
+                        <div v-for="av in getDoctorAvailability(day.date, columns[0].id)" :key="'av-sd-'+av.id" 
+                                class="dwc-availability-block" 
+                                :style="{ top: av.top + 'px', height: av.height + 'px' }">
+                        </div>
 
-                            <!-- Lines -->
-                            <div v-for="idx in 24" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
+                        <!-- Lines -->
+                        <div v-for="idx in 24" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
-                            <!-- Events -->
-                            <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', minHeight: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
-                                <div class="dwc-event-content">
-                                    <div class="dwc-event-patient" :title="ev.person_name">@{{ ev.person_name || 'Sin Paciente' }}</div>
-                                    <div class="dwc-event-doctor" :title="ev.doctor_name">Dr. @{{ ev.doctor_name }}</div>
-                                    
-                                    <div class="dwc-event-time">
-                                        <span class="icon-clock text-xs"></span>
-                                        <span>@{{ formatTime(ev.start) }} - @{{ formatTime(ev.end) }}</span>
-                                        <span class="dwc-event-duration">(@{{ getDuration(ev.start, ev.end) }})</span>
-                                    </div>
+                        <!-- Events -->
+                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', minHeight: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
+                            <div class="dwc-event-content">
+                                <div class="dwc-event-patient" :title="ev.person_name">@{{ ev.person_name || 'Sin Paciente' }}</div>
+                                <div class="dwc-event-doctor" :title="ev.doctor_name">Dr. @{{ ev.doctor_name }}</div>
+                                
+                                <div class="dwc-event-time">
+                                    <span class="icon-clock text-xs"></span>
+                                    <span>@{{ formatTime(ev.start) }} - @{{ formatTime(ev.end) }}</span>
+                                    <span class="dwc-event-duration">(@{{ getDuration(ev.start, ev.end) }})</span>
+                                </div>
 
-                                    <div v-if="ev.comment" class="dwc-event-reason" :title="ev.comment">
-                                        @{{ ev.comment }}
-                                    </div>
+                                <div v-if="ev.comment" class="dwc-event-reason" :title="ev.comment">
+                                    @{{ ev.comment }}
+                                </div>
 
-                                    <div class="dwc-event-status-wrapper" @click.stop>
-                                        <div class="dwc-status-indicator status-pipeline"></div>
-                                        <select class="dwc-event-status" v-model="ev.lead_pipeline_stage_id" @change="updateStatus(ev)">
-                                            <option v-for="stage in stages" :key="'st-sd-'+stage.id" :value="stage.id">@{{ stage.name }}</option>
-                                        </select>
-                                    </div>
-                                    <div class="dwc-event-actions" @click.stop>
-                                        <button type="button" class="dwc-action-btn" title="Ver Detalles" @click="openViewModal(ev)">
-                                            <span class="icon-eye text-lg"></span>
-                                        </button>
-                                        <button type="button" class="dwc-action-btn" title="Editar Cita" @click="openEditModal(ev)">
-                                            <span class="icon-edit text-lg"></span>
-                                        </button>
-                                    </div>
+                                <div class="dwc-event-status-wrapper" @click.stop>
+                                    <div class="dwc-status-indicator status-pipeline"></div>
+                                    <select class="dwc-event-status" v-model="ev.lead_pipeline_stage_id" @change="updateStatus(ev)">
+                                        <option v-for="stage in stages" :key="'st-sd-'+stage.id" :value="stage.id">@{{ stage.name }}</option>
+                                    </select>
+                                </div>
+                                <div class="dwc-event-actions" @click.stop>
+                                    <button type="button" class="dwc-action-btn" title="Ver Detalles" @click="openViewModal(ev)">
+                                        <span class="icon-eye text-lg"></span>
+                                    </button>
+                                    <button type="button" class="dwc-action-btn" title="Editar Cita" @click="openEditModal(ev)">
+                                        <span class="icon-edit text-lg"></span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </template>
+            </div>
+        </div>
 
-            <template v-else>
+        <div v-else class="dwc-grid" :style="{ gridTemplateColumns: gridCols }">
+            <div
+                v-if="showNowLine"
+                class="dwc-now-line"
+                :style="{ top: nowTop + 'px' }">
+                <div class="dwc-now-time">@{{ nowText }}</div>
+            </div>
+
+            <div class="dwc-hours">
+                <div v-for="h in 24" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h-1) }}:00</div>
+            </div>
+
+            <template>
                 <div v-for="col in columns" :key="'col-'+col.id" class="dwc-doctor-col">
                     <div class="dwc-doctor-header">
                         <span>@{{ col && col.name ? col.name : '' }}</span>
@@ -959,7 +970,11 @@
             },
             gridCols() {
                 if (this.viewType === 'month') return 'repeat(7, 1fr)';
-                if (this.isSingleDoctorMode && this.viewType === 'week') return `80px repeat(${this.days.length}, 1fr)`;
+
+                if (this.isSingleDoctorMode && this.viewType === 'week') {
+                    return `80px repeat(${this.days.length}, 1fr)`;
+                }
+
                 const count = this.columns.length;
                 return count ? `80px repeat(${count}, 1fr)` : '80px';
             },
