@@ -262,7 +262,7 @@
             </div>
         </div>
 
-        <div v-else class="dwc-grid" :style="{ gridTemplateColumns: gridCols }">
+        <div v-else-if="viewType === 'day'" class="dwc-grid" :style="{ gridTemplateColumns: gridCols }">
             <div
                 v-if="showNowLine"
                 class="dwc-now-line"
@@ -274,8 +274,7 @@
                 <div v-for="h in 24" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h-1) }}:00</div>
             </div>
 
-            <template>
-                <div v-for="col in columns" :key="'col-'+col.id" class="dwc-doctor-col">
+            <div v-for="col in columns" :key="'col-'+col.id" class="dwc-doctor-col">
                     <div class="dwc-doctor-header">
                         <span>@{{ col && col.name ? col.name : '' }}</span>
                         <span class="text-xs dark:text-gray-300">@{{ totalCount(col.id) }}</span>
@@ -324,7 +323,6 @@
                         </div>
                     </div>
                 </div>
-            </template>
         </div>
 
         <x-admin::modal ref="appointmentModal">
