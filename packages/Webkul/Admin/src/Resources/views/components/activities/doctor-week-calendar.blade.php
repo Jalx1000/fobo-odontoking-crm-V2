@@ -43,7 +43,34 @@
             </div>
         </div>
 
-        <div class="dwc-grid" :style="{ gridTemplateColumns: '80px repeat(' + columns.length + ', 1fr)' }">
+        <div v-if="isSingleDoctorMode" class="dwc-grid" :style="{ gridTemplateColumns: '80px repeat(' + days.length + ', 1fr)' }">
+            <div class="dwc-hours">
+                <div v-for="h in 24" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h-1) }}:00</div>
+            </div>
+
+            <div v-for="day in days" :key="'col-day-'+day.date" class="dwc-doctor-col">
+                <div class="dwc-doctor-header justify-center">
+                    <span class="font-bold">@{{ day.label }}</span>
+                </div>
+
+                <div class="dwc-days-stack" :style="{ height: dayHeight + 'px' }" @click="onSingleDayClick($event, day)">
+                    <div class="dwc-day-block" :style="{ height: dayHeight + 'px', borderBottom: 'none' }">
+                        <div v-for="idx in 24" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
+
+                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }">
+                            <div class="dwc-event-title">@{{ ev.title || ev.type }}</div>
+                            <div class="dwc-event-time">@{{ formatTime(ev.start) }} — @{{ formatTime(ev.end) }}</div>
+                            <div class="flex items-center gap-2 mt-1">
+                                <a :href="editUrl(ev.id)" class="icon-edit text-xl"></a>
+                                <button type="button" class="icon-delete text-xl text-red-600" @click.stop="remove(ev)"></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-else class="dwc-grid" :style="{ gridTemplateColumns: '80px repeat(' + columns.length + ', 1fr)' }">
             <div class="dwc-hours">
                 <div v-for="h in 24" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h-1) }}:00</div>
             </div>
@@ -200,6 +227,9 @@
                 const ids = new Set(this.selectedDoctorIds.map(id => Number(id)));
                 return this.doctors.filter(d => ids.has(Number(d.id)));
             },
+            isSingleDoctorMode() {
+                return this.columns.length === 1;
+            },
         },
         mounted() {
             this.fetch();
@@ -293,6 +323,19 @@
                 const h = Math.floor(minutes / 60);
                 const m = minutes % 60;
 
+                this.openAddModal(e, day, doctorId, h, m);
+            },
+            onSingleDayClick(e, day) {
+                const container = e.currentTarget;
+                const rect = container.getBoundingClientRect();
+                const yLocal = e.clientY - rect.top;
+                const minutes = Math.max(0, Math.min(23 * 60 + 59, Math.round(yLocal / this.minuteHeight)));
+                const h = Math.floor(minutes / 60);
+                const m = minutes % 60;
+
+                this.openAddModal(e, day, this.columns[0].id, h, m);
+            },
+            openAddModal(e, day, doctorId, h, m) {
                 this.addForm.visible = true;
 
                 const xView = e.clientX;
@@ -313,7 +356,7 @@
                 this.addForm.doctorId = doctorId;
                 this.addForm.doctorLabel = (this.doctors.find(d => String(d.id) === String(doctorId))?.name || '');
                 this.addForm.startTime = `${this.pad2(h)}:${this.pad2(m)}`;
-                const endMins = Math.min(23 * 60 + 59, minutes + 60);
+                const endMins = Math.min(23 * 60 + 59, (h * 60 + m) + 60);
                 const eh = Math.floor(endMins / 60);
                 const em = endMins % 60;
                 this.addForm.endTime = `${this.pad2(eh)}:${this.pad2(em)}`;
