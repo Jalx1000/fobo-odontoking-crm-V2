@@ -226,34 +226,35 @@
                         <div v-for="idx in 24" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
                         <!-- Events -->
-                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', minHeight: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
-                            <div class="dwc-event-content">
-                                <div class="dwc-event-patient" :title="ev.person_name">@{{ ev.person_name || 'Sin Paciente' }}</div>
-                                <div class="dwc-event-doctor" :title="ev.doctor_name">Dr. @{{ ev.doctor_name }}</div>
-                                
-                                <div class="dwc-event-time">
-                                    <span class="icon-clock text-xs"></span>
-                                    <span>@{{ formatTime(ev.start) }} - @{{ formatTime(ev.end) }}</span>
-                                    <span class="dwc-event-duration">(@{{ getDuration(ev.start, ev.end) }})</span>
+                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
+                            <div class="dwc-event-content dwc-event-layout">
+                                <div class="dwc-event-info">
+                                    <div class="dwc-event-row-primary">
+                                        <span class="dwc-event-patient" :title="ev.person_name">@{{ formatPatientName(ev.person_name) }}</span>
+                                    </div>
+                                    
+                                    <div class="dwc-event-row-secondary">
+                                        <span class="dwc-event-doctor" :title="ev.doctor_name">Dr. @{{ ev.doctor_name }}</span>
+                                        <span class="dwc-event-separator">,</span>
+                                        <span>@{{ formatTime(ev.start) }} - @{{ formatTime(ev.end) }}</span>
+                                        <span class="dwc-event-separator">,</span>
+                                        <span class="dwc-event-status-text">@{{ getStageName(ev.lead_pipeline_stage_id) }}</span>
+                                    </div>
+
+                                    <div v-if="ev.comment" class="dwc-event-reason" :title="ev.comment">
+                                        @{{ ev.comment }}
+                                    </div>
                                 </div>
 
-                                <div v-if="ev.comment" class="dwc-event-reason" :title="ev.comment">
-                                    @{{ ev.comment }}
-                                </div>
-
-                                <div class="dwc-event-status-wrapper" @click.stop>
-                                    <div class="dwc-status-indicator status-pipeline"></div>
-                                    <select class="dwc-event-status" v-model="ev.lead_pipeline_stage_id" @change="updateStatus(ev)">
-                                        <option v-for="stage in stages" :key="'st-sd-'+stage.id" :value="stage.id">@{{ stage.name }}</option>
-                                    </select>
-                                </div>
-                                <div class="dwc-event-actions" @click.stop>
-                                    <button type="button" class="dwc-action-btn" title="Ver Detalles" @click="openViewModal(ev)">
-                                        <span class="icon-eye text-lg"></span>
-                                    </button>
-                                    <button type="button" class="dwc-action-btn" title="Editar Cita" @click="openEditModal(ev)">
-                                        <span class="icon-edit text-lg"></span>
-                                    </button>
+                                <div class="dwc-event-actions-wrapper">
+                                    <div class="dwc-event-actions" @click.stop>
+                                        <button type="button" class="dwc-action-btn" title="Ver Detalles" @click="openViewModal(ev)">
+                                            <span class="icon-eye text-lg"></span>
+                                        </button>
+                                        <button type="button" class="dwc-action-btn" title="Editar Cita" @click="openEditModal(ev)">
+                                            <span class="icon-edit text-lg"></span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -289,34 +290,35 @@
 
                             <div v-for="idx in 24" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
-                            <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', minHeight: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
-                                <div class="dwc-event-content">
-                                    <div class="dwc-event-patient" :title="ev.person_name">@{{ ev.person_name || 'Sin Paciente' }}</div>
-                                    <div class="dwc-event-doctor" :title="ev.doctor_name">Dr. @{{ ev.doctor_name }}</div>
-                                    
-                                    <div class="dwc-event-time">
-                                        <span class="icon-clock text-xs"></span>
-                                        <span>@{{ formatTime(ev.start) }} - @{{ formatTime(ev.end) }}</span>
-                                        <span class="dwc-event-duration">(@{{ getDuration(ev.start, ev.end) }})</span>
+                            <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
+                                <div class="dwc-event-content dwc-event-layout">
+                                    <div class="dwc-event-info">
+                                        <div class="dwc-event-row-primary">
+                                            <span class="dwc-event-patient" :title="ev.person_name">@{{ formatPatientName(ev.person_name) }}</span>
+                                        </div>
+                                        
+                                        <div class="dwc-event-row-secondary">
+                                            <span class="dwc-event-doctor" :title="ev.doctor_name">Dr. @{{ ev.doctor_name }}</span>
+                                            <span class="dwc-event-separator">,</span>
+                                            <span>@{{ formatTime(ev.start) }} - @{{ formatTime(ev.end) }}</span>
+                                            <span class="dwc-event-separator">,</span>
+                                            <span class="dwc-event-status-text">@{{ getStageName(ev.lead_pipeline_stage_id) }}</span>
+                                        </div>
+
+                                        <div v-if="ev.comment" class="dwc-event-reason" :title="ev.comment">
+                                            @{{ ev.comment }}
+                                        </div>
                                     </div>
 
-                                    <div v-if="ev.comment" class="dwc-event-reason" :title="ev.comment">
-                                        @{{ ev.comment }}
-                                    </div>
-
-                                    <div class="dwc-event-status-wrapper" @click.stop>
-                                        <div class="dwc-status-indicator status-pipeline"></div>
-                                        <select class="dwc-event-status" v-model="ev.lead_pipeline_stage_id" @change="updateStatus(ev)">
-                                            <option v-for="stage in stages" :key="'st-'+stage.id" :value="stage.id">@{{ stage.name }}</option>
-                                        </select>
-                                    </div>
-                                    <div class="dwc-event-actions" @click.stop>
-                                        <button type="button" class="dwc-action-btn" title="Ver Detalles" @click="openViewModal(ev)">
-                                            <span class="icon-eye text-lg"></span>
-                                        </button>
-                                        <button type="button" class="dwc-action-btn" title="Editar Cita" @click="openEditModal(ev)">
-                                            <span class="icon-edit text-lg"></span>
-                                        </button>
+                                    <div class="dwc-event-actions-wrapper">
+                                        <div class="dwc-event-actions" @click.stop>
+                                            <button type="button" class="dwc-action-btn" title="Ver Detalles" @click="openViewModal(ev)">
+                                                <span class="icon-eye text-lg"></span>
+                                            </button>
+                                            <button type="button" class="dwc-action-btn" title="Editar Cita" @click="openEditModal(ev)">
+                                                <span class="icon-edit text-lg"></span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -395,6 +397,14 @@
                             v-model="appointmentForm.endTime"
                             @change="syncAppointmentDurationFromTimes"
                         />
+
+                        <select
+                            class="col-span-2 rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                            v-model="appointmentForm.lead_pipeline_stage_id"
+                        >
+                            <option :value="null" disabled>Estado</option>
+                            <option v-for="stage in stages" :key="'st-modal-'+stage.id" :value="stage.id">@{{ stage.name }}</option>
+                        </select>
 
                         <textarea
                             rows="3"
@@ -633,6 +643,12 @@
                                 <span class="text-gray-400">(@{{ getDuration(viewAppointment.data.start, viewAppointment.data.end) }})</span>
                             </span>
                         </div>
+                        <div class="flex flex-col">
+                            <span class="text-xs text-gray-500 font-medium uppercase">Servicio</span>
+                            <span class="text-sm font-semibold dark:text-white">
+                                @{{ viewAppointment.data.product_name || (viewAppointment.data.product ? viewAppointment.data.product.name : '-') }}
+                            </span>
+                        </div>
                     </div>
 
                     <div class="flex flex-col" v-if="viewAppointment.data.comment">
@@ -645,9 +661,8 @@
                     <div class="flex flex-col">
                         <span class="text-xs text-gray-500 font-medium uppercase mb-1">Estado</span>
                         <div class="inline-flex">
-                            <span class="px-2 py-1 rounded text-xs font-semibold" 
-                                  :class="viewAppointment.data.is_done == 1 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
-                                @{{ viewAppointment.data.is_done == 1 ? 'Completada' : 'Prospecto' }}
+                            <span class="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                                @{{ getStageName(viewAppointment.data.lead_pipeline_stage_id) || 'Sin Estado' }}
                             </span>
                         </div>
                     </div>
@@ -889,6 +904,7 @@
                     startTime: '09:00',
                     endTime: '10:00',
                     reason: '',
+                    lead_pipeline_stage_id: null,
                 },
                 viewAppointment: {
                     visible: false,
@@ -970,11 +986,11 @@
                 if (this.viewType === 'month') return 'repeat(7, 1fr)';
 
                 if (this.isSingleDoctorMode && this.viewType === 'week') {
-                    return `80px repeat(${this.days.length}, 1fr)`;
+                    return `80px repeat(${this.days.length}, minmax(200px, 1fr))`;
                 }
 
                 const count = this.columns.length;
-                return count ? `80px repeat(${count}, 1fr)` : '80px';
+                return count ? `80px repeat(${count}, minmax(220px, 1fr))` : '80px';
             },
             isSingleDoctorMode() {
                 return this.columns.length === 1;
@@ -1361,6 +1377,7 @@
                 this.appointmentForm.duration = this.appointmentForm.duration || 60;
                 this.syncAppointmentEndTime();
                 this.appointmentForm.reason = '';
+                this.appointmentForm.lead_pipeline_stage_id = this.stages.length ? this.stages[0].id : null;
                 this.appointmentForm.person = { id: '', name: '' };
                 this.appointmentForm.product_id = null;
                 this.appointmentForm.product_name = '';
@@ -1395,14 +1412,15 @@
                 this.syncAppointmentDurationFromTimes();
                 
                 this.appointmentForm.reason = ev.comment || '';
+                this.appointmentForm.lead_pipeline_stage_id = ev.lead_pipeline_stage_id;
                 this.appointmentForm.person = { 
                     id: ev.lead_id, // Note: using lead_id might be tricky if we need person_id directly, but let's assume we fetch person from lead or event
                     name: ev.person_name 
                 };
                 
                 // Set product info from event
-                this.appointmentForm.product_id = ev.product_id || null;
-                this.appointmentForm.product_name = ev.product_name || '';
+                this.appointmentForm.product_id = ev.product_id || (ev.product ? ev.product.id : null);
+                this.appointmentForm.product_name = ev.product_name || (ev.product ? ev.product.name : '');
 
                 this.$refs.appointmentModal.open();
             },
@@ -1479,6 +1497,7 @@
                     end_time: this.appointmentForm.endTime,
                     duration_minutes: this.appointmentForm.duration,
                     reason: this.appointmentForm.reason || '',
+                    lead_pipeline_stage_id: this.appointmentForm.lead_pipeline_stage_id,
                 };
 
                 // If ID exists, it's an update. Use update endpoint or adapt store to handle update?
@@ -1510,6 +1529,7 @@
                         product_id: this.appointmentForm.product_id,
                         doctor_id: this.appointmentForm.doctor_id,
                         lead_id: this.appointmentForm.person.id,
+                        lead_pipeline_stage_id: this.appointmentForm.lead_pipeline_stage_id,
                     };
                     promise = this.$axios.put(url, updatePayload);
                 } else {
@@ -1739,6 +1759,18 @@
                 // Or if 'is_done' is still used for legacy reasons, we keep it.
                 // But user wants pipeline stages. Let's return a generic status class.
                 return 'status-pipeline';
+            },
+            getStageName(id) {
+                const s = this.stages.find(x => x.id == id);
+                return s ? s.name : '';
+            },
+            formatPatientName(name) {
+                if (!name) return 'Sin Paciente';
+                const parts = name.trim().split(/\s+/);
+                if (parts.length <= 1) return name;
+                // Intenta tomar el primer nombre y el primer apellido (asumiendo que la segunda palabra es el apellido o parte del nombre compuesto)
+                // Para cumplir estrictamente "1 nombre y 1 apellido", tomaremos la primera palabra y la segunda palabra.
+                return `${parts[0]} ${parts[1]}`;
             },
             updateStatus(ev) {
                 if (!ev.lead_id || !ev.lead_pipeline_stage_id) return;
@@ -2160,7 +2192,6 @@
 
     .dwc-doctor-col {
         border-right: 1px solid var(--border-color);
-        min-width: 220px
     }
 
     .dwc-doctor-header {
@@ -2211,7 +2242,6 @@
         color: var(--event-text);
         border-radius: 6px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        padding: 6px 8px;
         font-size: 12px;
         z-index: 2;
         overflow: hidden;
@@ -2233,12 +2263,20 @@
         flex-direction: column;
         gap: 3px;
         height: 100%;
+        position: relative;
+        padding: 6px 8px;
+        box-sizing: border-box;
+    }
+
+    .dwc-event-actions-wrapper {
+        position: relative;
+        z-index: 10;
     }
 
     .dwc-event-actions {
         position: absolute;
-        top: 4px;
-        right: 4px;
+        top: -36px;
+        right: 0;
         display: none;
         gap: 4px;
         z-index: 5;
@@ -2278,14 +2316,58 @@
         color: #f3f4f6;
     }
 
+    .dwc-event-info {
+        flex-grow: 1;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .dwc-event-row-primary {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        width: 100%;
+    }
+
+    .dwc-event-row-secondary {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10px;
+        color: #4b5563;
+        white-space: nowrap;
+        overflow: hidden;
+        width: 100%;
+    }
+
+    .dwc-event-separator {
+        color: #9ca3af;
+        font-size: 10px;
+    }
+
+    .dwc-event-status-text {
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 9px;
+        color: #374151;
+        background: rgba(0,0,0,0.05);
+        padding: 1px 3px;
+        border-radius: 3px;
+    }
+
     .dwc-event-patient {
         font-weight: 700;
-        font-size: 13px;
+        font-size: 12px;
         color: #111827;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        line-height: 1.2;
+        flex-shrink: 0;
+        max-width: 60%;
     }
     
     .dwc-event-doctor {
@@ -2295,19 +2377,7 @@
         overflow: hidden;
         text-overflow: ellipsis;
         font-style: italic;
-    }
-
-    .dwc-event-time {
-        font-size: 11px;
-        color: #374151;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        background: rgba(0,0,0,0.03);
-        padding: 2px 4px;
-        border-radius: 4px;
-        margin-top: 2px;
-        white-space: nowrap;
+        flex-shrink: 1;
     }
 
     .dwc-event-reason {
@@ -2322,58 +2392,7 @@
         font-style: italic;
     }
 
-    .dwc-event-status-wrapper {
-        margin-top: auto;
-        padding-top: 4px;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-    }
 
-    .dwc-status-indicator {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        flex-shrink: 0;
-    }
-
-    .dwc-event-status {
-        width: 100%;
-        font-size: 11px;
-        padding: 2px 6px;
-        border-radius: 4px;
-        border: 1px solid transparent;
-        cursor: pointer;
-        background-color: transparent;
-        appearance: none;
-        -webkit-appearance: none;
-        font-weight: 500;
-        transition: background-color 0.2s;
-    }
-    
-    .dwc-event-status:focus {
-        outline: none;
-        border-color: var(--event-accent);
-        background-color: #fff;
-    }
-
-    .status-pipeline {
-        color: #0f172a;
-        background-color: #f1f5f9;
-    }
-    
-    .dwc-status-indicator.status-pipeline {
-        background-color: #64748b;
-    }
-
-    .dark .status-pipeline {
-        color: #f3f4f6;
-        background-color: #374151;
-    }
-    
-    .dark .dwc-status-indicator.status-pipeline {
-        background-color: #9ca3af;
-    }
 
     .dwc-add-overlay {
         position: fixed;
@@ -2493,7 +2512,7 @@
     }
     .dwc-week-header {
         display: grid;
-        grid-template-columns: 150px repeat(7, 1fr);
+        grid-template-columns: 150px repeat(7, minmax(120px, 1fr));
         border-bottom: 1px solid var(--border-color);
         background: var(--gray-50);
     }
@@ -2518,7 +2537,7 @@
     }
     .dwc-week-row {
         display: grid;
-        grid-template-columns: 150px repeat(7, 1fr);
+        grid-template-columns: 150px repeat(7, minmax(120px, 1fr));
         border-bottom: 1px solid var(--border-color);
         min-height: 80px;
     }
@@ -2563,5 +2582,11 @@
     .dark .dwc-week-event {
         background: #075985;
         color: #e0f2fe;
+    }
+
+    @media (max-width: 768px) {
+        .dwc-event-actions-wrapper {
+            display: none;
+        }
     }
 </style>
