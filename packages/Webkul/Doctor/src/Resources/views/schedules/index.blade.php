@@ -27,7 +27,30 @@
     </div>
 
     @pushOnce('scripts')
-        <script type="text/x-template" id="v-schedules-template">
+        <script type="text/x-template" id="v-time-picker-template">
+    <div class="tp-container" ref="root">
+        <div class="tp-input" @click="toggle">
+            <span>@{{ modelValue || '00:00' }}</span>
+            <i class="icon-clock text-lg"></i>
+        </div>
+        <div v-if="isOpen" class="tp-dropdown" ref="dropdown">
+            <div class="tp-lists">
+                <ul class="tp-list" ref="hours">
+                    <li v-for="h in 24" :key="'h-'+h" @click.stop="selectHour(h-1)" :class="{ 'is-selected': (h-1) == currentHour }">
+                        @{{ pad2(h-1) }}
+                    </li>
+                </ul>
+                <ul class="tp-list" ref="minutes">
+                    <li v-for="m in 60" :key="'m-'+m" @click.stop="selectMinute(m-1)" :class="{ 'is-selected': (m-1) == currentMinute }">
+                        @{{ pad2(m-1) }}
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</script>
+
+<script type="text/x-template" id="v-schedules-template">
             <div class="rounded-lg border border-gray-200 bg-white p-4 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
                 <div class="mb-3 flex items-center justify-between">
                     <div class="flex items-center gap-2">
@@ -74,7 +97,7 @@
                                         <template v-if="shiftsFor(doctor.id, day.date).length">
                                             <div class="rounded bg-violet-100 px-2 py-1 text-violet-800 dark:bg-violet-900 dark:text-violet-100" v-for="shift in shiftsFor(doctor.id, day.date)" :key="shift.id">
                                                 <div class="flex items-center justify-between">
-                                                    <span>@{{ shift.start_time }} - @{{ shift.end_time }}</span>
+                                                    <span>@{{ formatTime(shift.start_time) }} - @{{ formatTime(shift.end_time) }}</span>
                                                     <div class="flex items-center gap-2">
                                                         <button type="button" class="icon-edit text-xl" @click="openEdit(shift, doctor.id, day.date)"></button>
                                                         <button type="button" class="icon-delete text-xl text-red-600" @click="deleteShift(shift)"></button>
@@ -155,8 +178,8 @@
                                 @{{ modalContext.dateLabel }} · @{{ modalContext.doctorName }}
                             </div>
                             <div class="grid grid-cols-2 gap-3">
-                                <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="addDlg.startTime" />
-                                <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="addDlg.endTime" />
+                                <v-time-picker v-model="addDlg.startTime"></v-time-picker>
+                                <v-time-picker v-model="addDlg.endTime"></v-time-picker>
                             </div>
                             <div class="text-sm text-red-600" v-if="addDlg.error">@{{ addDlg.error }}</div>
                         </div>
@@ -208,11 +231,11 @@
                                         <div class="flex-1 grid grid-cols-2 gap-2">
                                             <div class="flex flex-col gap-1">
                                                 <label class="text-[10px] font-medium text-gray-400" v-if="idx===0">Hora Inicio</label>
-                                                <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="slot.startTime" />
+                                                <v-time-picker v-model="slot.startTime"></v-time-picker>
                                             </div>
                                             <div class="flex flex-col gap-1">
                                                 <label class="text-[10px] font-medium text-gray-400" v-if="idx===0">Hora Fin</label>
-                                                <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="slot.endTime" />
+                                                <v-time-picker v-model="slot.endTime"></v-time-picker>
                                             </div>
                                         </div>
                                         <button type="button" class="mt-auto mb-1 p-2 text-red-600 hover:bg-red-50 rounded dark:hover:bg-red-900/20" @click="removeTimeSlot(idx)" v-if="recurringForm.time_slots.length > 1">
@@ -275,11 +298,11 @@
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="flex flex-col gap-1">
                                     <label class="text-xs font-medium text-gray-500">Hora de inicio</label>
-                                    <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="timeOffForm.start_time" />
+                                    <v-time-picker v-model="timeOffForm.start_time"></v-time-picker>
                                 </div>
                                 <div class="flex flex-col gap-1">
                                     <label class="text-xs font-medium text-gray-500">Hora de finalización</label>
-                                    <input type="time" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="timeOffForm.end_time" />
+                                    <v-time-picker v-model="timeOffForm.end_time"></v-time-picker>
                                 </div>
                             </div>
 
@@ -324,7 +347,102 @@
         </script>
 
         <script type="module">
-            app.component('v-schedules', {
+            app.component('v-time-picker', {
+    template: '#v-time-picker-template',
+    props: ['modelValue'],
+    emits: ['update:modelValue'],
+    data() {
+        return {
+            isOpen: false,
+            dropdownEl: null,
+        };
+    },
+    computed: {
+        currentHour() {
+            return this.modelValue ? parseInt(this.modelValue.split(':')[0], 10) : 0;
+        },
+        currentMinute() {
+            return this.modelValue ? parseInt(this.modelValue.split(':')[1], 10) : 0;
+        }
+    },
+    watch: {
+        isOpen(isOpen) {
+            if (isOpen) {
+                this.$nextTick(() => {
+                    const dropdown = this.$refs.dropdown;
+                    if (!dropdown) return;
+
+                    this.dropdownEl = dropdown;
+                    document.body.appendChild(this.dropdownEl);
+
+                    const inputRect = this.$refs.root.getBoundingClientRect();
+                    this.dropdownEl.style.position = 'absolute';
+                    this.dropdownEl.style.top = `${inputRect.bottom + window.scrollY + 4}px`;
+                    this.dropdownEl.style.left = `${inputRect.left + window.scrollX}px`;
+                    this.dropdownEl.style.width = `${inputRect.width}px`;
+
+                    this.scrollToSelected();
+                });
+            } else {
+                if (this.dropdownEl && this.dropdownEl.parentNode === document.body) {
+                    document.body.removeChild(this.dropdownEl);
+                    this.dropdownEl = null;
+                }
+            }
+        }
+    },
+    methods: {
+        pad2(n) {
+            return String(n).padStart(2, '0');
+        },
+        toggle() {
+            this.isOpen = !this.isOpen;
+        },
+        selectHour(h) {
+            const m = this.currentMinute;
+            this.$emit('update:modelValue', `${this.pad2(h)}:${this.pad2(m)}`);
+        },
+        selectMinute(m) {
+            const h = this.currentHour;
+            this.$emit('update:modelValue', `${this.pad2(h)}:${this.pad2(m)}`);
+            this.isOpen = false;
+        },
+        scrollToSelected() {
+            if (!this.dropdownEl) return;
+            const hoursEl = this.dropdownEl.querySelector('.tp-lists ul:first-of-type');
+            const minutesEl = this.dropdownEl.querySelector('.tp-lists ul:last-of-type');
+            if (hoursEl) {
+                const selected = hoursEl.querySelector('.is-selected');
+                if (selected) {
+                    hoursEl.scrollTop = selected.offsetTop - (hoursEl.offsetHeight / 2) + (selected.offsetHeight / 2);
+                }
+            }
+            if (minutesEl) {
+                const selected = minutesEl.querySelector('.is-selected');
+                if (selected) {
+                    minutesEl.scrollTop = selected.offsetTop - (minutesEl.offsetHeight / 2) + (selected.offsetHeight / 2);
+                }
+            }
+        },
+        onClickOutside(e) {
+            if (this.$refs.root && !this.$refs.root.contains(e.target) &&
+                this.dropdownEl && !this.dropdownEl.contains(e.target)) {
+                this.isOpen = false;
+            }
+        }
+    },
+    mounted() {
+        document.addEventListener('click', this.onClickOutside, true);
+    },
+    beforeUnmount() {
+        document.removeEventListener('click', this.onClickOutside, true);
+        if (this.dropdownEl && this.dropdownEl.parentNode === document.body) {
+            document.body.removeChild(this.dropdownEl);
+        }
+    }
+});
+
+app.component('v-schedules', {
                 template: '#v-schedules-template',
                 data() {
                     return {
@@ -727,6 +845,12 @@
                         const parts = (name || '').trim().split(/\s+/);
                         return parts.slice(0, 2).map(p => p[0]?.toUpperCase() || '').join('');
                     },
+
+                    formatTime(time) {
+                        if (!time) return '';
+                        const parts = time.split(':');
+                        return parts.slice(0, 2).join(':');
+                    },
                 },
             });
         </script>
@@ -736,6 +860,20 @@
             .add-overlay{position:relative;margin-top:8px;border:1px solid var(--border-color,#e5e7eb);border-radius:6px;padding:8px;background:var(--hours-bg,#fff)}
             .dark .add-overlay{border-color:#1f2937;background:#0b0f19}
             @media (max-width:640px){.add-overlay{margin-top:6px}}
-        </style>
+        .tp-container { position: relative; display: inline-block; width: 100%; }
+    .tp-input { display: flex; align-items: center; justify-content: space-between; width: 100%; border: 1px solid #e5e7eb; border-radius: 0.375rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; background: white; cursor: pointer; height: 39px; }
+    .dark .tp-input { border-color: #374151; background: #1f2937; color: #d1d5db; }
+    .tp-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 0.375rem; z-index: 1000; margin-top: 4px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
+    .dark .tp-dropdown { border-color: #374151; background: #1f2937; }
+    .tp-lists { display: flex; height: 160px; }
+    .tp-list { list-style: none; margin: 0; padding: 4px; overflow-y: auto; flex: 1; border-right: 1px solid #e5e7eb; }
+    .dark .tp-list { border-right-color: #374151; }
+    .tp-list:last-child { border-right: none; }
+    .tp-list li { padding: 4px 8px; border-radius: 0.25rem; cursor: pointer; text-align: center; }
+    .tp-list li:hover { background-color: #f3f4f6; }
+    .dark .tp-list li:hover { background-color: #374151; }
+    .tp-list li.is-selected { background-color: #3b82f6; color: white; font-weight: bold; }
+    .dark .tp-list li.is-selected { background-color: #2563eb; }
+</style>
     @endPushOnce
 </x-admin::layouts>
