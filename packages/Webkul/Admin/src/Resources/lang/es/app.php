@@ -1147,6 +1147,7 @@ return [
                     'title'                    => 'Crear Usuario',
                     'view-permission'          => 'Ver Permiso',
                     'select-at-lest-one-group' => 'Select at least one group',
+                    'horario'                  => 'Horario',
                 ],
                 'edit' => [
                     'title' => 'Editar Usuario',
@@ -2243,4 +2244,5 @@ return [
         'xls'        => 'XLS',
         'xlsx'       => 'XLSX',
     ],
+
 ];

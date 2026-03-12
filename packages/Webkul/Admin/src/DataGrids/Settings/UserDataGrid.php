@@ -20,9 +20,10 @@ class UserDataGrid extends DataGrid
                 'id',
                 'name',
                 'email',
-                'image',
-                'status',
-                'created_at'
+            'image',
+            'status',
+            'horario',
+            'created_at'
             )
             ->leftJoin('user_groups', 'id', '=', 'user_groups.user_id');
 
@@ -76,6 +77,15 @@ class UserDataGrid extends DataGrid
             'filterable' => true,
             'sortable'   => true,
             'searchable' => true,
+        ]);
+
+        $this->addColumn([
+            'index'      => 'horario',
+            'label'      => trans('admin::app.settings.users.index.datagrid.horario'),
+            'type'       => 'string',
+            'sortable'   => true,
+            'searchable' => true,
+            'filterable' => true,
         ]);
 
         $this->addColumn([

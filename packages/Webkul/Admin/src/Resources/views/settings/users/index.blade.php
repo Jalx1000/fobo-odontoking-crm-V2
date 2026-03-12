@@ -4,7 +4,8 @@
     </x-slot>
 
     <div class="flex flex-col gap-4">
-        <div class="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+        <div
+            class="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
             <div class="flex flex-col gap-2">
                 <!-- Breadcrumbs -->
                 <x-admin::breadcrumbs name="settings.users" />
@@ -20,11 +21,7 @@
                 <!-- Create button for User -->
                 @if (bouncer()->hasPermission('settings.user.users.create'))
                     <div class="flex items-center gap-x-2.5">
-                        <button
-                            type="button"
-                            class="primary-button"
-                            @click="$refs.userSettings.openModal()"
-                        >
+                        <button type="button" class="primary-button" @click="$refs.userSettings.openModal()">
                             @lang('admin::app.settings.users.index.create-btn')
                         </button>
                     </div>
@@ -390,6 +387,25 @@
                                 </x-admin::form.control-group>
                             </div>
 
+                            <div>
+                                <x-admin::form.control-group>
+                                    <x-admin::form.control-group.label>
+                                        @lang('admin::app.settings.users.index.create.horario')
+                                    </x-admin::form.control-group.label>
+
+                                    <x-admin::form.control-group.control
+                                        type="textarea"
+                                        id="horario"
+                                        name="horario"
+                                        v-model="user.horario"
+                                        :label="trans('admin::app.settings.users.index.create.horario')"
+                                        :placeholder="trans('admin::app.settings.users.index.create.horario')"
+                                    />
+
+                                    <x-admin::form.control-group.error control-name="horario" />
+                                </x-admin::form.control-group>
+                            </div>
+
                             {!! view_render_event('admin.settings.users.index.form.role_id.after') !!}
 
                             {!! view_render_event('admin.settings.users.index.form.role_id.before') !!}
@@ -488,7 +504,7 @@
 
                         roles: @json($roles),
 
-                        groups:  @json($groups),
+                        groups: @json($groups),
 
                         user: {
                             view_permission: 'global',
@@ -517,7 +533,7 @@
                 },
 
                 mounted() {
-                    @if(request('action') === 'create')
+                    @if (request('action') === 'create')
                         this.openModal();
                     @endif
                 },
@@ -543,7 +559,10 @@
                         this.$refs.userUpdateAndCreateModal.toggle();
                     },
 
-                    updateOrCreate(params, {resetForm, setErrors}) {
+                    updateOrCreate(params, {
+                        resetForm,
+                        setErrors
+                    }) {
                         const userForm = new FormData(this.$refs.userForm);
 
                         userForm.append('_method', params.id ? 'put' : 'post');
@@ -551,16 +570,19 @@
                         this.isProcessing = true;
 
                         this.$axios.post(
-                                params.id
-                                ? `{{ route('admin.settings.users.update', '') }}/${params.id}`
-                                : "{{ route('admin.settings.users.store') }}", userForm
+                                params.id ?
+                                `{{ route('admin.settings.users.update', '') }}/${params.id}` :
+                                "{{ route('admin.settings.users.store') }}", userForm
                             )
                             .then(response => {
                                 this.isProcessing = false;
 
                                 this.$refs.userUpdateAndCreateModal.toggle();
 
-                                this.$emitter.emit('add-flash', { type: 'success', message: response.data.message });
+                                this.$emitter.emit('add-flash', {
+                                    type: 'success',
+                                    message: response.data.message
+                                });
 
                                 this.$refs.datagrid.get();
 
