@@ -701,7 +701,7 @@
                             class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
                             v-model="groupForm.type"
                         >
-                            <option value="meeting">Reunión</option>
+                            <option value="meeting">Consulta</option>
                             <option value="call">Llamada</option>
                             <option value="lunch">Almuerzo</option>
                         </select>

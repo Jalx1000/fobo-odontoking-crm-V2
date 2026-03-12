@@ -108,7 +108,7 @@
             <div class="grid grid-cols-2 gap-2">
                 <input type="text" class="rounded border px-2 py-1 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="addForm.title" placeholder="Título" />
                 <select class="rounded border px-2 py-1 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="addForm.type">
-                    <option value="meeting">Reunión</option>
+                    <option value="meeting">Consulta</option>
                     <option value="call">Llamada</option>
                     <option value="lunch">Almuerzo</option>
                 </select>
