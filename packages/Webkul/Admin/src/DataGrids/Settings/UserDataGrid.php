@@ -17,15 +17,15 @@ class UserDataGrid extends DataGrid
         $queryBuilder = DB::table('users')
             ->distinct()
             ->addSelect(
-                'id',
-                'name',
-                'email',
-            'image',
-            'status',
-            'horario',
-            'created_at'
+                'users.id',
+                'users.name',
+                'users.email',
+                'users.image',
+                'users.status',
+                'users.horario',
+                'users.created_at'
             )
-            ->leftJoin('user_groups', 'id', '=', 'user_groups.user_id');
+            ->leftJoin('user_groups', 'users.id', '=', 'user_groups.user_id');
 
         if ($userIds = bouncer()->getAuthorizedUserIds()) {
             $queryBuilder->whereIn('id', $userIds);
@@ -86,6 +86,13 @@ class UserDataGrid extends DataGrid
             'sortable'   => true,
             'searchable' => true,
             'filterable' => true,
+            'closure'    => function ($row) {
+                if (empty($row->horario)) {
+                    return 'No tiene horario';
+                }
+
+                return nl2br(e($row->horario));
+            },
         ]);
 
         $this->addColumn([

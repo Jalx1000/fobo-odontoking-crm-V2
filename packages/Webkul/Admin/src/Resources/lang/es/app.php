@@ -1127,6 +1127,7 @@ return [
                     'id'            => 'ID',
                     'inactive'      => 'Inactivo',
                     'name'          => 'Nombre',
+                    'horario'       => 'Horario',
                     'status'        => 'Estado',
                     'update-status' => 'Actualizar Estado',
                     'users'         => 'Usuarios',

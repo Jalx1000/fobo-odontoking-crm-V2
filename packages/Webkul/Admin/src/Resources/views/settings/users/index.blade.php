@@ -116,6 +116,9 @@
                                 @{{ record.status == 1 ? '@lang('admin::app.settings.users.index.active')' : '@lang('admin::app.settings.users.index.inactive')' }}
                             </span>
 
+                            <!-- Users Horario -->
+                            <p v-html="record.horario"></p>
+
                             <!-- Users Creation Date -->
                             <p>@{{ record.created_at }}</p>
 
