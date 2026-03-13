@@ -70,7 +70,7 @@ Route::get('/public/products', function (Request $request) {
 });
 
 Route::get('/public/chat-history', function (Request $request) {
-    $email = $request->query('email');
+    $email = $request->query('email');  
 
     if (! $email) {
         return response()->json(['error' => 'email es requerido'], 400);
@@ -81,7 +81,7 @@ Route::get('/public/chat-history', function (Request $request) {
         $tables = [trim($singleTable)];
     } else {
         $tablesEnv = env('EXTERNAL_PGSQL_CHAT_TABLES');
-        $tables = $tablesEnv ? array_values(array_filter(array_map('trim', explode(',', $tablesEnv)))) : ['EXTERNAL_PGSQL_CHAT_TABLE=n8n_chat_histories_heaven'];
+        $tables = $tablesEnv ? array_values(array_filter(array_map('trim', explode(',', $tablesEnv)))) : ['EXTERNAL_PGSQL_CHAT_TABLE=n8n_chat_histories_odonto'];
     }
 
     $messages = collect();
