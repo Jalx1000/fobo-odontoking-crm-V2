@@ -1,6 +1,6 @@
 @foreach ($customAttributes as $attribute)
-    @if ($attribute->type === 'lookup')
-        <!-- Bloqueado por seguridad: {{ $attribute->code }} ({{ $attribute->entity_type }} -> {{ $attribute->lookup_type }}) -->
+    @if (in_array($attribute->type, ['lookup', 'select', 'multiselect']))
+        <!-- Bloqueado por seguridad: {{ $attribute->code }} ({{ $attribute->type }}) -->
         @continue
     @endif
     @php

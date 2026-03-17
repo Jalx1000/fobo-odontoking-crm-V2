@@ -24,7 +24,7 @@
                 ::value="{id: person.id, name: person.name}"
                 :placeholder="trans('admin::app.leads.common.contact.name')"
                 @on-selected="addPerson"
-                :can-add-new="true"
+                :can-add-new="false"
             />
 
             <x-admin::form.control-group.control
@@ -68,6 +68,7 @@
         </x-admin::form.control-group>
 
         <!-- Person Organization -->
+        <!--
         <x-admin::form.control-group>
             <x-admin::form.control-group.label>
                 @lang('admin::app.leads.common.contact.organization')
@@ -89,9 +90,10 @@
                 :attribute='@json($organizationAttribute)'
                 :value="person.organization"
                 :is-disabled="person?.id ? true : false"
-                can-add-new="true"
+                can-add-new="false"
             ></v-lookup-component>
         </x-admin::form.control-group>
+        -->
     </script>
 
     <script type="module">
