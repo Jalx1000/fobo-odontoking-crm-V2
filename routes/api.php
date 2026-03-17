@@ -104,3 +104,8 @@ Route::get('/public/chat-history', function (Request $request) {
         'count' => $messages->count(),
     ]);
 });
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/horarios', [\App\Http\Controllers\Api\ScheduleController::class, 'getHorarios']);
+    Route::get('/disponibilidad', [\App\Http\Controllers\Api\ScheduleController::class, 'getDisponibilidad']);
+});
