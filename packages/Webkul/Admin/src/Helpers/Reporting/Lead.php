@@ -779,6 +779,7 @@ class Lead extends AbstractReporting
     public function getOpenLeadsByStatesFixed()
     {
         $pipeline = $this->pipelineRepository->getDefaultPipeline();
+        $tablePrefix = DB::getTablePrefix();
 
         $stages = $pipeline->stages()->get();
 
@@ -812,7 +813,7 @@ class Lead extends AbstractReporting
             ->select(
                 'lead_pipeline_stages.id',
                 'lead_pipeline_stages.name',
-                DB::raw('COUNT(leads.id) as total')
+                DB::raw('COUNT('.$tablePrefix.'leads.id) as total')
             )
             ->leftJoin('lead_pipeline_stages', 'leads.lead_pipeline_stage_id', '=', 'lead_pipeline_stages.id')
             ->where('leads.lead_pipeline_id', $pipeline->id)
@@ -838,6 +839,7 @@ class Lead extends AbstractReporting
     public function getTotalLeadsByStages(): array
     {
         $pipeline = $this->pipelineRepository->getDefaultPipeline();
+        $tablePrefix = DB::getTablePrefix();
 
         $stages = $pipeline->stages()->get();
 
@@ -864,7 +866,7 @@ class Lead extends AbstractReporting
             ->select(
                 'lead_pipeline_stages.id',
                 'lead_pipeline_stages.name',
-                DB::raw('COUNT(leads.id) as total')
+                DB::raw('COUNT('.$tablePrefix.'leads.id) as total')
             )
             ->leftJoin('lead_pipeline_stages', 'leads.lead_pipeline_stage_id', '=', 'lead_pipeline_stages.id')
             ->where('leads.lead_pipeline_id', $pipeline->id)
@@ -889,6 +891,7 @@ class Lead extends AbstractReporting
     public function getTotalLeadsByStagesOverTime(): array
     {
         $period = $this->determinePeriod('auto');
+        $tablePrefix = DB::getTablePrefix();
 
         $pipeline = $this->pipelineRepository->getDefaultPipeline();
 
@@ -923,7 +926,7 @@ class Lead extends AbstractReporting
             ->select(
                 DB::raw("$groupColumn AS date"),
                 'lead_pipeline_stages.id as stage_id',
-                DB::raw('COUNT(leads.id) as count')
+                DB::raw('COUNT('.$tablePrefix.'leads.id) as count')
             )
             ->groupBy(DB::raw($groupColumn), 'lead_pipeline_stages.id')
             ->orderBy(DB::raw($groupColumn))

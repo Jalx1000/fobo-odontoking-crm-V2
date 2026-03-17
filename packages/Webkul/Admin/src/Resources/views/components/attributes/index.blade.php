@@ -1,4 +1,8 @@
 @foreach ($customAttributes as $attribute)
+    @if ($attribute->type === 'lookup')
+        <!-- Bloqueado por seguridad: {{ $attribute->code }} ({{ $attribute->entity_type }} -> {{ $attribute->lookup_type }}) -->
+        @continue
+    @endif
     @php
         $validations = [];
 

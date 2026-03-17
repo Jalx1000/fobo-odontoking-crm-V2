@@ -148,7 +148,12 @@ class LeadController extends Controller
      */
     public function create(): View
     {
-        return view('admin::leads.create');
+        $attributes = $this->attributeRepository->findWhere([
+            'entity_type' => 'leads',
+            'quick_add'   => 1,
+        ]);
+
+        return view('admin::leads.create', compact('attributes'));
     }
 
     /**
