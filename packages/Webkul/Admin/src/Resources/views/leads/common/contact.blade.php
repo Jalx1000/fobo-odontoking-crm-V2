@@ -24,7 +24,7 @@
                 ::value="{id: person.id, name: person.name}"
                 :placeholder="trans('admin::app.leads.common.contact.name')"
                 @on-selected="addPerson"
-                :can-add-new="false"
+                :can-add-new="true"
             />
 
             <x-admin::form.control-group.control
