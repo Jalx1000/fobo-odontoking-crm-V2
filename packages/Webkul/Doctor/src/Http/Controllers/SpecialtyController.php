@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Support\Str;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Doctor\DataGrids\SpecialtyDataGrid;
 use Webkul\Doctor\Repositories\SpecialtyRepository;
@@ -37,6 +38,8 @@ class SpecialtyController extends Controller
             'description' => ['required', 'string'],
         ]);
 
+        $validated['slug'] = Str::slug($validated['name']);
+
         $specialty = $this->specialtyRepository->create($validated);
 
         session()->flash('success', 'Especialidad creada correctamente');
@@ -59,6 +62,8 @@ class SpecialtyController extends Controller
             'name'        => ['required', 'string', 'min:2', 'max:150', 'unique:specialties,name,'.$specialty->id],
             'description' => ['required', 'string'],
         ]);
+
+        $validated['slug'] = Str::slug($validated['name']);
 
         $specialty = $this->specialtyRepository->update($validated, $id);
 
