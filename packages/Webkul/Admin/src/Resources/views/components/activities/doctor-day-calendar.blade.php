@@ -1,6 +1,6 @@
 <script type="text/x-template" id="v-doctor-multiselect-template">
     <div class="ms-container" ref="root">
-        <div class="ms-input" @click="open=!open">
+        <div class="ms-input" @click="toggleDropdown">
             <div class="ms-chips">
                 <span class="ms-chip" v-for="sid in model" :key="'chip-'+sid">
                     @{{ nameById(sid) }}
@@ -824,6 +824,20 @@
             },
         },
         methods: {
+                toggleDropdown() {
+                    this.open = !this.open;
+                    if (this.open) {
+                        this.$nextTick(() => {
+                            const inputRect = this.$refs.root.getBoundingClientRect();
+                            const dropdown = this.$refs.root.querySelector('.ms-dropdown');
+                            if (dropdown) {
+                                dropdown.style.left = inputRect.left + 'px';
+                                dropdown.style.top = inputRect.bottom + 4 + 'px';
+                                dropdown.style.width = inputRect.width + 'px';
+                            }
+                        });
+                    }
+                },
             nameById(id) {
                 const d = this.items.find(x => x && String(x.id) === String(id));
                 return d ? d.name : '';
@@ -1548,8 +1562,7 @@ app.component('v-doctor-day-calendar', {
                 this.groupForm.type = 'meeting';
                 this.groupForm.startTime = this.quickMenu.startTime;
                 this.groupForm.endTime = this.quickMenu.endTime;
-                this.groupForm.doctorIds = this.selectedDoctorIds.length ? [...this.selectedDoctorIds] : this
-                    .doctors.map(d => String(d.id));
+                this.groupForm.doctorIds = this.quickMenu.doctorId ? [String(this.quickMenu.doctorId)] : [];
                 this.closeQuickMenu();
                 this.$refs.groupModal.open();
             },
@@ -2184,7 +2197,7 @@ app.component('v-doctor-day-calendar', {
     }
 
     .ms-dropdown {
-        position: absolute;
+        position: fixed;
         left: 0;
         right: 0;
         top: calc(100% + 4px);
@@ -2193,7 +2206,7 @@ app.component('v-doctor-day-calendar', {
         border-radius: 8px;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
         padding: 8px;
-        z-index: 20
+        z-index: 100001
     }
 
     .dark .ms-dropdown {
