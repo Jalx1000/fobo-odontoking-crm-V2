@@ -155,6 +155,7 @@
                                     <div class="text-xs text-gray-500">Generar múltiples turnos automáticamente</div>
                                 </div>
                             </button>
+                            <!--
                             <button type="button" class="w-full text-left px-4 py-3 rounded border hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3" @click="openTimeOffModal">
                                 <span class="icon-calendar text-xl text-orange-600"></span>
                                 <div>
@@ -162,6 +163,7 @@
                                     <div class="text-xs text-gray-500">Registrar vacaciones o ausencias</div>
                                 </div>
                             </button>
+                            -->
                         </div>
                     </x-slot>
                 </x-admin::modal>

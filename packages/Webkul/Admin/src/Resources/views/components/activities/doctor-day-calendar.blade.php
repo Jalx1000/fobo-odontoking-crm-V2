@@ -95,15 +95,18 @@
                     <span class="icon-calendar text-xl"></span>
                     <span>Añadir cita</span>
                 </button>
+                
                 <button type="button" class="ddc-quick-menu-item" @click="openGroupModal">
                     <span class="icon-calendar text-xl"></span>
                     <span>Añadir cita de grupo</span>
                 </button>
+                <!--
                 <button type="button" class="ddc-quick-menu-item" @click="openScheduleOptionsModal">
                     <span class="icon-calendar text-xl"></span>
                     <span>Gestionar horario</span>
                 </button>
                 <a class="ddc-quick-menu-link" href="#">Ajustes de acciones rápidas</a>
+                -->
             </div>
         </div>
 
