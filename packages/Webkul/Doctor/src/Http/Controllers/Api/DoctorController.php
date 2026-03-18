@@ -27,7 +27,7 @@ class DoctorController extends Controller
             if ($limit < 1) $limit = 10;
 
             // Apply filters
-            $query = $this->doctorRepository->getModel()->newQuery();
+            $query = $this->doctorRepository->getModel()->newQuery()->with('specialties');
 
             if ($request->has('specialty')) {
                 $query->whereHas('specialties', function ($q) use ($request) {
