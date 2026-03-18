@@ -84,21 +84,19 @@
 
                     <x-admin::form.control-group>
                         <x-admin::form.control-group.label>
-                            Especialidades
+                            Especialidades (Mantén presionado Ctrl/Cmd para seleccionar varias)
                         </x-admin::form.control-group.label>
 
-                        <x-admin::form.control-group.control
-                            type="select"
-                            id="specialties"
-                            name="specialties[]"
-                            multiple
-                            :label="trans('Especialidades')"
-                            :placeholder="trans('Selecciona especialidades')"
-                        >
-                            @php
-                                $selectedSpecialties = old('specialties', isset($doctor) ? $doctor->specialties->pluck('id')->toArray() : []);
-                            @endphp
+                        @php
+                            $selectedSpecialties = old('specialties', isset($doctor) ? $doctor->specialties->pluck('id')->toArray() : []);
+                        @endphp
 
+                        <select
+                            name="specialties[]"
+                            id="specialties"
+                            class="flex min-h-[100px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
+                            multiple
+                        >
                             @foreach ($specialties as $sp)
                                 <option
                                     value="{{ $sp->id }}"
@@ -107,7 +105,7 @@
                                     {{ $sp->name }}
                                 </option>
                             @endforeach
-                        </x-admin::form.control-group.control>
+                        </select>
 
                         <x-admin::form.control-group.error control-name="specialties" />
                     </x-admin::form.control-group>
