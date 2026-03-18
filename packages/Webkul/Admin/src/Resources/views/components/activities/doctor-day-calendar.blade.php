@@ -229,7 +229,7 @@
             </div>
 
             <div class="dwc-hours">
-                <div v-for="h in 24" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h-1) }}:00</div>
+                <div v-for="h in 17" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+5) }}:00</div>
             </div>
 
             <div v-for="day in days" :key="'col-day-'+day.date" class="dwc-doctor-col">
@@ -246,7 +246,7 @@
                         </div>
 
                         <!-- Lines -->
-                        <div v-for="idx in 24" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
+                        <div v-for="idx in 17" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
                         <!-- Events -->
                         <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
@@ -295,7 +295,7 @@
             </div>
 
             <div class="dwc-hours">
-                <div v-for="h in 24" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h-1) }}:00</div>
+                <div v-for="h in 17" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+5) }}:00</div>
             </div>
 
             <div v-for="col in columns" :key="'col-'+col.id" class="dwc-doctor-col">
@@ -311,7 +311,7 @@
                                  :style="{ top: av.top + 'px', height: av.height + 'px' }">
                             </div>
 
-                            <div v-for="idx in 24" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
+                            <div v-for="idx in 17" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
                             <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
                                 <div class="dwc-event-content dwc-event-layout">
@@ -1053,7 +1053,7 @@ app.component('v-doctor-day-calendar', {
                 return this.hourHeight / 60;
             },
             dayHeight() {
-                return 24 * this.hourHeight;
+                return 17 * this.hourHeight;
             },
             totalHeight() {
                 return this.days.length * this.dayHeight;
@@ -1100,10 +1100,10 @@ app.component('v-doctor-day-calendar', {
                 return this.buildMonthCells(new Date(d.getFullYear(), d.getMonth(), 1));
             },
             showNowLine() {
-                return this.startISO === this.todayISO();
+                return this.startISO === this.todayISO() && this.nowMinutes >= (6 * 60) && this.nowMinutes < (23 * 60);
             },
             nowTop() {
-                return this.nowMinutes * this.minuteHeight + 30;
+                return (this.nowMinutes - (6 * 60)) * this.minuteHeight + 30;
             },
             month1Date() {
                 const base = this.datePickerMonthISO ? this.parseISODate(this.datePickerMonthISO) : this
@@ -1356,7 +1356,7 @@ app.component('v-doctor-day-calendar', {
                     .map(s => {
                         const startMin = this.timeToMinutes(s.start_time);
                         const endMin = this.timeToMinutes(s.end_time);
-                        const top = startMin * this.minuteHeight;
+                        const top = (startMin - (6 * 60)) * this.minuteHeight;
                         const height = (endMin - startMin) * this.minuteHeight;
                         return { ...s, top, height };
                     });
@@ -1369,7 +1369,7 @@ app.component('v-doctor-day-calendar', {
                         const dtEnd = new Date(a.end);
                         const startMin = dtStart.getHours() * 60 + dtStart.getMinutes();
                         const endMin = dtEnd.getHours() * 60 + dtEnd.getMinutes();
-                        const top = startMin * this.minuteHeight;
+                        const top = (startMin - (6 * 60)) * this.minuteHeight;
                         const height = Math.max((endMin - startMin) * this.minuteHeight, 8);
                         return {
                             ...a,
@@ -1386,7 +1386,7 @@ app.component('v-doctor-day-calendar', {
                 const rect = container.getBoundingClientRect();
                 const yLocal = e.clientY - rect.top;
                 
-                const minutes = Math.max(0, Math.min(23 * 60 + 59, Math.round(yLocal / this.minuteHeight)));
+                const minutes = Math.max(0, Math.min(17 * 60 - 1, Math.round(yLocal / this.minuteHeight))) + (6 * 60);
 
                 // Check availability
                 const availableSlots = this.getDoctorAvailability(day.date, doctorId);
