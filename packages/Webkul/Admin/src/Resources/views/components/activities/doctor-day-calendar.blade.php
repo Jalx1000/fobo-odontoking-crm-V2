@@ -223,16 +223,18 @@
         </div>
 
         <div v-else-if="viewType === 'week' && isSingleDoctorMode" class="dwc-grid" :style="{ gridTemplateColumns: gridCols }">
-            <div
-                v-if="showNowLine"
-                class="dwc-now-line"
-                :style="{ top: nowTop + 'px' }"
-            >
-                <div class="dwc-now-time">@{{ nowText }}</div>
-            </div>
+            <div class="dwc-time-col">
+                <div
+                    v-if="showNowLine"
+                    class="dwc-now-line"
+                    :style="{ top: nowTop + 'px' }"
+                >
+                    <div class="dwc-now-time">@{{ nowText }}</div>
+                </div>
 
-            <div class="dwc-hours">
-                <div v-for="h in 17" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+5) }}:00</div>
+                <div class="dwc-hours">
+                    <div v-for="h in 17" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+5) }}:00</div>
+                </div>
             </div>
 
             <div v-for="day in days" :key="'col-day-'+day.date" class="dwc-doctor-col">
@@ -290,15 +292,17 @@
         </div>
 
         <div v-else-if="viewType === 'day'" class="dwc-grid" :style="{ gridTemplateColumns: gridCols }">
-            <div
-                v-if="showNowLine"
-                class="dwc-now-line"
-                :style="{ top: nowTop + 'px' }">
-                <div class="dwc-now-time">@{{ nowText }}</div>
-            </div>
+            <div class="dwc-time-col">
+                <div
+                    v-if="showNowLine"
+                    class="dwc-now-line"
+                    :style="{ top: nowTop + 'px' }">
+                    <div class="dwc-now-time">@{{ nowText }}</div>
+                </div>
 
-            <div class="dwc-hours">
-                <div v-for="h in 17" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+5) }}:00</div>
+                <div class="dwc-hours">
+                    <div v-for="h in 17" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+5) }}:00</div>
+                </div>
             </div>
 
             <div v-for="col in columns" :key="'col-'+col.id" class="dwc-doctor-col">
@@ -2262,6 +2266,14 @@ app.component('v-doctor-day-calendar', {
         flex-direction: column;
         gap: 8px;
         width: 100%
+    }
+
+    .dwc-time-col {
+        position: -webkit-sticky;
+        position: sticky;
+        left: 0;
+        z-index: 10;
+        background: var(--hours-bg, #fff);
     }
 
     .dwc-controls {
