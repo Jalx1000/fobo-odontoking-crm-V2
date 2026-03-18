@@ -16,6 +16,7 @@ class Specialty extends Model implements SpecialtyContract
     protected $fillable = [
         'name',
         'slug',
+        'description',
     ];
 
     public function doctors(): BelongsToMany
