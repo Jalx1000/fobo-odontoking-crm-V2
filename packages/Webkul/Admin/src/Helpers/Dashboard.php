@@ -48,6 +48,7 @@ class Dashboard
             'total_leads'           => $this->leadReporting->getTotalLeadsProgress(),
             'average_lead_value'    => $this->leadReporting->getAverageLeadValueProgress(),
             'average_leads_per_day' => $this->leadReporting->getAverageLeadsPerDayProgress(),
+            'total_services'        => $this->productReporting->getTotalServicesProgress(),
             'total_quotations'      => $this->quoteReporting->getTotalQuotesProgress(),
             'total_persons'         => $this->personReporting->getTotalPersonsProgress(),
             'total_organizations'   => $this->organizationReporting->getTotalOrganizationsProgress(),
@@ -70,6 +71,16 @@ class Dashboard
             'lost' => [
                 'over_time' => $this->leadReporting->getTotalLostLeadsOverTime(),
             ],
+        ];
+    }
+
+    /**
+     * Returns total services statistics.
+     */
+    public function getTotalServicesStats(): array
+    {
+        return [
+            'over_time' => $this->productReporting->getTotalProductsSoldOverTime(),
         ];
     }
 

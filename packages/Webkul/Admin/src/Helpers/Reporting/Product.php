@@ -86,11 +86,15 @@ class Product extends AbstractReporting
             })
             ->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
             ->leftJoin('products', 'lead_products.product_id', '=', 'products.id')
-            ->select('*')
+            ->select(
+                'products.id as product_id',
+                'products.name',
+                'products.price'
+            )
             ->addSelect(DB::raw('SUM('.$tablePrefix.'lead_products.quantity) as total_qty_ordered'))
-            ->whereBetween('leads.closed_at', [$this->startDate, $this->endDate])
+            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
             ->having(DB::raw('SUM('.$tablePrefix.'lead_products.quantity)'), '>', 0)
-            ->groupBy('product_id')
+            ->groupBy('products.id', 'products.name', 'products.price')
             ->orderBy('total_qty_ordered', 'DESC')
             ->limit($limit)
             ->get();
@@ -106,5 +110,164 @@ class Product extends AbstractReporting
         });
 
         return $items;
+    }
+
+    /**
+     * Retrieves total services (products sold) and their progress.
+     */
+    public function getTotalServicesProgress(): array
+    {
+        return [
+            'previous' => $previous = $this->getTotalServices($this->lastStartDate, $this->lastEndDate),
+            'current'  => $current = $this->getTotalServices($this->startDate, $this->endDate),
+            'progress' => $this->getPercentageChange($previous, $current),
+        ];
+    }
+
+    /**
+     * Retrieves total services by date
+     *
+     * @param  \Carbon\Carbon  $startDate
+     * @param  \Carbon\Carbon  $endDate
+     */
+    public function getTotalServices($startDate, $endDate): int
+    {
+        $tablePrefix = DB::getTablePrefix();
+
+        return (int) $this->productRepository
+            ->resetModel()
+            ->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
+            ->whereBetween('leads.created_at', [$startDate, $endDate])
+            ->sum(DB::raw($tablePrefix.'lead_products.quantity'));
+    }
+
+    /**
+     * Returns total products sold over time
+     *
+     * @param  string  $period
+     */
+    public function getTotalProductsSoldOverTime($period = 'auto'): array
+    {
+        $period = $this->determinePeriod($period);
+
+        $intervals = $this->generateTimeIntervals($this->startDate, $this->endDate, $period);
+
+        $groupColumn = $this->getGroupColumn('leads.created_at', $period);
+
+        $tablePrefix = DB::getTablePrefix();
+
+        $query = $this->productRepository
+            ->resetModel()
+            ->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
+            ->select(
+                DB::raw("$groupColumn AS date"),
+                DB::raw('SUM('.$tablePrefix.'lead_products.quantity) AS count')
+            )
+            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
+            ->groupBy(DB::raw($groupColumn))
+            ->orderBy(DB::raw($groupColumn));
+
+        $results = $query->get();
+        $resultLookup = $results->keyBy('date');
+
+        $stats = [];
+
+        foreach ($intervals as $interval) {
+            $result = $resultLookup->get($interval['key']);
+
+            $stats[] = [
+                'label' => $interval['label'],
+                'count' => $result ? (int) $result->count : 0,
+            ];
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Generate time intervals based on period
+     */
+    protected function generateTimeIntervals(\Carbon\Carbon $startDate, \Carbon\Carbon $endDate, string $period): array
+    {
+        $intervals = [];
+        $current = $startDate->copy();
+
+        while ($current <= $endDate) {
+            $interval = [
+                'key'   => $this->formatDateForGrouping($current, $period),
+                'label' => $this->formatDateForLabel($current, $period),
+            ];
+
+            $intervals[] = $interval;
+
+            switch ($period) {
+                case 'day':
+                    $current->addDay();
+                    break;
+                case 'week':
+                    $current->addWeek();
+                    break;
+                case 'month':
+                    $current->addMonth();
+                    break;
+                case 'year':
+                    $current->addYear();
+                    break;
+            }
+        }
+
+        return $intervals;
+    }
+
+    protected function determinePeriod(string $period): string
+    {
+        if ($period !== 'auto') {
+            return $period;
+        }
+
+        $days = $this->startDate->diffInDays($this->endDate);
+
+        if ($days <= 31) {
+            return 'day';
+        } elseif ($days <= 90) {
+            return 'week';
+        } elseif ($days <= 365) {
+            return 'month';
+        }
+
+        return 'year';
+    }
+
+    protected function getGroupColumn(string $dateColumn, string $period): string
+    {
+        return match ($period) {
+            'day'   => "DATE_FORMAT($dateColumn, '%Y-%m-%d')",
+            'week'  => "DATE_FORMAT(DATE_ADD($dateColumn, INTERVAL(1-DAYOFWEEK($dateColumn)) DAY), '%Y-%m-%d')",
+            'month' => "DATE_FORMAT($dateColumn, '%Y-%m')",
+            'year'  => "DATE_FORMAT($dateColumn, '%Y')",
+            default => "DATE_FORMAT($dateColumn, '%Y-%m-%d')",
+        };
+    }
+
+    protected function formatDateForGrouping(\Carbon\Carbon $date, string $period): string
+    {
+        return match ($period) {
+            'day'   => $date->format('Y-m-d'),
+            'week'  => clone $date->startOfWeek()->format('Y-m-d'),
+            'month' => $date->format('Y-m'),
+            'year'  => $date->format('Y'),
+            default => $date->format('Y-m-d'),
+        };
+    }
+
+    protected function formatDateForLabel(\Carbon\Carbon $date, string $period): string
+    {
+        return match ($period) {
+            'day'   => $date->format('d M'),
+            'week'  => clone $date->startOfWeek()->format('d M') . ' - ' . clone $date->endOfWeek()->format('d M'),
+            'month' => $date->format('M Y'),
+            'year'  => $date->format('Y'),
+            default => $date->format('d M'),
+        };
     }
 }

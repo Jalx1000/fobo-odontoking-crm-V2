@@ -30,7 +30,7 @@
                         <div class="flex flex-wrap justify-center gap-5">
                             <div class="flex items-start gap-2 max-w-[260px]" v-for="(stat, index) in report.statistics" :key="stat.id">
                                 <span class="h-3.5 w-3.5 rounded-sm" :style="{ backgroundColor: colors[index] }"></span>
-                                <p class="text-xs dark:text-gray-300 break-words">@{{ stat.name }} — @{{ $admin.formatPrice((stat.price || 0) * (stat.total_qty_ordered || 0)) }}</p>
+                                <p class="text-xs dark:text-gray-300 break-words">@{{ stat.name }} — @{{ stat.total_qty_ordered }}</p>
                             </div>
                         </div>
                     </div>

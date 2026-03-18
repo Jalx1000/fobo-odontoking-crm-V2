@@ -30,6 +30,7 @@ class DashboardController extends Controller
         'leads-por-sucursal'   => 'getLeadsByBranchesStats',
         'total-leads-by-stages' => 'getTotalLeadsByStages',
         'total-leads-by-stages-over-time' => 'getTotalLeadsByStagesOverTime',
+        'total-services'       => 'getTotalServicesStats',
     ];
 
     /**

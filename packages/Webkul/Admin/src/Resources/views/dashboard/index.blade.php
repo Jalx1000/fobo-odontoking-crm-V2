@@ -45,7 +45,7 @@
         {!! view_render_event('admin.dashboard.index.content.left.before') !!}
 
         <div class="flex flex-1 flex-col gap-4 max-xl:flex-auto">
-            @include('admin::dashboard.index.revenue')
+            {{-- @include('admin::dashboard.index.revenue') --}}
             @include('admin::dashboard.index.over-all')
             @include('admin::dashboard.index.total-leads')
             

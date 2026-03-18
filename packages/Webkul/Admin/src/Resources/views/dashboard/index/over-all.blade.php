@@ -22,7 +22,8 @@
         <template v-else>
             <!-- Stats Cards -->
             <div class="grid grid-cols-3 gap-4 max-md:grid-cols-2 max-sm:grid-cols-1">
-                <!-- Average Revenue Card -->
+                <!-- Average Revenue Card (Oculto) -->
+                <!--
                 <div class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-5 dark:border-gray-800 dark:bg-gray-900">
                     <p class="text-xs font-medium text-gray-600 dark:text-gray-300">
                         @lang('admin::app.dashboard.index.over-all.average-lead-value')
@@ -48,8 +49,9 @@
                         </div>
                     </div>
                 </div>
+                -->
                 
-                <!-- Average Revenue Card -->
+                <!-- Total Leads Card -->
                 <div class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-5 dark:border-gray-800 dark:bg-gray-900">
                     <p class="text-xs font-medium text-gray-600 dark:text-gray-300">
                         @lang('admin::app.dashboard.index.over-all.total-leads')
@@ -98,6 +100,33 @@
                                 :class="[report.statistics.average_leads_per_day.progress < 0 ?  'text-red-500' : 'text-green-500']"
                             >
                                 @{{ Math.round(Math.abs(report.statistics.average_leads_per_day.progress)) }}%
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Total Services -->
+                <div class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-5 dark:border-gray-800 dark:bg-gray-900">
+                    <p class="text-xs font-medium text-gray-600 dark:text-gray-300">
+                        Total servicios solicitados
+                    </p>
+
+                    <div class="flex gap-2">
+                        <p class="text-xl font-bold dark:text-gray-300">
+                            @{{ Math.round(report.statistics.total_services.current) }}
+                        </p>
+
+                        <div class="flex items-center gap-0.5">
+                            <span
+                                class="text-base !font-semibold text-green-500"
+                                :class="[report.statistics.total_services.progress < 0 ? 'icon-stats-down text-red-500 dark:!text-red-500' : 'icon-stats-up text-green-500 dark:!text-green-500']"
+                            ></span>
+
+                            <p
+                                class="text-xs font-semibold text-green-500"
+                                :class="[report.statistics.total_services.progress < 0 ?  'text-red-500' : 'text-green-500']"
+                            >
+                                @{{ Math.round(Math.abs(report.statistics.total_services.progress)) }}%
                             </p>
                         </div>
                     </div>
