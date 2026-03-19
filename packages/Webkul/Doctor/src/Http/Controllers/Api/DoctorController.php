@@ -42,6 +42,23 @@ class DoctorController extends Controller
             // Pagination
             $doctors = $query->paginate($limit, ['*'], 'page', $page);
 
+            // Get availability for the paginated doctors
+            $doctorIds = $doctors->pluck('id')->toArray();
+            $startDate = Carbon::now()->startOfDay();
+            $endDate = Carbon::now()->addDays(6)->endOfDay();
+
+            $shifts = DB::table('doctor_shifts')
+                ->whereIn('doctor_id', $doctorIds)
+                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->get()
+                ->groupBy('doctor_id');
+
+            // Attach availability to each doctor
+            $doctors->getCollection()->transform(function ($doctor) use ($shifts) {
+                $doctor->availability = $shifts->get($doctor->id, collect());
+                return $doctor;
+            });
+
             return response()->json([
                 'data' => $doctors->items(),
                 'meta' => [
