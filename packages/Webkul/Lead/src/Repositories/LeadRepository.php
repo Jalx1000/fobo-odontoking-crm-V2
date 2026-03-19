@@ -112,6 +112,14 @@ class LeadRepository extends Repository
      */
     public function create(array $data)
     {
+        // Sanitize foreign key values
+        $foreignKeys = ['lead_source_id', 'lead_type_id', 'user_id'];
+        foreach ($foreignKeys as $key) {
+            if (array_key_exists($key, $data) && empty($data[$key])) {
+                $data[$key] = null;
+            }
+        }
+
         /**
          * If a person is provided, create or update the person and set the `person_id`.
          */
@@ -183,6 +191,14 @@ class LeadRepository extends Repository
      */
     public function update(array $data, $id, $attributes = [])
     {
+        // Sanitize foreign key values
+        $foreignKeys = ['lead_source_id', 'lead_type_id', 'user_id'];
+        foreach ($foreignKeys as $key) {
+            if (array_key_exists($key, $data) && empty($data[$key])) {
+                $data[$key] = null;
+            }
+        }
+
         /**
          * If a person is provided, create or update the person and set the `person_id`.
          * Be cautious, as a lead can be updated without providing person data.

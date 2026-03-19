@@ -62,6 +62,10 @@ class PersonRepository extends Repository
             $organization = $this->fetchOrCreateOrganizationByName($data['organization_name']);
 
             $data['organization_id'] = $organization->id;
+        } elseif (! empty($data['organization_id'])) {
+            if (! $this->organizationRepository->find($data['organization_id'])) {
+                $data['organization_id'] = null;
+            }
         }
 
         if (isset($data['user_id'])) {
