@@ -2421,6 +2421,7 @@ app.component('v-doctor-day-calendar', {
         z-index: 1;
         pointer-events: none;
     }
+    
     .dwc-event {
         position: absolute;
         left: 6px;
