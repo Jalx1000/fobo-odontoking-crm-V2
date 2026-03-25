@@ -362,6 +362,10 @@
                 <div class="text-lg font-semibold dark:text-white">
                     Añadir cita
                 </div>
+
+                <div class="text-sm text-gray-500 dark:text-gray-300">
+                    @{{ modalContext.dayLabel }} · @{{ modalContext.timeText }}
+                </div>
             </x-slot>
 
             <x-slot:content>
@@ -372,72 +376,100 @@
 
                     <div class="grid grid-cols-2 gap-3">
                         <div class="col-span-2">
+                            <div class="flex flex-col gap-1">
+                                <div class="text-xs text-gray-600 dark:text-gray-300">Paciente</div>
+                                <x-admin::lookup
+                                    ::src="personSearchUrl"
+                                    ::params="{}"
+                                    name="appointment_person"
+                                    placeholder="Paciente"
+                                    :can-add-new="true"
+                                    @on-selected="onSelectPatient"
+                                    ::value="{ id: appointmentForm.person.id, name: appointmentForm.person.name }"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-1">
+                            <div class="text-xs text-gray-600 dark:text-gray-300">Doctor</div>
+                            <select
+                                class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                v-model="appointmentForm.doctor_id"
+                            >
+                                <option :value="null" disabled>Doctor</option>
+                                <option v-for="d in doctors" :key="'doc-opt-'+d.id" :value="d.id">@{{ d && d.name ? d.name : '' }}</option>
+                            </select>
+                        </div>
+
+                        <div class="flex flex-col gap-1">
+                            <div class="text-xs text-gray-600 dark:text-gray-300">Servicio</div>
                             <x-admin::lookup
-                                ::src="personSearchUrl"
+                                class="col-span-1"
+                                ::src="productSearchUrl"
                                 ::params="{}"
-                                name="appointment_person"
-                                placeholder="Paciente"
-                                :can-add-new="true"
-                                @on-selected="onSelectPatient"
-                                ::value="{ id: appointmentForm.person.id, name: appointmentForm.person.name }"
+                                name="appointment_product"
+                                placeholder="Servicio"
+                                @on-selected="onSelectService"
+                                ::value="{ id: appointmentForm.product_id, name: appointmentForm.product_name }"
                             />
                         </div>
 
-                        <select
-                            class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
-                            v-model="appointmentForm.doctor_id"
-                        >
-                            <option :value="null" disabled>Doctor</option>
-                            <option v-for="d in doctors" :key="'doc-opt-'+d.id" :value="d.id">@{{ d && d.name ? d.name : '' }}</option>
-                        </select>
+                        <div class="flex flex-col gap-1">
+                            <div class="text-xs text-gray-600 dark:text-gray-300">Duración</div>
+                            <select
+                                class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                v-model.number="appointmentForm.duration"
+                                @change="syncAppointmentEndTime"
+                            >
+                                <option :value="15">15 min</option>
+                                <option :value="30">30 min</option>
+                                <option :value="45">45 min</option>
+                                <option :value="60">60 min</option>
+                                <option :value="90">90 min</option>
+                                <option :value="120">120 min</option>
+                            </select>
+                        </div>
 
-                        <x-admin::lookup
-                            class="col-span-1"
-                            ::src="productSearchUrl"
-                            ::params="{}"
-                            name="appointment_product"
-                            placeholder="Servicio"
-                            @on-selected="onSelectService"
-                            ::value="{ id: appointmentForm.product_id, name: appointmentForm.product_name }"
-                        />
+                        <div class="flex flex-col gap-1">
+                            <div class="text-xs text-gray-600 dark:text-gray-300">Hora Inicio</div>
+                            <v-time-picker
+                                v-model="appointmentForm.startTime"
+                                @update:modelValue="syncAppointmentEndTime"
+                            ></v-time-picker>
+                        </div>
 
-                        <select
-                            class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
-                            v-model.number="appointmentForm.duration"
-                            @change="syncAppointmentEndTime"
-                        >
-                            <option :value="15">15 min</option>
-                            <option :value="30">30 min</option>
-                            <option :value="45">45 min</option>
-                            <option :value="60">60 min</option>
-                            <option :value="90">90 min</option>
-                            <option :value="120">120 min</option>
-                        </select>
+                        <div class="flex flex-col gap-1">
+                            <div class="text-xs text-gray-600 dark:text-gray-300">Hora Fin</div>
+                            <v-time-picker
+                                v-model="appointmentForm.endTime"
+                                @update:modelValue="syncAppointmentDurationFromTimes"
+                            ></v-time-picker>
+                        </div>
 
-                        <v-time-picker
-                            v-model="appointmentForm.startTime"
-                            @update:modelValue="syncAppointmentEndTime"
-                        ></v-time-picker>
+                        <div class="col-span-2">
+                            <div class="flex flex-col gap-1">
+                                <div class="text-xs text-gray-600 dark:text-gray-300">Estado</div>
+                                <select
+                                    class="col-span-2 rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                    v-model="appointmentForm.lead_pipeline_stage_id"
+                                >
+                                    <option :value="null" disabled>Estado</option>
+                                    <option v-for="stage in stages" :key="'st-modal-'+stage.id" :value="stage.id">@{{ stage.name }}</option>
+                                </select>
+                            </div>
+                        </div>
 
-                        <v-time-picker
-                            v-model="appointmentForm.endTime"
-                            @update:modelValue="syncAppointmentDurationFromTimes"
-                        ></v-time-picker>
-
-                        <select
-                            class="col-span-2 rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
-                            v-model="appointmentForm.lead_pipeline_stage_id"
-                        >
-                            <option :value="null" disabled>Estado</option>
-                            <option v-for="stage in stages" :key="'st-modal-'+stage.id" :value="stage.id">@{{ stage.name }}</option>
-                        </select>
-
-                        <textarea
-                            rows="3"
-                            class="col-span-2 rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
-                            v-model="appointmentForm.reason"
-                            placeholder="Motivo de consulta"
-                        ></textarea>
+                        <div class="col-span-2">
+                            <div class="flex flex-col gap-1">
+                                <div class="text-xs text-gray-600 dark:text-gray-300">Motivo de consulta</div>
+                                <textarea
+                                    rows="3"
+                                    class="col-span-2 rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                    v-model="appointmentForm.reason"
+                                    placeholder="Motivo de consulta"
+                                ></textarea>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="text-sm text-red-600" v-if="modalError">@{{ modalError }}</div>
@@ -707,6 +739,10 @@
                 <div class="text-lg font-semibold dark:text-white">
                     Añadir cita de grupo
                 </div>
+
+                <div class="text-sm text-gray-500 dark:text-gray-300">
+                    @{{ modalContext.dayLabel }} · @{{ modalContext.timeText }}
+                </div>
             </x-slot>
 
             <x-slot:content>
@@ -716,25 +752,37 @@
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
-                        <input
-                            type="text"
-                            class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
-                            v-model="groupForm.title"
-                            placeholder="Título"
-                        />
+                        <div class="flex flex-col gap-1">
+                            <div class="text-xs text-gray-600 dark:text-gray-300">Título</div>
+                            <input
+                                type="text"
+                                class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                v-model="groupForm.title"
+                                placeholder="Título"
+                            />
+                        </div>
 
-                        <select
-                            class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
-                            v-model="groupForm.type"
-                        >
-                            <option value="meeting">Consulta</option>
-                            <option value="call">Llamada</option>
-                            <option value="lunch">Almuerzo</option>
-                        </select>
+                        <div class="flex flex-col gap-1">
+                            <div class="text-xs text-gray-600 dark:text-gray-300">Tipo</div>
+                            <select
+                                class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                v-model="groupForm.type"
+                            >
+                                <option value="meeting">Consulta</option>
+                                <option value="call">Llamada</option>
+                                <option value="lunch">Almuerzo</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex flex-col gap-1">
+                            <div class="text-xs text-gray-600 dark:text-gray-300">Hora Inicio</div>
+                            <v-time-picker v-model="groupForm.startTime"></v-time-picker>
+                        </div>
 
-                        <v-time-picker v-model="groupForm.startTime"></v-time-picker>
-
-                        <v-time-picker v-model="groupForm.endTime"></v-time-picker>
+                        <div class="flex flex-col gap-1">
+                            <div class="text-xs text-gray-600 dark:text-gray-300">Hora Fin</div>
+                            <v-time-picker v-model="groupForm.endTime"></v-time-picker>
+                        </div>
                     </div>
 
                     <div class="flex flex-col gap-1">
@@ -762,6 +810,10 @@
                 <div class="text-lg font-semibold dark:text-white">
                     Añadir horario no disponible
                 </div>
+
+                <div class="text-sm text-gray-500 dark:text-gray-300">
+                    @{{ modalContext.dayLabel }} · @{{ modalContext.doctorLabel }}
+                </div>
             </x-slot>
 
             <x-slot:content>
@@ -771,9 +823,15 @@
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
-                        <v-time-picker v-model="unavailableForm.startTime"></v-time-picker>
+                        <div class="flex flex-col gap-1">
+                            <div class="text-xs text-gray-600 dark:text-gray-300">Hora Inicio</div>
+                            <v-time-picker v-model="unavailableForm.startTime"></v-time-picker>
+                        </div>
 
-                        <v-time-picker v-model="unavailableForm.endTime"></v-time-picker>
+                        <div class="flex flex-col gap-1">
+                            <div class="text-xs text-gray-600 dark:text-gray-300">Hora Fin</div>
+                            <v-time-picker v-model="unavailableForm.endTime"></v-time-picker>
+                        </div>
                     </div>
 
                     <div class="text-sm text-red-600" v-if="modalError">@{{ modalError }}</div>
