@@ -166,6 +166,10 @@ class LeadRepository extends Repository
             'lead_pipeline_stage_id' => 1,
         ], $data));
 
+        // $allData = $this->all();
+        // var_dump($data);
+        // exit();
+
         $this->attributeValueRepository->save(array_merge($data, [
             'entity_id' => $lead->id,
         ]));

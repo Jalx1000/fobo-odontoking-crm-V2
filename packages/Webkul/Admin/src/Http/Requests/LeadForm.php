@@ -42,6 +42,9 @@ class LeadForm extends FormRequest
      */
     public function rules()
     {
+        // $allData = $this->all();
+        // var_dump($allData);
+        // exit();
         foreach (['leads', 'persons'] as $key => $entityType) {
             $attributes = $this->attributeRepository->scopeQuery(function ($query) use ($entityType) {
                 $attributeCodes = $entityType == 'persons'
