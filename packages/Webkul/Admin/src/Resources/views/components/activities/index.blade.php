@@ -55,13 +55,13 @@
                     {!! view_render_event('admin.components.activities.content.types.after') !!}
                 </div>
 
-                <template v-if="selectedType === 'calendar'">
+                {{-- <template v-if="selectedType === 'calendar'">
                     <div class="p-4">
                         <div class="rounded-lg border border-gray-200 dark:border-gray-800">
                             <v-doctor-week-calendar></v-doctor-week-calendar>
                         </div>
                     </div>
-                </template>
+                </template> --}}
 
                 <!-- Show Default Activities only when not calendar -->
                 <template v-if="selectedType !== 'calendar' && ! extraTypes.find(type => type.name == selectedType)">
@@ -510,9 +510,6 @@
                             name: 'planned',
                             label: "{{ trans('admin::app.components.activities.index.planned') }}",
                         }, {
-                            name: 'calendar',
-                            label: "Calendario",
-                        }, {
                             name: 'note',
                             label: "{{ trans('admin::app.components.activities.index.notes') }}",
                         }, {
@@ -642,14 +639,14 @@
                     });
                 }
 
-                if (! this.types.find(t => t.name === 'calendar')) {
+                /* if (! this.types.find(t => t.name === 'calendar')) {
                     this.types.push({
                         name: 'calendar',
                         label: 'Calendario',
                     });
-                }
+                } */
 
-                this.selectedType = 'calendar';
+                this.selectedType = 'all';
 
                 this.$emitter.on('on-activity-added', (activity) => this.activities.unshift(activity));
             },
