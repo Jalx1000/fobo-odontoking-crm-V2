@@ -233,7 +233,7 @@
                 </div>
 
                 <div class="dwc-hours">
-                    <div v-for="h in 17" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+5) }}:00</div>
+                    <div v-for="h in 16" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+6) }}:00</div>
                 </div>
             </div>
 
@@ -301,7 +301,7 @@
                 </div>
 
                 <div class="dwc-hours">
-                    <div v-for="h in 17" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+5) }}:00</div>
+                    <div v-for="h in 16" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+6) }}:00</div>
                 </div>
             </div>
 
@@ -318,7 +318,7 @@
                                  :style="{ top: av.top + 'px', height: av.height + 'px' }">
                             </div>
 
-                            <div v-for="idx in 17" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
+                            <div v-for="idx in 16" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
                             <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
                                 <div class="dwc-event-content dwc-event-layout">
@@ -1121,10 +1121,10 @@ app.component('v-doctor-day-calendar', {
                 return this.buildMonthCells(new Date(d.getFullYear(), d.getMonth(), 1));
             },
             showNowLine() {
-                return this.startISO === this.todayISO() && this.nowMinutes >= (6 * 60) && this.nowMinutes < (23 * 60);
+                return this.startISO === this.todayISO() && this.nowMinutes >= (7 * 60) && this.nowMinutes < (23 * 60);
             },
             nowTop() {
-                return (this.nowMinutes - (6 * 60)) * this.minuteHeight + 30;
+                return (this.nowMinutes - (7 * 60)) * this.minuteHeight + 30;
             },
             month1Date() {
                 const base = this.datePickerMonthISO ? this.parseISODate(this.datePickerMonthISO) : this
