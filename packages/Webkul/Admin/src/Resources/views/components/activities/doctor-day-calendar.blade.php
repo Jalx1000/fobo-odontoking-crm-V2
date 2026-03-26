@@ -2781,7 +2781,7 @@ app.component('v-doctor-day-calendar', {
 .tp-container { position: relative; display: inline-block; width: 100%; }
     .tp-input { display: flex; align-items: center; justify-content: space-between; width: 100%; border: 1px solid #e5e7eb; border-radius: 0.375rem; padding: 0.5rem; font-size: 0.875rem; background: white; cursor: pointer; height: 39px; }
     .dark .tp-input { border-color: #374151; background: #1f2937; color: #d1d5db; }
-    .tp-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 0.375rem; z-index: 9999; margin-top: 4px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
+    .tp-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 0.375rem; z-index: 10004; margin-top: 4px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
     .dark .tp-dropdown { border-color: #374151; background: #1f2937; }
     .tp-lists { display: flex; height: 160px; }
     .tp-list { list-style: none; margin: 0; padding: 4px; overflow-y: auto; flex: 1; border-right: 1px solid #e5e7eb; }
