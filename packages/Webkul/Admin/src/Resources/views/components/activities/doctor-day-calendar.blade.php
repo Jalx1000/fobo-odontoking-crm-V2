@@ -442,7 +442,7 @@
                             <div class="text-xs text-gray-600 dark:text-gray-300">Hora Fin</div>
                             <v-time-picker
                                 v-model="appointmentForm.endTime"
-                                @update:modelValue="syncAppointmentDurationFromTimes"
+                                :disabled="true"
                             ></v-time-picker>
                         </div>
 
