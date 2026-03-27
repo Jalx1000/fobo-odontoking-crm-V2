@@ -1,12 +1,10 @@
 <div class="p-4">
-    <v-historial-ia
-        :lead='@json([
-            "person" => [
-                "email" => ($lead->person?->emails[0]["value"] ?? ($lead->person?->email ?? null))
-            ],
-            "title" => $lead->title,
-        ])'
-    />
+    <v-historial-ia :lead='@json([
+        'person' => [
+            'email' => $lead->person?->emails[0]['value'] ?? ($lead->person?->email ?? null),
+        ],
+        'title' => $lead->title,
+    ])' />
 
 </div>
 
@@ -183,9 +181,23 @@
                         try {
                             const j = JSON.parse(raw);
                             if (j && typeof j === 'object') {
-                                content = j.content ?? j.text ?? j.message ?? raw;
+                                // Extraer el campo content del wrapper principal
+                                let innerContent = j.content ?? j.text ?? j.message ?? raw;
+
+                                // Si content es un string que contiene JSON (caso IA), hacer segundo parse
+                                if (typeof innerContent === 'string') {
+                                    try {
+                                        const inner = JSON.parse(innerContent);
+                                        if (inner && inner.output && inner.output.mensaje !== undefined) {
+                                            innerContent = inner.output.mensaje;
+                                        }
+                                    } catch (e) {}
+                                }
+
+                                content = innerContent;
                             }
                         } catch (e) {}
+
                         // Normalizar saltos de línea para que se respeten en la vista
                         if (typeof content === 'string') {
                             content = content
@@ -195,12 +207,14 @@
                                 .replace(/\\n/g, '\n')
                                 .replace(/<br\s*\/>?/gi, '\n');
                         }
+
                         let fecha = null;
                         let mensaje = null;
                         const mFecha = content.match(/Hoy:\s*([^\n]+)/i);
                         if (mFecha) fecha = mFecha[1].trim();
                         const ix = content.toLowerCase().indexOf('mensaje del usuario:');
                         if (ix >= 0) mensaje = content.substring(ix + 'Mensaje del Usuario:'.length).trim();
+
                         out.push({
                             raw: content,
                             fecha,
