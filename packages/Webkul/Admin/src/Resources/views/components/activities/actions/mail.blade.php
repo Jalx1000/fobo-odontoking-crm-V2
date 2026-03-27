@@ -6,7 +6,7 @@
 <!-- Mail Button -->
 <div>
     {!! view_render_event('admin.components.activities.actions.mail.create_btn.before') !!}
-
+{{--  --}}
     <button
         class="flex h-[74px] w-[84px] flex-col items-center justify-center gap-1 rounded-lg border border-transparent bg-green-200 font-medium text-green-900 transition-all hover:border-green-400"
         @click="$refs.mailActionComponent.openModal('mail')"

@@ -51,10 +51,10 @@
                 <div class="flex flex-wrap gap-2">
                     {!! view_render_event('admin.leads.view.actions.before', ['lead' => $lead]) !!}
 
-                    @if (bouncer()->hasPermission('mail.compose'))
+                    {{-- @if (bouncer()->hasPermission('mail.compose'))
                         <!-- Mail Activity Action -->
                         <x-admin::activities.actions.mail :entity="$lead" entity-control-name="lead_id" />
-                    @endif
+                    @endif --}}
 
                     @if (bouncer()->hasPermission('activities.create'))
                         <!-- File Activity Action -->
@@ -94,7 +94,7 @@
                 ['name' => 'historial', 'label' => 'Historial IA'],
                 ['name' => 'description', 'label' => trans('admin::app.leads.view.tabs.description')],
                 ['name' => 'products', 'label' => trans('admin::app.leads.view.tabs.products')],
-                ['name' => 'quotes', 'label' => trans('admin::app.leads.view.tabs.quotes')],
+                // ['name' => 'quotes', 'label' => trans('admin::app.leads.view.tabs.quotes')],
             ]">
                 {{-- Historial IA --}}
                 <x-slot:historial>
@@ -107,9 +107,9 @@
                 </x-slot>
 
                 <!-- Quotes -->
-                <x-slot:quotes>
+                {{-- <x-slot:quotes>
                     @include ('admin::leads.view.quotes')
-                </x-slot>
+                </x-slot> --}}
 
                 <!-- Description -->
                 <x-slot:description>

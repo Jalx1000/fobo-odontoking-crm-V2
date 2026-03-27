@@ -522,9 +522,6 @@
                             name: 'file',
                             label: "{{ trans('admin::app.components.activities.index.files') }}",
                         }, {
-                            name: 'email',
-                            label: "{{ trans('admin::app.components.activities.index.emails') }}",
-                        }, {
                             name: 'system',
                             label: "{{ trans('admin::app.components.activities.index.change-log') }}",
                         }

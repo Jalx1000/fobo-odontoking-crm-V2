@@ -51,10 +51,10 @@
                     {!! view_render_event('admin.contact.persons.view.actions.before', ['person' => $person]) !!}
 
                     <!-- Mail Activity Action -->
-                    <x-admin::activities.actions.mail
+                    {{-- <x-admin::activities.actions.mail
                         :entity="$person"
                         entity-control-name="person_id"
-                    />
+                    /> --}}
 
                     <!-- File Activity Action -->
                     <x-admin::activities.actions.file
