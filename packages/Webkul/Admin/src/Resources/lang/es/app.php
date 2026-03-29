@@ -11,10 +11,10 @@ return [
         'outbox'          => 'Bandeja de salida',
         'sent'            => 'Enviados',
         'trash'           => 'Papelera',
-        'activities'      => 'Actividades',
+        'activities'      => 'Calendario',
         'webhook'         => 'Webhook',
         'contacts'        => 'Contactos',
-        'persons'         => 'Personas',
+        'persons'         => 'Pacientes',
         'organizations'   => 'Organizaciones',
         'products'        => 'Servicios',
         'settings'        => 'Configuraciones',
@@ -338,7 +338,7 @@ return [
                     'tabs'  => [
                         'leads'    => 'Oportunidades',
                         'quotes'   => 'Cotizaciones',
-                        'persons'  => 'Personas',
+                        'persons'  => 'Pacientes',
                         'products' => 'Servicios',
                     ],
                     'explore-all-products'          => 'Explorar todos los Servicios',
@@ -489,16 +489,16 @@ return [
     'contacts' => [
         'persons' => [
             'index' => [
-                'title'                  => 'Personas',
+                'title'                  => 'Pacientes',
                 'create-btn'             => 'Crear Persona',
                 'create-success'         => 'Persona creada con éxito.',
                 'update-success'         => 'Persona actualizada con éxito.',
                 'delete-success'         => 'Persona eliminada con éxito.',
-                'all-delete-success'     => 'Todas las personas seleccionadas fueron eliminadas exitosamente.',
-                'partial-delete-warning' => 'Algunas personas fueron eliminadas con éxito. Otras no se pudieron eliminar porque están vinculadas a clientes potenciales.',
-                'none-delete-warning'    => 'Ninguna de las personas seleccionadas pudo ser eliminada porque están vinculadas a clientes potenciales.',
-                'no-selection'           => 'No se seleccionaron personas para eliminar.',
-                'delete-failed'          => 'No se pudieron eliminar las personas seleccionadas.',
+                'all-delete-success'     => 'Todas los pacientes seleccionadas fueron eliminadas exitosamente.',
+                'partial-delete-warning' => 'Algunos pacientes fueron eliminadas con éxito. Otras no se pudieron eliminar porque están vinculadas a clientes potenciales.',
+                'none-delete-warning'    => 'Ninguno de las pacientes seleccionadas pudo ser eliminada porque están vinculadas a clientes potenciales.',
+                'no-selection'           => 'No se seleccionaron pacientes para eliminar.',
+                'delete-failed'          => 'No se pudieron eliminar las pacientes seleccionadas.',
                 'datagrid'               => [
                     'contact-numbers'   => 'Números de Contacto',
                     'delete'            => 'Eliminar',
@@ -600,7 +600,7 @@ return [
                     'edit'          => 'Editar',
                     'id'            => 'ID',
                     'name'          => 'Nombre',
-                    'persons-count' => 'Número de Personas',
+                    'persons-count' => 'Número de Pacientes',
                 ],
             ],
             'create' => [
@@ -928,7 +928,7 @@ return [
                 'form-submit-button-color' => 'Color del Botón de Enviar del Formulario',
                 'form-title-color'         => 'Color del Título del Formulario',
                 'general'                  => 'General',
-                'leads'                    => 'Pacientes',
+                'leads'                    => 'Citas',
                 'person'                   => 'Persona',
                 'save-btn'                 => 'Guardar Webform',
                 'submit-button-label'      => 'Etiqueta del Botón de Enviar',
@@ -1583,7 +1583,7 @@ return [
     ],
     'activities' => [
         'index' => [
-            'title'    => 'Actividades',
+            'title'    => 'Calendario',
             'datagrid' => [
                 'comment'       => 'Comentario',
                 'created_at'    => 'Creado En',
@@ -1635,8 +1635,8 @@ return [
         'overlapping-error'    => 'Los participantes tienen otra consulta en este momento.',
         'destroy-success'      => 'Actividad eliminada con éxito.',
         'delete-failed'        => 'No se puede eliminar la actividad.',
-        'mass-update-success'  => 'Actividades actualizadas con éxito.',
-        'mass-destroy-success' => 'Actividades eliminadas con éxito.',
+        'mass-update-success'  => 'Calendario actualizadas con éxito.',
+        'mass-destroy-success' => 'Calendario eliminadas con éxito.',
         'mass-delete-failed'   => 'No se pueden eliminar las actividades.',
     ],
     'mail' => [
@@ -1761,7 +1761,7 @@ return [
             'text-generation-failed' => 'La extracción de texto falló. El archivo podría estar vacío o ilegible.',
         ],
         'index' => [
-            'title'      => 'Pacientes',
+            'title'      => 'Citas',
             'create-btn' => 'Crear Lead',
             'datagrid'   => [
                 'id'             => 'ID',
@@ -1911,7 +1911,7 @@ return [
                 'add-product'  => 'Agregar Servicio',
             ],
             'persons' => [
-                'title'     => 'Sobre las Personas',
+                'title'     => 'Sobre los Pacientes',
                 'job-title' => ':job_title en :organization',
             ],
             'stages' => [
@@ -1965,14 +1965,14 @@ return [
                         'title'      => 'Configuraciones de la Sección Powered by',
                     ],
                     'menu' => [
-                        'activities'    => 'Actividades',
+                        'activities'    => 'Calendario',
                         'configuration' => 'Configuración',
                         'contacts'      => 'Contactos',
                         'dashboard'     => 'Tablero',
                         'draft'         => 'Borrador',
                         'inbox'         => 'Bandeja de Entrada',
                         'info'          => 'Podemos configurar los nombres de los elementos del menú aquí.',
-                        'leads'         => 'Pacientes',
+                        'leads'         => 'Citas',
                         'mail'          => 'Correo',
                         'organizations' => 'Organizaciones',
                         'outbox'        => 'Bandeja de Salida',
@@ -2047,7 +2047,7 @@ return [
                 'total-leads'           => 'Total de Pacientes',
                 'average-leads-per-day' => 'Pacientes Promedio por Día',
                 'total-quotations'      => 'Total de Cotizaciones',
-                'total-persons'         => 'Total de Personas',
+                'total-persons'         => 'Total de Pacientes',
                 'total-organizations'   => 'Total de Organizaciones',
             ],
             'total-leads' => [
@@ -2078,9 +2078,9 @@ return [
                 'empty-info'  => 'No hay servicios disponibles para el intervalo seleccionado',
             ],
             'top-persons' => [
-                'title'       => 'Personas Más Destacadas',
-                'empty-title' => 'No Se Encontraron Personas',
-                'empty-info'  => 'No hay personas disponibles para el intervalo seleccionado',
+                'title'       => 'Pacientes Más Destacadas',
+                'empty-title' => 'No Se Encontraron Pacientes',
+                'empty-info'  => 'No hay pacientes disponibles para el intervalo seleccionado',
             ],
 
             'vendedores' => [
@@ -2099,7 +2099,7 @@ return [
     'layouts' => [
         'app-version' => 'Versión: :version',
         'dashboard'   => 'Tablero',
-        'leads'       => 'Pacientes',
+        'leads'       => 'Citas',
         'quotes'      => 'Cotizaciones',
         'quote'       => 'Cotización',
         'mail'        => [
@@ -2112,9 +2112,9 @@ return [
             'trash'   => 'Papelera',
             'setting' => 'Configuración',
         ],
-        'activities'           => 'Actividades',
+        'activities'           => 'Calendario',
         'contacts'             => 'Contactos',
-        'persons'              => 'Personas',
+        'persons'              => 'Pacientes',
         'person'               => 'Persona',
         'organizations'        => 'Organizaciones',
         'organization'         => 'Organización',
@@ -2168,7 +2168,7 @@ return [
         'warehouse'            => 'Almacén',
         'warehouses-info'      => 'Agregar, editar o eliminar almacenes del CRM',
         'data_transfer'        => 'Transferencia de Datos',
-        'data_transfer_info'   => 'Gestionar la configuración relacionada con la transferencia de datos de personas, servicios y clientes potenciales en el CRM',
+        'data_transfer_info'   => 'Gestionar la configuración relacionada con la transferencia de datos de pacientes, servicios y clientes potenciales en el CRM',
     ],
     'user' => [
         'account' => [
