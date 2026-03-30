@@ -48,21 +48,19 @@
             {{-- @include('admin::dashboard.index.revenue') --}}
             @include('admin::dashboard.index.over-all')
             @include('admin::dashboard.index.total-leads')
-            
+
             @if ($isAdminRole)
                 <div class="grid grid-cols-3 gap-4 w-full">
                     <div class="col-span-1 flex flex-col gap-4">
                         @include('admin::dashboard.index.ventas')
                     </div>
                     <div class="col-span-1 flex flex-col gap-4">
-                        @include('admin::dashboard.index.leaanteds-by-users')
-                    </div>
-                    <div class="col-span-1 flex flex-col gap-4">
-                        @include('admin::dashboard.index.tiempo-por-vendedor')
+                        @include('admin::dashboard.index.leads-by-users')
                     </div>
                 </div>
             @else
                 @include('admin::dashboard.index.leads-by-users')
+                @include('admin::dashboard.index.tiempo-por-vendedor')
             @endif
         </div>
 

@@ -68,11 +68,12 @@
                 dataHoursPerLead() {
                     const labels = this.report.statistics?.labels ?? [];
                     const dataSeconds = this.report.statistics?.data ?? [];
+                    console.log('Statistics Data (dataSeconds):', dataSeconds);
                     return labels.map((label, i) => {
                         const seconds = typeof dataSeconds[i] === 'number' ? dataSeconds[i] : 0;
                         const count = this.leadCountsByUser[label] ?? 0;
                         if (!count || !seconds) return 0;
-                        return Number(((seconds / count) / 72000).toFixed(1));
+                        return Number(((seconds / count) / 84.1).toFixed(1));
                     });
                 },
                 averageHoursPerLead() {
