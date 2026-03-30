@@ -53,9 +53,15 @@ class ProductController extends Controller
      */
     public function store(AttributeForm $request)
     {
+        $data = $request->all();
+
+        if (empty($data['sku'])) {
+            $data['sku'] = uniqid();
+        }
+
         Event::dispatch('product.create.before');
 
-        $product = $this->productRepository->create($request->all());
+        $product = $this->productRepository->create($data);
 
         Event::dispatch('product.create.after', $product);
 
