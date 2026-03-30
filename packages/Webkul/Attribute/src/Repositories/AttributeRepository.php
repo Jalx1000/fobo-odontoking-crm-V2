@@ -73,19 +73,19 @@ class AttributeRepository extends Repository
         }
 
         foreach ($data['options'] as $optionId => $optionInputs) {
-            $isNew = $optionInputs['isNew'] == 'true';
-
-            if ($isNew) {
+            if (str_contains($optionId, 'option_')) {
                 $this->attributeOptionRepository->create(array_merge([
                     'attribute_id' => $attribute->id,
                 ], $optionInputs));
             } else {
-                $isDelete = $optionInputs['isDelete'] == 'true';
+                if (is_numeric($optionId)) {
+                    $isDelete = $optionInputs['isDelete'] == 'true';
 
-                if ($isDelete) {
-                    $this->attributeOptionRepository->delete($optionId);
-                } else {
-                    $this->attributeOptionRepository->update($optionInputs, $optionId);
+                    if ($isDelete) {
+                        $this->attributeOptionRepository->delete($optionId);
+                    } else {
+                        $this->attributeOptionRepository->update($optionInputs, $optionId);
+                    }
                 }
             }
         }
