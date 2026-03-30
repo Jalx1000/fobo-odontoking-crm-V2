@@ -1643,95 +1643,78 @@ app.component('v-doctor-day-calendar', {
                 this.closeQuickMenu();
                 this.$refs.unavailableModal.open();
             },
-            saveAppointment() {
-                this.modalSaving = true;
-                this.modalError = '';
+                saveAppointment() {
+                    this.modalSaving = true;
+                    this.modalError = '';
 
-                if (!this.appointmentForm.person?.name) {
-                    this.modalSaving = false;
-                    this.modalError = 'Debes seleccionar un paciente.';
-                    return;
-                }
+                    if (!this.appointmentForm.person?.name) {
+                        this.modalSaving = false;
+                        this.modalError = 'Debes seleccionar un paciente.';
+                        return;
+                    }
 
-                if (!this.appointmentForm.doctor_id) {
-                    this.modalSaving = false;
-                    this.modalError = 'Debes seleccionar un doctor.';
-                    return;
-                }
+                    if (!this.appointmentForm.doctor_id) {
+                        this.modalSaving = false;
+                        this.modalError = 'Debes seleccionar un doctor.';
+                        return;
+                    }
 
-                if (!this.appointmentForm.product_id) {
-                    this.modalSaving = false;
-                    this.modalError = 'Debes seleccionar un servicio.';
-                    return;
-                }
+                    if (!this.appointmentForm.product_id) {
+                        this.modalSaving = false;
+                        this.modalError = 'Debes seleccionar un servicio.';
+                        return;
+                    }
 
-                const payload = {
-                    person: {
-                        id: this.appointmentForm.person.id || null,
-                        name: this.appointmentForm.person.name || '',
-                    },
-                    doctor_id: this.appointmentForm.doctor_id,
-                    product_id: this.appointmentForm.product_id,
-                    date: this.modalContext.dayISO,
-                    start_time: this.appointmentForm.startTime,
-                    end_time: this.appointmentForm.endTime,
-                    duration_minutes: this.appointmentForm.duration,
-                    reason: this.appointmentForm.reason || '',
-                    lead_pipeline_stage_id: this.appointmentForm.lead_pipeline_stage_id,
-                };
-
-                // If ID exists, it's an update. Use update endpoint or adapt store to handle update?
-                // The current storeAppointment method in controller creates a new lead and activity.
-                // We need an update method for appointments specifically or modify store to handle ID.
-                // However, storeAppointment logic is complex (transaction, lead creation).
-                // Updating an existing appointment might just need updating the activity record if it's just time/reason.
-                // But if patient changes, it's complex.
-                // For now, let's assume we can't fully update everything easily without a specific endpoint.
-                // But the user asked for "Edit Appointment".
-                // We should probably use the standard activity update endpoint if it supports these fields,
-                // or create a specific updateAppointment endpoint.
-                // Given the constraints and existing code, let's try to reuse store but maybe we need a new route for update.
-                // Or use the activity update route `admin.activities.update`.
-                
-                let promise;
-                if (this.appointmentForm.id) {
-                    // Update mode
-                    const url = "{{ route('admin.activities.update', 'replaceId') }}".replace('replaceId', this.appointmentForm.id);
-                    // The standard update expects 'schedule_from', 'schedule_to', etc.
-                    // We need to format payload to match ActivityController@update expectations
-                    const startDateTime = `${this.modalContext.dayISO} ${this.appointmentForm.startTime}:00`;
-                    const endDateTime = `${this.modalContext.dayISO} ${this.appointmentForm.endTime}:00`;
-                    
-                    const updatePayload = {
-                        schedule_from: startDateTime,
-                        schedule_to: endDateTime,
-                        comment: this.appointmentForm.reason,
-                        product_id: this.appointmentForm.product_id,
+                    const payload = {
+                        person: {
+                            id: this.appointmentForm.person.id || null,
+                            name: this.appointmentForm.person.name || '',
+                        },
                         doctor_id: this.appointmentForm.doctor_id,
-                        lead_id: this.appointmentForm.person.id,
+                        product_id: this.appointmentForm.product_id,
+                        date: this.modalContext.dayISO,
+                        start_time: this.appointmentForm.startTime,
+                        end_time: this.appointmentForm.endTime,
+                        duration_minutes: this.appointmentForm.duration,
+                        reason: this.appointmentForm.reason || '',
                         lead_pipeline_stage_id: this.appointmentForm.lead_pipeline_stage_id,
                     };
-                    promise = this.$axios.put(url, updatePayload);
-                } else {
-                    // Create mode
-                    promise = this.$axios.post(this.appointmentStoreUrl, payload);
-                }
 
-                promise
-                    .then((response) => {
-                        this.modalSaving = false;
-                        this.$refs.appointmentModal.close();
-                        this.fetch();
-                        this.$emitter.emit('add-flash', {
-                            type: 'success',
-                            message: response?.data?.message || (this.appointmentForm.id ? 'Cita actualizada correctamente.' : 'Cita creada correctamente.')
+                    let promise;
+                    if (this.appointmentForm.id) {
+                        const url = "{{ route('admin.activities.update', 'replaceId') }}".replace('replaceId', this.appointmentForm.id);
+                        const startDateTime = `${this.modalContext.dayISO} ${this.appointmentForm.startTime}:00`;
+                        const endDateTime = `${this.modalContext.dayISO} ${this.appointmentForm.endTime}:00`;
+                        
+                        const updatePayload = {
+                            schedule_from: startDateTime,
+                            schedule_to: endDateTime,
+                            comment: this.appointmentForm.reason,
+                            product_id: this.appointmentForm.product_id,
+                            doctor_id: this.appointmentForm.doctor_id,
+                            lead_id: this.appointmentForm.person.id,
+                            lead_pipeline_stage_id: this.appointmentForm.lead_pipeline_stage_id,
+                        };
+                        promise = this.$axios.put(url, updatePayload);
+                    } else {
+                        promise = this.$axios.post(this.appointmentStoreUrl, payload);
+                    }
+
+                    promise
+                        .then((response) => {
+                            this.modalSaving = false;
+                            this.$refs.appointmentModal.close();
+                            this.fetch();
+                            this.$emitter.emit('add-flash', {
+                                type: 'success',
+                                message: response?.data?.message || (this.appointmentForm.id ? 'Cita actualizada correctamente.' : 'Cita creada correctamente.')
+                            });
+                        })
+                        .catch(err => {
+                            this.modalSaving = false;
+                            this.modalError = err?.response?.data?.message || 'Error al guardar';
                         });
-                    })
-                    .catch(err => {
-                        this.modalSaving = false;
-                        this.modalError = err?.response?.data?.message || 'Error al guardar';
-                    });
-            },
+                },
             saveGroupAppointment() {
                 this.modalSaving = true;
                 this.modalError = '';
