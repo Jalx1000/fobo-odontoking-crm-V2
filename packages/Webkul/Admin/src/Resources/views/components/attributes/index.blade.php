@@ -1,8 +1,5 @@
 @foreach ($customAttributes as $attribute)
-    @if (in_array($attribute->type, ['lookup', 'select', 'multiselect']))
-        <!-- Bloqueado por seguridad: {{ $attribute->code }} ({{ $attribute->type }}) -->
-        @continue
-    @endif
+
     @php
         $validations = [];
 
