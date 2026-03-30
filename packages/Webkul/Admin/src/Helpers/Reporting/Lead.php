@@ -1109,4 +1109,92 @@ class Lead extends AbstractReporting
                 return $date->format('M d');
         }
     }
+
+    /**
+     * Calculates the average time it takes for a receptionist to move a patient between Kanban workflow stages.
+     *
+     * @param array $filters Optional filters for the calculation.
+     *   - `start_date` (string): Start date for the analysis (YYYY-MM-DD HH:II:SS).
+     *   - `end_date` (string): End date for the analysis (YYYY-MM-DD HH:II:SS).
+     *   - `user_id` (int): ID of a specific receptionist to filter by.
+     *   - `stage_id` (int): ID of a specific stage to filter by.
+     * @return array An array containing the average time in seconds and a formatted time string (HH:MM).
+     *   - `average_time` (float): The average time in seconds.
+     *   - `formatted_time` (string): The average time formatted as HH:MM.
+     * @throws \Exception If there is an error during the calculation.
+     *
+     * @example
+     * // Get the average time for all receptionists in the last 30 days
+     * $filters = [
+     *     'start_date' => date('Y-m-d H:i:s', strtotime('-30 days')),
+     *     'end_date'   => date('Y-m-d H:i:s'),
+     * ];
+     * $stats = $leadReporter->getAverageStageChangeTime($filters);
+     * echo "Average stage change time: " . $stats['formatted_time'];
+     */
+    public function getAverageStageChangeTime(array $filters = []): array
+    {
+        $tablePrefix = DB::getTablePrefix();
+
+        $query = DB::table('lead_activities')
+            ->join('leads', 'lead_activities.lead_id', '=', 'leads.id')
+            ->join('users', 'lead_activities.user_id', '=', 'users.id')
+            ->join('roles', 'users.role_id', '=', 'roles.id')
+            ->where('roles.name', 'Recepcionista')
+            ->select(
+                'leads.id as lead_id',
+                'lead_activities.created_at as stage_change_time'
+            )
+            ->orderBy('leads.id')
+            ->orderBy('lead_activities.created_at');
+
+        if (isset($filters['start_date']) && isset($filters['end_date'])) {
+            $query->whereBetween('lead_activities.created_at', [$filters['start_date'], $filters['end_date']]);
+        }
+
+        if (isset($filters['user_id'])) {
+            $query->where('lead_activities.user_id', $filters['user_id']);
+        }
+
+        if (isset($filters['stage_id'])) {
+            $query->where('leads.lead_pipeline_stage_id', $filters['stage_id']);
+        }
+
+        $stageChanges = $query->get();
+
+        $timeDifferences = [];
+        $lastLeadId = null;
+        $lastStageChangeTime = null;
+
+        foreach ($stageChanges as $change) {
+            if ($lastLeadId === $change->lead_id) {
+                $timeDifferences[] = strtotime($change->stage_change_time) - strtotime($lastStageChangeTime);
+            }
+
+            $lastLeadId = $change->lead_id;
+            $lastStageChangeTime = $change->stage_change_time;
+        }
+
+        if (empty($timeDifferences)) {
+            return [
+                'average_time' => 0,
+                'formatted_time' => '00:00',
+            ];
+        }
+
+        $averageTimeInSeconds = array_sum($timeDifferences) / count($timeDifferences);
+
+        return [
+            'average_time' => $averageTimeInSeconds,
+            'formatted_time' => $this->formatTime($averageTimeInSeconds),
+        ];
+    }
+
+    private function formatTime(int $seconds): string
+    {
+        $hours = floor($seconds / 3600);
+        $minutes = floor(($seconds % 3600) / 60);
+
+        return sprintf('%02d:%02d', $hours, $minutes);
+    }
 }

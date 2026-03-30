@@ -73,7 +73,7 @@
                         const seconds = typeof dataSeconds[i] === 'number' ? dataSeconds[i] : 0;
                         const count = this.leadCountsByUser[label] ?? 0;
                         if (!count || !seconds) return 0;
-                        return Number(((seconds / count) / 84.1).toFixed(1));
+                        return Number(((seconds / count) / 3600).toFixed(1));
                     });
                 },
                 averageHoursPerLead() {
