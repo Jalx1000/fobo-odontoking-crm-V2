@@ -34,7 +34,7 @@
                             </div>
                         @endif
 
-                        <!-- Link to create new Quotes -->
+                        {{-- <!-- Link to create new Quotes -->
                         @if (bouncer()->hasPermission('quotes.create'))
                             <div class="rounded-lg bg-white p-2 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-950">
                                 <a href="{{ route('admin.quotes.create') }}">
@@ -45,10 +45,10 @@
                                     </div>
                                 </a>
                             </div>
-                        @endif
+                        @endif --}}
 
                         <!-- Link to send new Mail-->
-                        @if (bouncer()->hasPermission('mail.create'))
+                        {{-- @if (bouncer()->hasPermission('mail.create'))
                             <div class="rounded-lg bg-white p-2 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-950">
                                 <a href="{{ route('admin.mail.index', ['route' => 'inbox', 'openModal' => 'true']) }}">
                                     <div class="flex flex-col gap-1">
@@ -58,7 +58,7 @@
                                     </div>
                                 </a>
                             </div>
-                        @endif
+                        @endif --}}
 
                         <!-- Link to create new Person-->
                         @if (bouncer()->hasPermission('contacts.persons.create'))
@@ -74,7 +74,7 @@
                         @endif
 
                         <!-- Link to create new Organizations -->
-                        @if (bouncer()->hasPermission('contacts.organizations.create'))
+                        {{-- @if (bouncer()->hasPermission('contacts.organizations.create'))
                             <div class="rounded-lg bg-white p-2 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-950">
                                 <a href="{{ route('admin.contacts.organizations.create') }}">
                                     <div class="flex flex-col gap-1">
@@ -84,7 +84,7 @@
                                     </div>
                                 </a>
                             </div>
-                        @endif
+                        @endif --}}
 
                         <!-- Link to create new Products -->
                         @if (bouncer()->hasPermission('products.create'))
@@ -100,7 +100,7 @@
                         @endif
 
                         <!-- Link to create new Attributes -->
-                        @if (bouncer()->hasPermission('settings.automation.attributes.create'))
+                        {{-- @if (bouncer()->hasPermission('settings.automation.attributes.create'))
                             <div class="rounded-lg bg-white p-2 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-950">
                                 <a href="{{ route('admin.settings.attributes.create') }}">
                                     <div class="flex flex-col gap-1">
@@ -110,10 +110,10 @@
                                     </div>
                                 </a>
                             </div>
-                        @endif
+                        @endif --}}
 
                         <!-- Link to create new Role -->
-                        @if (bouncer()->hasPermission('settings.user.roles.create'))
+                        {{-- @if (bouncer()->hasPermission('settings.user.roles.create'))
                             <div class="rounded-lg bg-white p-2 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-950">
                                 <a href="{{ route('admin.settings.roles.create') }}">
                                     <div class="flex flex-col gap-1">
@@ -136,7 +136,7 @@
                                     </div>
                                 </a>
                             </div>
-                        @endif
+                        @endif --}}
                     </div>
                 </div>
             </x-slot>

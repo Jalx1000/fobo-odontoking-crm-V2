@@ -18,7 +18,7 @@ return [
 
     'products'      => [
         'name'       => 'admin::app.products.index.title',
-        'repository' => 'Webkul\Product\Repositories\ProductRepository',
+        'repository' => 'Webkul\\Product\\Repositories\\ProductRepository',
     ],
 
     'quotes'      => [
