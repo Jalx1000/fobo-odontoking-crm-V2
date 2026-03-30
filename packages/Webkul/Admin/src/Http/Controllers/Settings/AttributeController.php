@@ -107,20 +107,22 @@ class AttributeController extends Controller
      */
     public function destroy(int $id): JsonResponse
     {
-        $attribute = $this->attributeRepository->findOrFail($id);
+        $attribute = $this->attributeRepository->find($id);
 
-        if (! $attribute->is_user_defined) {
+        if ($attribute && ! $attribute->is_user_defined) {
             return response()->json([
                 'message' => trans('admin::app.settings.attributes.index.user-define-error'),
             ], 400);
         }
 
         try {
-            Event::dispatch('settings.attribute.delete.before', $id);
+            if ($attribute) {
+                Event::dispatch('settings.attribute.delete.before', $id);
 
-            $this->attributeRepository->delete($id);
+                $this->attributeRepository->delete($id);
 
-            Event::dispatch('settings.attribute.delete.after', $id);
+                Event::dispatch('settings.attribute.delete.after', $id);
+            }
 
             return response()->json([
                 'status'  => true,
