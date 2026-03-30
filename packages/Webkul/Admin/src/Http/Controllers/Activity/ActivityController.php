@@ -423,11 +423,17 @@ class ActivityController extends Controller
          * `is_done` field, so `lead_id` will not be present in that case.
          */
         if (isset($data['lead_id'])) {
-            $activity->leads()->sync(
-                ! empty($data['lead_id']) && $this->leadRepository->find($data['lead_id'])
-                    ? [$data['lead_id']]
-                    : []
-            );
+            $lead = $this->leadRepository->find($data['lead_id']);
+
+            if ($lead) {
+                $activity->leads()->sync([$data['lead_id']]);
+
+                if (isset($data['lead_pipeline_stage_id'])) {
+                    $lead->update(['lead_pipeline_stage_id' => $data['lead_pipeline_stage_id']]);
+                }
+            } else {
+                $activity->leads()->sync([]);
+            }
         }
 
         if (isset($data['product_id'])) {
