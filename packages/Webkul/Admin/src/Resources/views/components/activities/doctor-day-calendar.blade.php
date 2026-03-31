@@ -233,7 +233,7 @@
                 </div>
 
                 <div class="dwc-hours">
-                    <div v-for="h in 16" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+6) }}:00</div>
+                    <div v-for="h in 14" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+6) }}:00</div>
                 </div>
             </div>
 
@@ -251,7 +251,7 @@
                         </div>
 
                         <!-- Lines -->
-                        <div v-for="idx in 17" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
+                        <div v-for="idx in 15" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
                         <!-- Events -->
                         <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
@@ -301,7 +301,7 @@
                 </div>
 
                 <div class="dwc-hours">
-                    <div v-for="h in 16" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+6) }}:00</div>
+                    <div v-for="h in 14" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+6) }}:00</div>
                 </div>
             </div>
 
@@ -318,7 +318,7 @@
                                  :style="{ top: av.top + 'px', height: av.height + 'px' }">
                             </div>
 
-                            <div v-for="idx in 16" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
+                            <div v-for="idx in 15" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
                             <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
                                 <div class="dwc-event-content dwc-event-layout">
@@ -1133,7 +1133,7 @@
                 return this.hourHeight / 60;
             },
             dayHeight() {
-                return 17 * this.hourHeight;
+                return 14 * this.hourHeight;
             },
             totalHeight() {
                 return this.days.length * this.dayHeight;
@@ -1446,7 +1446,7 @@
                     .map(s => {
                         const startMin = this.timeToMinutes(s.start_time);
                         const endMin = this.timeToMinutes(s.end_time);
-                        const top = (startMin - (6 * 60)) * this.minuteHeight;
+                        const top = (startMin - (7 * 60)) * this.minuteHeight;
                         const height = (endMin - startMin) * this.minuteHeight;
                         return {
                             ...s,
@@ -1463,7 +1463,7 @@
                         const dtEnd = new Date(a.end);
                         const startMin = dtStart.getHours() * 60 + dtStart.getMinutes();
                         const endMin = dtEnd.getHours() * 60 + dtEnd.getMinutes();
-                        const top = (startMin - (6 * 60)) * this.minuteHeight;
+                        const top = (startMin - (7 * 60)) * this.minuteHeight;
                         const height = Math.max((endMin - startMin) * this.minuteHeight, 8);
                         return {
                             ...a,
@@ -1480,8 +1480,8 @@
                 const rect = container.getBoundingClientRect();
                 const yLocal = e.clientY - rect.top;
 
-                const minutes = Math.max(0, Math.min(17 * 60 - 1, Math.round(yLocal / this.minuteHeight))) + (
-                    6 * 60);
+                const minutes = Math.max(0, Math.min(14 * 60 - 1, Math.round(yLocal / this.minuteHeight))) + (
+                    7 * 60);
 
                 // Check availability
                 const availableSlots = this.getDoctorAvailability(day.date, doctorId);
