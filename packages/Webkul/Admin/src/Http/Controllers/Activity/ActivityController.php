@@ -21,6 +21,7 @@ use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\Lead\Repositories\LeadRepository;
 use Webkul\Lead\Repositories\PipelineRepository;
 use Illuminate\Support\Facades\Schema;
+use Webkul\Admin\Http\Controllers\Activity\Http;
 
 class ActivityController extends Controller
 {
@@ -117,7 +118,7 @@ class ActivityController extends Controller
             // but the current structure assumes one main doctor per doctor_activities entry or we group them.
             // Given the current query structure (leftJoin doctor_activities), if an activity has multiple doctors, it might duplicate rows or we need group_concat.
             // Let's assume for this view we want to show the doctor name.
-            
+
             // Re-query to get better details including doctor name and lead status/pipeline stage if applicable.
             $appointments = DB::table('activities')
                 ->leftJoin('doctor_activities', 'activities.id', '=', 'doctor_activities.activity_id')
@@ -194,7 +195,7 @@ class ActivityController extends Controller
                 'doctors'      => $doctors,
                 'appointments' => $appointments,
                 'availability' => $availability,
-                'calendar_view'=> $view,
+                'calendar_view' => $view,
                 'stages'       => $stages,
             ]);
         }
@@ -204,11 +205,11 @@ class ActivityController extends Controller
         }
 
         $startDate = request()->get('startDate')
-            ? Carbon::createFromTimeString(request()->get('startDate').' 00:00:01')
+            ? Carbon::createFromTimeString(request()->get('startDate') . ' 00:00:01')
             : Carbon::now()->startOfWeek()->format('Y-m-d H:i:s');
 
         $endDate = request()->get('endDate')
-            ? Carbon::createFromTimeString(request()->get('endDate').' 23:59:59')
+            ? Carbon::createFromTimeString(request()->get('endDate') . ' 23:59:59')
             : Carbon::now()->endOfWeek()->format('Y-m-d H:i:s');
 
         $activities = $this->activityRepository->getActivities([$startDate, $endDate])->toArray();
@@ -384,7 +385,7 @@ class ActivityController extends Controller
 
             if (config('app.debug')) {
                 return response()->json([
-                    'message' => 'No se pudo crear la cita: '.$e->getMessage(),
+                    'message' => 'No se pudo crear la cita: ' . $e->getMessage(),
                 ], 500);
             }
 

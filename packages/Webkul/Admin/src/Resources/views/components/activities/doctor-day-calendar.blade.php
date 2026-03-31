@@ -1310,9 +1310,15 @@ app.component('v-doctor-day-calendar', {
                 }
             },
             onSelectPatient(result) {
+                let phone = '';
+                if (result?.contact_numbers && Array.isArray(result.contact_numbers) && result.contact_numbers.length > 0) {
+                    phone = result.contact_numbers[0].value || '';
+                }
+                
                 this.appointmentForm.person = {
                     id: result?.id || null,
                     name: result?.name || '',
+                    phone: phone,
                 };
             },
             onSelectService(result) {
@@ -1701,7 +1707,7 @@ app.component('v-doctor-day-calendar', {
                     }
 
                     promise
-                        .then((response) => {
+                        .then((response) => {                            
                             this.modalSaving = false;
                             this.$refs.appointmentModal.close();
                             this.fetch();

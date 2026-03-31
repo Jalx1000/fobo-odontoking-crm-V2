@@ -16,7 +16,7 @@
             <div class="grid gap-4 rounded-lg border border-gray-200 bg-white px-4 py-2 dark:border-gray-800 dark:bg-gray-900">
                 <div class="flex flex-col justify-between gap-1">
                     <p class="text-base font-semibold dark:text-gray-300">Tiempo en responder</p>
-                    <p class="text-sm font-semibold text-gray-600 dark:text-gray-300">Promedio total: @{{ averageHoursPerLead }} h</p>
+                    <p class="text-sm font-semibold text-gray-600 dark:text-gray-300">Promedio total: @{{ averageMinutesPerLead }} min</p>
                 </div>
 
                 <div class="flex w-full max-w-full flex-col gap-4">
@@ -28,7 +28,7 @@
                     <div class="flex flex-wrap justify-center gap-5">
                         <div class="flex items-center gap-2" v-for="(color, index) in colors" :key="index">
                             <span class="h-3.5 w-3.5 rounded-sm" :style="{ backgroundColor: color }"></span>
-                            <p class="text-xs dark:text-gray-300">@{{ legendLabels[index] }} — @{{ dataHoursPerLead[index] }} h</p>
+                            <p class="text-xs dark:text-gray-300">@{{ legendLabels[index] }} — @{{ dataMinutesPerLead[index] }} min</p>
                         </div>
                     </div>
                 </div>
@@ -57,7 +57,7 @@
 
                 chartDatasets() {
                     const labels = this.report.statistics?.labels ?? [];
-                    const data = this.dataHoursPerLead;
+                    const data = this.dataMinutesPerLead;
                     this.colors = labels.map((l) => this.getColorForLabel(l));
                     this.legendLabels = labels;
                     return [{
@@ -65,19 +65,19 @@
                         backgroundColor: this.colors,
                     }];
                 },
-                dataHoursPerLead() {
+                dataMinutesPerLead() {
                     const labels = this.report.statistics?.labels ?? [];
                     const dataSeconds = this.report.statistics?.data ?? [];
                     console.log('Statistics Data (dataSeconds):', dataSeconds);
                     return labels.map((label, i) => {
                         const seconds = typeof dataSeconds[i] === 'number' ? dataSeconds[i] : 0;
-                        const count = this.leadCountsByUser[label] ?? 0;
-                        if (!count || !seconds) return 0;
-                        return Number(((seconds / count) / 3600).toFixed(1));
+                        if (!seconds) return 0;
+                        // El controlador ya devuelve el promedio en segundos, solo convertimos a minutos
+                        return Number((seconds / 60).toFixed(1));
                     });
                 },
-                averageHoursPerLead() {
-                    const values = this.dataHoursPerLead;
+                averageMinutesPerLead() {
+                    const values = this.dataMinutesPerLead;
                     const valid = values.filter((v) => typeof v === 'number' && v > 0);
                     if (!valid.length) return 0;
                     return Number((valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1));
