@@ -21,7 +21,8 @@ use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\Lead\Repositories\LeadRepository;
 use Webkul\Lead\Repositories\PipelineRepository;
 use Illuminate\Support\Facades\Schema;
-use Webkul\Admin\Http\Controllers\Activity\Http;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class ActivityController extends Controller
 {
@@ -373,6 +374,75 @@ class ActivityController extends Controller
                 ]);
 
                 $activity->leads()->sync([$lead->id]);
+
+                // Preparar datos para la API externa (n8n)
+                $nameParts = explode(' ', trim($personPayload['name'] ?? ''));
+                $firstName = $nameParts[0] ?: 'Paciente';
+                $lastName = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : '';
+                
+                $doctorName = 'Doctor';
+                if (request()->has('doctor_id')) {
+                    // En el CRM, los doctores suelen estar en la tabla 'doctors' o 'persons' con un rol específico.
+                    // Según la validación 'doctor_id' => 'required|exists:doctors,id', la tabla es 'doctors'
+                    $doctor = DB::table('doctors')->where('id', request()->get('doctor_id'))->first();
+                    if ($doctor) {
+                        $doctorName = $doctor->name;
+                    }
+                }
+
+                $phone = '77788990';
+                if (!empty($personPayload['id'])) {
+                    $person = DB::table('persons')->where('id', $personPayload['id'])->first();
+                    if ($person && !empty($person->contact_numbers)) {
+                        $contactNumbers = json_decode($person->contact_numbers, true);
+                        if (is_array($contactNumbers) && count($contactNumbers) > 0 && isset($contactNumbers[0]['value'])) {
+                            $phone = $contactNumbers[0]['value'];
+                        }
+                    }
+                }
+
+                $startIso = $scheduleFrom->format('Y-m-d\TH:i:sP');
+                $endIso = $scheduleTo->format('Y-m-d\TH:i:sP');
+
+                $externalData = [
+                    'summary' => $reason ?: "RESERVANDO CITA con {$doctorName}",
+                    'physician' => [
+                        '_id' => '69bd9a9b7549b10008e0acfa'
+                    ],
+                    'patient' => [
+                        'name' => $firstName,
+                        'lastName' => $lastName,
+                        'phone' => $phone,
+                        'personID' => '',
+                        'doctorName' => $doctorName,
+                    ],
+                    'slot' => [
+                        'start' => $scheduleFrom->format('Y-m-d H:i:s'),
+                        'end' => $scheduleTo->format('Y-m-d H:i:s')
+                    ]
+                ];
+
+                // Llamada al webhook de n8n
+                try {
+                    $response = Http::withHeaders([
+                        'Content-Type' => 'application/json',
+                        'Accept'       => 'application/json',
+                    ])
+                    ->withoutVerifying()
+                    ->timeout(30) // Aumentado a 30 segundos
+                    ->connectTimeout(15) // Añadido connectTimeout
+                    ->post('http://n8n.sofopolis.com/webhook/365873f3-0891-4b20-a6dc-3db5df3f891c', $externalData);
+
+                    if ($response->failed()) {
+                        throw new \Exception('Error al registrar en el sistema externo: ' . $response->body());
+                    }
+                } catch (\Exception $e) {
+                    Log::error("Fallo crítico de conexión en Sync con n8n", [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    throw $e; // Re-lanzar para que el DB::transaction haga rollback
+                }
 
                 return response()->json([
                     'lead_id'     => $lead->id,
