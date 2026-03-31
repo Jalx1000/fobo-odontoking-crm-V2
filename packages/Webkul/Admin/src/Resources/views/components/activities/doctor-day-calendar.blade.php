@@ -953,21 +953,20 @@
                         if (!dropdown) return;
 
                         this.dropdownEl = dropdown;
-                        document.body.appendChild(this.dropdownEl);
-
+                        // En lugar de mover el elemento al body, lo dejamos donde está
+                        // para evitar problemas con Vue al desmontar/actualizar
+                        
                         const inputRect = this.$refs.root.getBoundingClientRect();
                         this.dropdownEl.style.position = 'absolute';
-                        this.dropdownEl.style.top = `${inputRect.bottom + window.scrollY + 4}px`;
-                        this.dropdownEl.style.left = `${inputRect.left + window.scrollX}px`;
-                        this.dropdownEl.style.width = `${inputRect.width}px`;
+                        this.dropdownEl.style.top = `100%`;
+                        this.dropdownEl.style.left = `0`;
+                        this.dropdownEl.style.width = `100%`;
+                        this.dropdownEl.style.zIndex = `9999`;
 
                         this.scrollToSelected();
                     });
                 } else {
-                    if (this.dropdownEl && this.dropdownEl.parentNode === document.body) {
-                        document.body.removeChild(this.dropdownEl);
-                        this.dropdownEl = null;
-                    }
+                    this.dropdownEl = null;
                 }
             }
         },
