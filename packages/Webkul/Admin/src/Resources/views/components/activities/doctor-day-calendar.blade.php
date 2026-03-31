@@ -380,7 +380,7 @@
                                 <div class="text-xs text-gray-600 dark:text-gray-300">Paciente</div>
                                 <x-admin::lookup
                                     ::src="personSearchUrl"
-                                    ::params="{}"
+                                    ::params="{ limit: 200 }"
                                     name="appointment_person"
                                     placeholder="Paciente"
                                     :can-add-new="true"
@@ -406,7 +406,7 @@
                             <x-admin::lookup
                                 class="col-span-1"
                                 ::src="productSearchUrl"
-                                ::params="{}"
+                                ::params="{ limit: 200 }"
                                 name="appointment_product"
                                 placeholder="Servicio"
                                 @on-selected="onSelectService"
@@ -886,20 +886,20 @@
             },
         },
         methods: {
-                toggleDropdown() {
-                    this.open = !this.open;
-                    if (this.open) {
-                        this.$nextTick(() => {
-                            const inputRect = this.$refs.root.getBoundingClientRect();
-                            const dropdown = this.$refs.root.querySelector('.ms-dropdown');
-                            if (dropdown) {
-                                dropdown.style.left = inputRect.left + 'px';
-                                dropdown.style.top = inputRect.bottom + 4 + 'px';
-                                dropdown.style.width = inputRect.width + 'px';
-                            }
-                        });
-                    }
-                },
+            toggleDropdown() {
+                this.open = !this.open;
+                if (this.open) {
+                    this.$nextTick(() => {
+                        const inputRect = this.$refs.root.getBoundingClientRect();
+                        const dropdown = this.$refs.root.querySelector('.ms-dropdown');
+                        if (dropdown) {
+                            dropdown.style.left = inputRect.left + 'px';
+                            dropdown.style.top = inputRect.bottom + 4 + 'px';
+                            dropdown.style.width = inputRect.width + 'px';
+                        }
+                    });
+                }
+            },
             nameById(id) {
                 const d = this.items.find(x => x && String(x.id) === String(id));
                 return d ? d.name : '';
@@ -928,101 +928,103 @@
     });
 
     app.component('v-time-picker', {
-    template: '#v-time-picker-template',
-    props: ['modelValue'],
-    emits: ['update:modelValue'],
-    data() {
-        return {
-            isOpen: false,
-            dropdownEl: null,
-        };
-    },
-    computed: {
-        currentHour() {
-            return this.modelValue ? parseInt(this.modelValue.split(':')[0], 10) : 0;
+        template: '#v-time-picker-template',
+        props: ['modelValue'],
+        emits: ['update:modelValue'],
+        data() {
+            return {
+                isOpen: false,
+                dropdownEl: null,
+            };
         },
-        currentMinute() {
-            return this.modelValue ? parseInt(this.modelValue.split(':')[1], 10) : 0;
-        }
-    },
-    watch: {
-        isOpen(isOpen) {
-            if (isOpen) {
-                this.$nextTick(() => {
-                    const dropdown = this.$refs.dropdown;
-                    if (!dropdown) return;
-
-                    this.dropdownEl = dropdown;
-                    document.body.appendChild(this.dropdownEl);
-
-                    const inputRect = this.$refs.root.getBoundingClientRect();
-                    this.dropdownEl.style.position = 'absolute';
-                    this.dropdownEl.style.top = `${inputRect.bottom + window.scrollY + 4}px`;
-                    this.dropdownEl.style.left = `${inputRect.left + window.scrollX}px`;
-                    this.dropdownEl.style.width = `${inputRect.width}px`;
-
-                    this.scrollToSelected();
-                });
-            } else {
-                if (this.dropdownEl && this.dropdownEl.parentNode === document.body) {
-                    document.body.removeChild(this.dropdownEl);
-                    this.dropdownEl = null;
-                }
+        computed: {
+            currentHour() {
+                return this.modelValue ? parseInt(this.modelValue.split(':')[0], 10) : 0;
+            },
+            currentMinute() {
+                return this.modelValue ? parseInt(this.modelValue.split(':')[1], 10) : 0;
             }
-        }
-    },
-    methods: {
-        pad2(n) {
-            return String(n).padStart(2, '0');
         },
-        toggle() {
-            this.isOpen = !this.isOpen;
-        },
-        selectHour(h) {
-            const m = this.currentMinute;
-            this.$emit('update:modelValue', `${this.pad2(h)}:${this.pad2(m)}`);
-        },
-        selectMinute(m) {
-            const h = this.currentHour;
-            this.$emit('update:modelValue', `${this.pad2(h)}:${this.pad2(m)}`);
-            this.isOpen = false;
-        },
-        scrollToSelected() {
-            if (!this.dropdownEl) return;
-            const hoursEl = this.dropdownEl.querySelector('.tp-lists ul:first-of-type');
-            const minutesEl = this.dropdownEl.querySelector('.tp-lists ul:last-of-type');
-            if (hoursEl) {
-                const selected = hoursEl.querySelector('.is-selected');
-                if (selected) {
-                    hoursEl.scrollTop = selected.offsetTop - (hoursEl.offsetHeight / 2) + (selected.offsetHeight / 2);
-                }
-            }
-            if (minutesEl) {
-                const selected = minutesEl.querySelector('.is-selected');
-                if (selected) {
-                    minutesEl.scrollTop = selected.offsetTop - (minutesEl.offsetHeight / 2) + (selected.offsetHeight / 2);
+        watch: {
+            isOpen(isOpen) {
+                if (isOpen) {
+                    this.$nextTick(() => {
+                        const dropdown = this.$refs.dropdown;
+                        if (!dropdown) return;
+
+                        this.dropdownEl = dropdown;
+                        document.body.appendChild(this.dropdownEl);
+
+                        const inputRect = this.$refs.root.getBoundingClientRect();
+                        this.dropdownEl.style.position = 'absolute';
+                        this.dropdownEl.style.top = `${inputRect.bottom + window.scrollY + 4}px`;
+                        this.dropdownEl.style.left = `${inputRect.left + window.scrollX}px`;
+                        this.dropdownEl.style.width = `${inputRect.width}px`;
+
+                        this.scrollToSelected();
+                    });
+                } else {
+                    if (this.dropdownEl && this.dropdownEl.parentNode === document.body) {
+                        document.body.removeChild(this.dropdownEl);
+                        this.dropdownEl = null;
+                    }
                 }
             }
         },
-        onClickOutside(e) {
-            if (this.$refs.root && !this.$refs.root.contains(e.target) &&
-                this.dropdownEl && !this.dropdownEl.contains(e.target)) {
+        methods: {
+            pad2(n) {
+                return String(n).padStart(2, '0');
+            },
+            toggle() {
+                this.isOpen = !this.isOpen;
+            },
+            selectHour(h) {
+                const m = this.currentMinute;
+                this.$emit('update:modelValue', `${this.pad2(h)}:${this.pad2(m)}`);
+            },
+            selectMinute(m) {
+                const h = this.currentHour;
+                this.$emit('update:modelValue', `${this.pad2(h)}:${this.pad2(m)}`);
                 this.isOpen = false;
+            },
+            scrollToSelected() {
+                if (!this.dropdownEl) return;
+                const hoursEl = this.dropdownEl.querySelector('.tp-lists ul:first-of-type');
+                const minutesEl = this.dropdownEl.querySelector('.tp-lists ul:last-of-type');
+                if (hoursEl) {
+                    const selected = hoursEl.querySelector('.is-selected');
+                    if (selected) {
+                        hoursEl.scrollTop = selected.offsetTop - (hoursEl.offsetHeight / 2) + (selected
+                            .offsetHeight / 2);
+                    }
+                }
+                if (minutesEl) {
+                    const selected = minutesEl.querySelector('.is-selected');
+                    if (selected) {
+                        minutesEl.scrollTop = selected.offsetTop - (minutesEl.offsetHeight / 2) + (selected
+                            .offsetHeight / 2);
+                    }
+                }
+            },
+            onClickOutside(e) {
+                if (this.$refs.root && !this.$refs.root.contains(e.target) &&
+                    this.dropdownEl && !this.dropdownEl.contains(e.target)) {
+                    this.isOpen = false;
+                }
+            }
+        },
+        mounted() {
+            document.addEventListener('click', this.onClickOutside, true);
+        },
+        beforeUnmount() {
+            document.removeEventListener('click', this.onClickOutside, true);
+            if (this.dropdownEl && this.dropdownEl.parentNode === document.body) {
+                document.body.removeChild(this.dropdownEl);
             }
         }
-    },
-    mounted() {
-        document.addEventListener('click', this.onClickOutside, true);
-    },
-    beforeUnmount() {
-        document.removeEventListener('click', this.onClickOutside, true);
-        if (this.dropdownEl && this.dropdownEl.parentNode === document.body) {
-            document.body.removeChild(this.dropdownEl);
-        }
-    }
-});
+    });
 
-app.component('v-doctor-day-calendar', {
+    app.component('v-doctor-day-calendar', {
         template: '#v-doctor-day-calendar-template',
         data() {
             const today = new Date();
@@ -1145,7 +1147,9 @@ app.component('v-doctor-day-calendar', {
                 }
                 if (this.viewType === 'month') {
                     const d = this.parseISODate(this.startISO);
-                    const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                    const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto',
+                        'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+                    ];
                     return `${months[d.getMonth()]} ${d.getFullYear()}`;
                 }
                 const d = this.parseISODate(this.startISO);
@@ -1179,7 +1183,8 @@ app.component('v-doctor-day-calendar', {
                 return this.buildMonthCells(new Date(d.getFullYear(), d.getMonth(), 1));
             },
             showNowLine() {
-                return this.startISO === this.todayISO() && this.nowMinutes >= (7 * 60) && this.nowMinutes < (23 * 60);
+                return this.startISO === this.todayISO() && this.nowMinutes >= (7 * 60) && this.nowMinutes < (
+                    23 * 60);
             },
             nowTop() {
                 return (this.nowMinutes - (7 * 60)) * this.minuteHeight + 30;
@@ -1311,10 +1316,11 @@ app.component('v-doctor-day-calendar', {
             },
             onSelectPatient(result) {
                 let phone = '';
-                if (result?.contact_numbers && Array.isArray(result.contact_numbers) && result.contact_numbers.length > 0) {
+                if (result?.contact_numbers && Array.isArray(result.contact_numbers) && result.contact_numbers
+                    .length > 0) {
                     phone = result.contact_numbers[0].value || '';
                 }
-                
+
                 this.appointmentForm.person = {
                     id: result?.id || null,
                     name: result?.name || '',
@@ -1430,8 +1436,8 @@ app.component('v-doctor-day-calendar', {
             getEventsForDay(isoDate) {
                 if (!isoDate || !this.selectedDoctorIds.length) return [];
                 const ids = new Set(this.selectedDoctorIds.map(id => String(id)));
-                return this.appointments.filter(a => 
-                    a.start.startsWith(isoDate) && 
+                return this.appointments.filter(a =>
+                    a.start.startsWith(isoDate) &&
                     ids.has(String(a.doctor_id))
                 );
             },
@@ -1443,7 +1449,11 @@ app.component('v-doctor-day-calendar', {
                         const endMin = this.timeToMinutes(s.end_time);
                         const top = (startMin - (6 * 60)) * this.minuteHeight;
                         const height = (endMin - startMin) * this.minuteHeight;
-                        return { ...s, top, height };
+                        return {
+                            ...s,
+                            top,
+                            height
+                        };
                     });
             },
             dayDoctorEvents(dateStr, doctorId) {
@@ -1470,8 +1480,9 @@ app.component('v-doctor-day-calendar', {
                 const container = e.currentTarget;
                 const rect = container.getBoundingClientRect();
                 const yLocal = e.clientY - rect.top;
-                
-                const minutes = Math.max(0, Math.min(17 * 60 - 1, Math.round(yLocal / this.minuteHeight))) + (6 * 60);
+
+                const minutes = Math.max(0, Math.min(17 * 60 - 1, Math.round(yLocal / this.minuteHeight))) + (
+                    6 * 60);
 
                 // Check availability
                 const availableSlots = this.getDoctorAvailability(day.date, doctorId);
@@ -1519,7 +1530,8 @@ app.component('v-doctor-day-calendar', {
                 const yView = e.clientY;
                 const desiredLeft = xView + 8;
                 const maxLeft = window.innerWidth - this.quickMenu.width - 8;
-                const left = desiredLeft <= maxLeft ? desiredLeft : Math.max(8, xView - this.quickMenu.width - 8);
+                const left = desiredLeft <= maxLeft ? desiredLeft : Math.max(8, xView - this.quickMenu.width -
+                    8);
 
                 const desiredTop = yView - this.quickMenu.height - 8;
                 const minTop = 8;
@@ -1532,7 +1544,8 @@ app.component('v-doctor-day-calendar', {
                 this.quickMenu.dayISO = day.date;
                 this.quickMenu.dayLabel = day.label;
                 this.quickMenu.doctorId = doctorId;
-                this.quickMenu.doctorLabel = (this.doctors.find(d => String(d.id) === String(doctorId))?.name || '');
+                this.quickMenu.doctorLabel = (this.doctors.find(d => String(d.id) === String(doctorId))?.name ||
+                    '');
                 this.quickMenu.startTime = '09:00';
                 this.quickMenu.endTime = '10:00';
                 this.quickMenu.timeText = '09:00';
@@ -1565,7 +1578,10 @@ app.component('v-doctor-day-calendar', {
                 this.syncAppointmentEndTime();
                 this.appointmentForm.reason = '';
                 this.appointmentForm.lead_pipeline_stage_id = this.stages.length ? this.stages[0].id : null;
-                this.appointmentForm.person = { id: '', name: '' };
+                this.appointmentForm.person = {
+                    id: '',
+                    name: ''
+                };
                 this.appointmentForm.product_id = null;
                 this.appointmentForm.product_name = '';
                 this.closeQuickMenu();
@@ -1574,15 +1590,15 @@ app.component('v-doctor-day-calendar', {
             openEditModal(ev) {
                 this.modalError = '';
                 this.modalSaving = false;
-                
+
                 // Get date object from event start
                 const start = new Date(ev.start);
                 const end = new Date(ev.end);
-                
+
                 // Setup modal context
                 const isoDate = this.toISO(start);
                 const dayLabel = this.days.find(d => d.date === isoDate)?.label || isoDate;
-                
+
                 this.modalContext = {
                     doctorId: ev.doctor_id,
                     doctorLabel: ev.doctor_name,
@@ -1594,17 +1610,19 @@ app.component('v-doctor-day-calendar', {
                 // Populate form
                 this.appointmentForm.id = ev.id;
                 this.appointmentForm.doctor_id = ev.doctor_id;
-                this.appointmentForm.startTime = `${this.pad2(start.getHours())}:${this.pad2(start.getMinutes())}`;
+                this.appointmentForm.startTime =
+                    `${this.pad2(start.getHours())}:${this.pad2(start.getMinutes())}`;
                 this.appointmentForm.endTime = `${this.pad2(end.getHours())}:${this.pad2(end.getMinutes())}`;
                 this.syncAppointmentDurationFromTimes();
-                
+
                 this.appointmentForm.reason = ev.comment || '';
                 this.appointmentForm.lead_pipeline_stage_id = ev.lead_pipeline_stage_id;
-                this.appointmentForm.person = { 
-                    id: ev.lead_id, // Note: using lead_id might be tricky if we need person_id directly, but let's assume we fetch person from lead or event
-                    name: ev.person_name 
+                this.appointmentForm.person = {
+                    id: ev
+                    .lead_id, // Note: using lead_id might be tricky if we need person_id directly, but let's assume we fetch person from lead or event
+                    name: ev.person_name
                 };
-                
+
                 // Set product info from event
                 this.appointmentForm.product_id = ev.product_id || (ev.product ? ev.product.id : null);
                 this.appointmentForm.product_name = ev.product_name || (ev.product ? ev.product.name : '');
@@ -1649,78 +1667,81 @@ app.component('v-doctor-day-calendar', {
                 this.closeQuickMenu();
                 this.$refs.unavailableModal.open();
             },
-                saveAppointment() {
-                    this.modalSaving = true;
-                    this.modalError = '';
+            saveAppointment() {
+                this.modalSaving = true;
+                this.modalError = '';
 
-                    if (!this.appointmentForm.person?.name) {
-                        this.modalSaving = false;
-                        this.modalError = 'Debes seleccionar un paciente.';
-                        return;
-                    }
+                if (!this.appointmentForm.person?.name) {
+                    this.modalSaving = false;
+                    this.modalError = 'Debes seleccionar un paciente.';
+                    return;
+                }
 
-                    if (!this.appointmentForm.doctor_id) {
-                        this.modalSaving = false;
-                        this.modalError = 'Debes seleccionar un doctor.';
-                        return;
-                    }
+                if (!this.appointmentForm.doctor_id) {
+                    this.modalSaving = false;
+                    this.modalError = 'Debes seleccionar un doctor.';
+                    return;
+                }
 
-                    if (!this.appointmentForm.product_id) {
-                        this.modalSaving = false;
-                        this.modalError = 'Debes seleccionar un servicio.';
-                        return;
-                    }
+                if (!this.appointmentForm.product_id) {
+                    this.modalSaving = false;
+                    this.modalError = 'Debes seleccionar un servicio.';
+                    return;
+                }
 
-                    const payload = {
-                        person: {
-                            id: this.appointmentForm.person.id || null,
-                            name: this.appointmentForm.person.name || '',
-                        },
-                        doctor_id: this.appointmentForm.doctor_id,
+                const payload = {
+                    person: {
+                        id: this.appointmentForm.person.id || null,
+                        name: this.appointmentForm.person.name || '',
+                    },
+                    doctor_id: this.appointmentForm.doctor_id,
+                    product_id: this.appointmentForm.product_id,
+                    date: this.modalContext.dayISO,
+                    start_time: this.appointmentForm.startTime,
+                    end_time: this.appointmentForm.endTime,
+                    duration_minutes: this.appointmentForm.duration,
+                    reason: this.appointmentForm.reason || '',
+                    lead_pipeline_stage_id: this.appointmentForm.lead_pipeline_stage_id,
+                };
+
+                let promise;
+                if (this.appointmentForm.id) {
+                    const url = "{{ route('admin.activities.update', 'replaceId') }}".replace('replaceId', this
+                        .appointmentForm.id);
+                    const startDateTime = `${this.modalContext.dayISO} ${this.appointmentForm.startTime}:00`;
+                    const endDateTime = `${this.modalContext.dayISO} ${this.appointmentForm.endTime}:00`;
+
+                    const updatePayload = {
+                        schedule_from: startDateTime,
+                        schedule_to: endDateTime,
+                        comment: this.appointmentForm.reason,
                         product_id: this.appointmentForm.product_id,
-                        date: this.modalContext.dayISO,
-                        start_time: this.appointmentForm.startTime,
-                        end_time: this.appointmentForm.endTime,
-                        duration_minutes: this.appointmentForm.duration,
-                        reason: this.appointmentForm.reason || '',
+                        doctor_id: this.appointmentForm.doctor_id,
+                        lead_id: this.appointmentForm.person.id,
                         lead_pipeline_stage_id: this.appointmentForm.lead_pipeline_stage_id,
                     };
+                    promise = this.$axios.put(url, updatePayload);
+                } else {
+                    promise = this.$axios.post(this.appointmentStoreUrl, payload);
+                }
 
-                    let promise;
-                    if (this.appointmentForm.id) {
-                        const url = "{{ route('admin.activities.update', 'replaceId') }}".replace('replaceId', this.appointmentForm.id);
-                        const startDateTime = `${this.modalContext.dayISO} ${this.appointmentForm.startTime}:00`;
-                        const endDateTime = `${this.modalContext.dayISO} ${this.appointmentForm.endTime}:00`;
-                        
-                        const updatePayload = {
-                            schedule_from: startDateTime,
-                            schedule_to: endDateTime,
-                            comment: this.appointmentForm.reason,
-                            product_id: this.appointmentForm.product_id,
-                            doctor_id: this.appointmentForm.doctor_id,
-                            lead_id: this.appointmentForm.person.id,
-                            lead_pipeline_stage_id: this.appointmentForm.lead_pipeline_stage_id,
-                        };
-                        promise = this.$axios.put(url, updatePayload);
-                    } else {
-                        promise = this.$axios.post(this.appointmentStoreUrl, payload);
-                    }
-
-                    promise
-                        .then((response) => {                            
-                            this.modalSaving = false;
-                            this.$refs.appointmentModal.close();
-                            this.fetch();
-                            this.$emitter.emit('add-flash', {
-                                type: 'success',
-                                message: response?.data?.message || (this.appointmentForm.id ? 'Cita actualizada correctamente.' : 'Cita creada correctamente.')
-                            });
-                        })
-                        .catch(err => {
-                            this.modalSaving = false;
-                            this.modalError = err?.response?.data?.message || 'Error al guardar';
+                promise
+                    .then((response) => {
+                        this.modalSaving = false;
+                        this.$refs.appointmentModal.close();
+                        this.fetch();
+                        this.$emitter.emit('add-flash', {
+                            type: 'success',
+                            message: response?.data?.message || (this.appointmentForm.id ?
+                                'Cita actualizada correctamente.' : 'Cita creada correctamente.'
+                                )
                         });
-                },
+                    })
+                    .catch(err => {
+                        this.modalSaving = false;
+                        this.modalError = err?.response?.data?.message || 'Error al guardar';
+                    });
+            },
             saveGroupAppointment() {
                 this.modalSaving = true;
                 this.modalError = '';
@@ -1764,7 +1785,10 @@ app.component('v-doctor-day-calendar', {
                         this.modalSaving = false;
                         this.$refs.unavailableModal.close();
                         this.fetch();
-                        this.$emitter.emit('add-flash', { type: 'success', message: 'Turno añadido correctamente' });
+                        this.$emitter.emit('add-flash', {
+                            type: 'success',
+                            message: 'Turno añadido correctamente'
+                        });
                     })
                     .catch(err => {
                         this.modalSaving = false;
@@ -1786,11 +1810,11 @@ app.component('v-doctor-day-calendar', {
                 this.$refs.scheduleOptionsModal.close();
                 this.modalError = '';
                 this.modalSaving = false;
-                
+
                 const defaultStart = this.modalContext.dayISO || this.toISO(new Date());
                 const defaultEnd = defaultStart;
-                const defaultDays = [new Date(defaultStart).getDay() || 7]; 
-                
+                const defaultDays = [new Date(defaultStart).getDay() || 7];
+
                 this.recurringForm.start_date = defaultStart;
                 this.recurringForm.end_date = defaultEnd;
                 this.recurringForm.days = defaultDays;
@@ -1814,7 +1838,7 @@ app.component('v-doctor-day-calendar', {
                 this.$refs.scheduleOptionsModal.close();
                 this.modalError = '';
                 this.modalSaving = false;
-                
+
                 this.timeOffForm.doctor_id = this.modalContext.doctorId;
                 this.timeOffForm.start_date = this.modalContext.dayISO || this.toISO(new Date());
                 this.timeOffForm.start_time = this.quickMenu.startTime;
@@ -1848,7 +1872,10 @@ app.component('v-doctor-day-calendar', {
                         this.modalSaving = false;
                         this.$refs.recurringModal.close();
                         this.fetch();
-                        this.$emitter.emit('add-flash', { type: 'success', message: response.data.message });
+                        this.$emitter.emit('add-flash', {
+                            type: 'success',
+                            message: response.data.message
+                        });
                     })
                     .catch(err => {
                         this.modalSaving = false;
@@ -1861,7 +1888,7 @@ app.component('v-doctor-day-calendar', {
 
                 const start = `${this.timeOffForm.start_date} ${this.timeOffForm.start_time}`;
                 const end = `${this.timeOffForm.start_date} ${this.timeOffForm.end_time}`;
-                
+
                 const payload = {
                     type: 'time_off',
                     title: `${this.timeOffForm.type}`,
@@ -1870,7 +1897,8 @@ app.component('v-doctor-day-calendar', {
                     participants: {
                         doctors: [this.timeOffForm.doctor_id]
                     },
-                    comment: this.timeOffForm.description + (this.timeOffForm.approved ? ' [Aprobado]' : ''),
+                    comment: this.timeOffForm.description + (this.timeOffForm.approved ? ' [Aprobado]' :
+                        ''),
                 };
 
                 this.$axios.post(this.storeUrl, payload)
@@ -1878,7 +1906,10 @@ app.component('v-doctor-day-calendar', {
                         this.modalSaving = false;
                         this.$refs.timeOffModal.close();
                         this.fetch();
-                        this.$emitter.emit('add-flash', { type: 'success', message: 'Días libres registrados' });
+                        this.$emitter.emit('add-flash', {
+                            type: 'success',
+                            message: 'Días libres registrados'
+                        });
                     })
                     .catch(err => {
                         this.modalSaving = false;
@@ -1908,18 +1939,18 @@ app.component('v-doctor-day-calendar', {
                 const e = new Date(end);
                 const diffMs = e - s;
                 const diffMins = Math.round(diffMs / 60000);
-                
+
                 if (diffMins < 60) {
                     return `${diffMins} min`;
                 }
-                
+
                 const h = Math.floor(diffMins / 60);
                 const m = diffMins % 60;
-                
+
                 if (m === 0) {
                     return `${h} h`;
                 }
-                
+
                 return `${h} h ${m} min`;
             },
             getStatusClass(status) {
@@ -1944,17 +1975,24 @@ app.component('v-doctor-day-calendar', {
             updateStatus(ev) {
                 if (!ev.lead_id || !ev.lead_pipeline_stage_id) return;
 
-                const url = "{{ route('admin.leads.stage.update', 'replaceId') }}".replace('replaceId', ev.lead_id);
-                
+                const url = "{{ route('admin.leads.stage.update', 'replaceId') }}".replace('replaceId', ev
+                    .lead_id);
+
                 this.$axios.put(url, {
-                    lead_pipeline_stage_id: ev.lead_pipeline_stage_id
-                })
-                .then(() => {
-                    this.$emitter.emit('add-flash', { type: 'success', message: 'Estado actualizado' });
-                })
-                .catch(() => {
-                    this.$emitter.emit('add-flash', { type: 'error', message: 'Error al actualizar estado' });
-                });
+                        lead_pipeline_stage_id: ev.lead_pipeline_stage_id
+                    })
+                    .then(() => {
+                        this.$emitter.emit('add-flash', {
+                            type: 'success',
+                            message: 'Estado actualizado'
+                        });
+                    })
+                    .catch(() => {
+                        this.$emitter.emit('add-flash', {
+                            type: 'error',
+                            message: 'Error al actualizar estado'
+                        });
+                    });
             },
         },
     });
@@ -2386,9 +2424,11 @@ app.component('v-doctor-day-calendar', {
         position: relative;
         background: #ecececff;
     }
+
     .dark .dwc-days-stack {
         background: #111827;
     }
+
     .dwc-availability-block {
         position: absolute;
         left: 0;
@@ -2396,11 +2436,13 @@ app.component('v-doctor-day-calendar', {
         background: var(--hours-bg, #fff);
         z-index: 0;
     }
+
     .dwc-day-block {
         position: relative;
         border-bottom: 1px solid var(--border-color);
         cursor: pointer;
     }
+
     .dwc-hour-line {
         position: absolute;
         left: 0;
@@ -2410,7 +2452,7 @@ app.component('v-doctor-day-calendar', {
         z-index: 1;
         pointer-events: none;
     }
-    
+
     .dwc-event {
         position: absolute;
         left: 6px;
@@ -2427,15 +2469,16 @@ app.component('v-doctor-day-calendar', {
         flex-direction: column;
         cursor: pointer;
         transition: transform 0.1s, box-shadow 0.1s;
-        height: auto; /* Allow growth */
+        height: auto;
+        /* Allow growth */
     }
-    
+
     .dwc-event:hover {
         transform: translateY(-1px);
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
         z-index: 10;
     }
-    
+
     .dwc-event-content {
         display: flex;
         flex-direction: column;
@@ -2532,7 +2575,7 @@ app.component('v-doctor-day-calendar', {
         text-transform: uppercase;
         font-size: 9px;
         color: #374151;
-        background: rgba(0,0,0,0.05);
+        background: rgba(0, 0, 0, 0.05);
         padding: 1px 3px;
         border-radius: 3px;
     }
@@ -2547,7 +2590,7 @@ app.component('v-doctor-day-calendar', {
         flex-shrink: 0;
         max-width: 60%;
     }
-    
+
     .dwc-event-doctor {
         font-size: 11px;
         color: #4b5563;
@@ -2643,6 +2686,7 @@ app.component('v-doctor-day-calendar', {
         border-radius: 8px;
         padding: 10px;
     }
+
     .dwc-month-cell {
         height: 120px;
         align-items: flex-start;
@@ -2651,18 +2695,21 @@ app.component('v-doctor-day-calendar', {
         border-radius: 8px;
         border: 1px solid var(--border-color);
     }
+
     .dwc-month-cell-header {
         width: 100%;
         display: flex;
         justify-content: space-between;
         padding: 4px 8px;
     }
+
     .dwc-month-cell-events {
         width: 100%;
         padding: 0 4px;
         overflow-y: auto;
         max-height: 90px;
     }
+
     .dwc-month-event {
         font-size: 11px;
         white-space: nowrap;
@@ -2675,6 +2722,7 @@ app.component('v-doctor-day-calendar', {
         color: #1e40af;
         cursor: pointer;
     }
+
     .dark .dwc-month-event {
         background: #1e3a8a;
         color: #dbeafe;
@@ -2688,15 +2736,18 @@ app.component('v-doctor-day-calendar', {
         background: var(--hours-bg);
         overflow: auto;
     }
+
     .dwc-week-header {
         display: grid;
         grid-template-columns: 150px repeat(7, minmax(120px, 1fr));
         border-bottom: 1px solid var(--border-color);
         background: var(--gray-50);
     }
+
     .dark .dwc-week-header {
         background: var(--hours-bg);
     }
+
     .dwc-week-header-cell {
         padding: 10px;
         text-align: center;
@@ -2705,20 +2756,24 @@ app.component('v-doctor-day-calendar', {
         font-size: 13px;
         color: var(--day-text);
     }
+
     .dwc-week-header-cell.doctor-col {
         text-align: left;
         padding-left: 16px;
     }
+
     .dwc-week-body {
         display: flex;
         flex-direction: column;
     }
+
     .dwc-week-row {
         display: grid;
         grid-template-columns: 150px repeat(7, minmax(120px, 1fr));
         border-bottom: 1px solid var(--border-color);
         min-height: 80px;
     }
+
     .dwc-week-doctor-cell {
         padding: 10px;
         border-right: 1px solid var(--border-color);
@@ -2728,9 +2783,11 @@ app.component('v-doctor-day-calendar', {
         background: var(--gray-50);
         color: var(--day-text);
     }
+
     .dark .dwc-week-doctor-cell {
         background: var(--hours-bg);
     }
+
     .dwc-week-day-cell {
         padding: 4px;
         border-right: 1px solid var(--border-color);
@@ -2739,12 +2796,15 @@ app.component('v-doctor-day-calendar', {
         gap: 4px;
         cursor: pointer;
     }
+
     .dwc-week-day-cell:hover {
-        background-color: rgba(0,0,0,0.02);
+        background-color: rgba(0, 0, 0, 0.02);
     }
+
     .dwc-week-day-cell.is-today {
         background-color: rgba(59, 130, 246, 0.05);
     }
+
     .dwc-week-event {
         font-size: 11px;
         background: #e0f2fe;
@@ -2757,6 +2817,7 @@ app.component('v-doctor-day-calendar', {
         align-items: center;
         overflow: hidden;
     }
+
     .dark .dwc-week-event {
         background: #075985;
         color: #e0f2fe;
@@ -2767,18 +2828,95 @@ app.component('v-doctor-day-calendar', {
             display: none;
         }
     }
-.tp-container { position: relative; display: inline-block; width: 100%; }
-    .tp-input { display: flex; align-items: center; justify-content: space-between; width: 100%; border: 1px solid #e5e7eb; border-radius: 0.375rem; padding: 0.5rem; font-size: 0.875rem; background: white; cursor: pointer; height: 39px; }
-    .dark .tp-input { border-color: #374151; background: #1f2937; color: #d1d5db; }
-    .tp-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 0.375rem; z-index: 10004; margin-top: 4px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
-    .dark .tp-dropdown { border-color: #374151; background: #1f2937; }
-    .tp-lists { display: flex; height: 160px; }
-    .tp-list { list-style: none; margin: 0; padding: 4px; overflow-y: auto; flex: 1; border-right: 1px solid #e5e7eb; }
-    .dark .tp-list { border-right-color: #374151; }
-    .tp-list:last-child { border-right: none; }
-    .tp-list li { padding: 4px 8px; border-radius: 0.25rem; cursor: pointer; text-align: center; }
-    .tp-list li:hover { background-color: #f3f4f6; }
-    .dark .tp-list li:hover { background-color: #374151; }
-    .tp-list li.is-selected { background-color: #3b82f6; color: white; font-weight: bold; }
-    .dark .tp-list li.is-selected { background-color: #2563eb; }
+
+    .tp-container {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+    }
+
+    .tp-input {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        padding: 0.5rem;
+        font-size: 0.875rem;
+        background: white;
+        cursor: pointer;
+        height: 39px;
+    }
+
+    .dark .tp-input {
+        border-color: #374151;
+        background: #1f2937;
+        color: #d1d5db;
+    }
+
+    .tp-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        z-index: 10004;
+        margin-top: 4px;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    }
+
+    .dark .tp-dropdown {
+        border-color: #374151;
+        background: #1f2937;
+    }
+
+    .tp-lists {
+        display: flex;
+        height: 160px;
+    }
+
+    .tp-list {
+        list-style: none;
+        margin: 0;
+        padding: 4px;
+        overflow-y: auto;
+        flex: 1;
+        border-right: 1px solid #e5e7eb;
+    }
+
+    .dark .tp-list {
+        border-right-color: #374151;
+    }
+
+    .tp-list:last-child {
+        border-right: none;
+    }
+
+    .tp-list li {
+        padding: 4px 8px;
+        border-radius: 0.25rem;
+        cursor: pointer;
+        text-align: center;
+    }
+
+    .tp-list li:hover {
+        background-color: #f3f4f6;
+    }
+
+    .dark .tp-list li:hover {
+        background-color: #374151;
+    }
+
+    .tp-list li.is-selected {
+        background-color: #3b82f6;
+        color: white;
+        font-weight: bold;
+    }
+
+    .dark .tp-list li.is-selected {
+        background-color: #2563eb;
+    }
 </style>
