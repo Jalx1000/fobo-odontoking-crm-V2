@@ -16,7 +16,7 @@
             <div class="grid gap-4 rounded-lg border border-gray-200 bg-white px-4 py-2 dark:border-gray-800 dark:bg-gray-900">
                 <div class="flex flex-col justify-between gap-1">
                     <p class="text-base font-semibold dark:text-gray-300">Tiempo en responder</p>
-                    <p class="text-sm font-semibold text-gray-600 dark:text-gray-300">Promedio total: @{{ averageMinutesPerLead }} min</p>
+                    <p class="text-sm font-semibold text-gray-600 dark:text-gray-300">Promedio total: @{{ averageMinutesPerLead }} hrs</p>
                 </div>
 
                 <div class="flex w-full max-w-full flex-col gap-4">
@@ -28,7 +28,7 @@
                     <div class="flex flex-wrap justify-center gap-5">
                         <div class="flex items-center gap-2" v-for="(color, index) in colors" :key="index">
                             <span class="h-3.5 w-3.5 rounded-sm" :style="{ backgroundColor: color }"></span>
-                            <p class="text-xs dark:text-gray-300">@{{ legendLabels[index] }} — @{{ dataMinutesPerLead[index] }} min</p>
+                            <p class="text-xs dark:text-gray-300">@{{ legendLabels[index] }} — @{{ dataMinutesPerLead[index] }} hrs</p>
                         </div>
                     </div>
                 </div>
