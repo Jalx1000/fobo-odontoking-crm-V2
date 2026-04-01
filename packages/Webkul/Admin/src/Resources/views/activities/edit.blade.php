@@ -60,7 +60,7 @@
                                 <x-admin::flat-picker.datetime class="!w-full" ::allow-input="true">
                                     <input
                                         name="schedule_from"
-                                        value="{{ old('schedule_from') ?? $activity->schedule_from }}"
+                                        value="{{ old('schedule_from') ?? (is_object($activity->schedule_from) ? $activity->schedule_from->format('Y-m-d H:i:s') : $activity->schedule_from) }}"
                                         class="flex w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
                                         placeholder="@lang('admin::app.activities.edit.schedule_from')"
                                     />
@@ -75,7 +75,7 @@
                                 <x-admin::flat-picker.datetime class="!w-full" ::allow-input="true">
                                     <input
                                         name="schedule_to"
-                                        value="{{ old('schedule_to') ?? $activity->schedule_to }}"
+                                        value="{{ old('schedule_to') ?? (is_object($activity->schedule_to) ? $activity->schedule_to->format('Y-m-d H:i:s') : $activity->schedule_to) }}"
                                         class="flex w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
                                         placeholder="@lang('admin::app.activities.edit.schedule_to')"
                                     />
@@ -250,7 +250,7 @@
                 <div class="relative rounded border border-gray-200 px-2 py-1 hover:border-gray-400 focus:border-gray-400 dark:border-gray-800" role="button">
                     <ul class="flex flex-wrap items-center gap-1">
                         <!-- Added Participants -->
-                        <template v-for="userType in ['users', 'persons']">
+                        <template v-for="userType in ['users', 'persons', 'doctors']">
                             <template v-if="! addedParticipants[userType].length">
                                 <input
                                     type="hidden"
@@ -315,7 +315,7 @@
                         <!-- Users and Person Searched Participants -->
                         <li
                             class="flex flex-col gap-2"
-                            v-for="userType in ['users', 'persons']"
+                            v-for="userType in ['users', 'persons', 'doctors']"
                         >
                             <h3 class="text-sm font-bold text-gray-600 dark:text-gray-400">
                                 <template v-if="userType === 'users'">
@@ -361,6 +361,8 @@
                             users: false,
 
                             persons: false,
+
+                            doctors: false,
                         },
 
                         searchTerm: '',
@@ -369,27 +371,45 @@
                             users: [],
 
                             persons: [],
+
+                            doctors: [],
                         },
 
                         searchedParticipants: {
                             users: [],
 
                             persons: [],
+
+                            doctors: [],
                         },
 
                         searchEnpoints: {
                             users: "{{ route('admin.settings.users.search') }}",
 
                             persons: "{{ route('admin.contacts.persons.search') }}",
+
+                            doctors: "{{ route('admin.doctor.search') }}",
                         },
                     };
                 },
 
                 watch: {
                     searchTerm(newVal, oldVal) {
-                        this.search('users');
+                        if (newVal === oldVal) return;
 
-                        this.search('persons');
+                        if (newVal.length >= 2) {
+                            this.search('users');
+
+                            this.search('persons');
+
+                            this.search('doctors');
+                        } else {
+                            this.searchedParticipants.users = [];
+
+                            this.searchedParticipants.persons = [];
+
+                            this.searchedParticipants.doctors = [];
+                        }
                     },
                 },
 
@@ -399,6 +419,8 @@
                             this.addedParticipants.users.push(participant.user);
                         } else if (participant.person) {
                             this.addedParticipants.persons.push(participant.person);
+                        } else if (participant.doctor) {
+                            this.addedParticipants.doctors.push(participant.doctor);
                         }
                     });
                 },
@@ -430,7 +452,9 @@
 
                                 this.isSearching[userType] = false;
                             })
-                            .catch (function (error) {
+                            .catch ((error) => {
+                                console.error('Error searching ' + userType + ':', error.response.data.message);
+
                                 this.isSearching[userType] = false;
                             });
                     },
@@ -444,6 +468,8 @@
                             users: [],
 
                             persons: [],
+
+                            doctors: [],
                         };
                     },
 

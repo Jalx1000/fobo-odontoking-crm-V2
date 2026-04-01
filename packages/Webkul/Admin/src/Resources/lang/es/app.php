@@ -138,8 +138,9 @@ return [
                     'participants'  => [
                         'title'       => 'Participantes',
                         'placeholder' => 'Escribe para buscar participantes',
-                        'users'       => 'Usuarios',
-                        'persons'     => 'Personas',
+                        'users'             => 'Usuarios',
+            'persons'           => 'Personas',
+            'doctors'           => 'Doctores',
                         'no-results'  => 'No se encontraron resultados...',
                     ],
                 ],

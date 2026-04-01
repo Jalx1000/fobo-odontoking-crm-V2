@@ -52,13 +52,10 @@
                 >
                     <!-- Selected Item or Placeholder Text -->
                     <span
-                        class="text-gray-600 dark:text-gray-300"
-                        v-text="selectedItem.name ?? placeholder"
-                    ></span>
-                        class="overflow-hidden text-ellipsis"
+                        class="overflow-hidden text-ellipsis text-gray-600 dark:text-gray-300"
                         :title="selectedItem?.name"
                     >
-                        @{{ selectedItem?.name !== "" ? selectedItem?.name : "@lang('admin::app.components.attributes.lookup.click-to-add')" }}
+                        @{{ selectedItem?.name !== "" ? selectedItem?.name : (placeholder || "@lang('admin::app.components.attributes.lookup.click-to-add')") }}
                     </span>
 
                     <!-- Icons Container -->

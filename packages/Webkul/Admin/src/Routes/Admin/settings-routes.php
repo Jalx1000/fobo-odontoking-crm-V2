@@ -176,6 +176,13 @@ Route::prefix('settings')->group(function () {
     });
 
     /**
+     * Doctors Routes.
+     */
+    Route::controller(\App\Http\Controllers\DoctorController::class)->prefix('doctors')->group(function () {
+        Route::get('search', 'search')->name('admin.doctor.search');
+    });
+
+    /**
      * Pipelines Routes.
      */
     Route::controller(PipelineController::class)->prefix('pipelines')->group(function () {
