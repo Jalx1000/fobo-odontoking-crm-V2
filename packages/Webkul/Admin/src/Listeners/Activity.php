@@ -30,7 +30,7 @@ class Activity
         if (request()->input('lead_id')) {
             $lead = $this->leadRepository->find(request()->input('lead_id'));
 
-            if (! $lead->activities->contains($activity->id)) {
+            if ($lead && ! $lead->activities->contains($activity->id)) {
                 $lead->activities()->attach($activity->id);
             }
         } elseif (request()->input('person_id')) {
