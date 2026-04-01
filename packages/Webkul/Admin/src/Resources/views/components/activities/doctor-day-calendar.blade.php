@@ -222,7 +222,7 @@
             </div>
         </div>
 
-        <div v-else-if="viewType === 'week' && isSingleDoctorMode" class="dwc-grid" :style="{ gridTemplateColumns: gridCols }">
+        <div v-else-if="viewType === 'week' && isSingleDoctorMode" class="dwc-grid dwc-scroll-container" :style="{ gridTemplateColumns: gridCols }">
             <div class="dwc-time-col">
                 <div
                     v-if="showNowLine"
@@ -233,7 +233,7 @@
                 </div>
 
                 <div class="dwc-hours">
-                    <div v-for="h in 14" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+6) }}:00</div>
+                    <div v-for="h in 13" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+6) }}:00</div>
                 </div>
             </div>
 
@@ -251,7 +251,7 @@
                         </div>
 
                         <!-- Lines -->
-                        <div v-for="idx in 15" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
+                        <div v-for="idx in 13" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
                         <!-- Events -->
                         <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
@@ -291,7 +291,7 @@
             </div>
         </div>
 
-        <div v-else-if="viewType === 'day'" class="dwc-grid" :style="{ gridTemplateColumns: gridCols }">
+        <div v-else-if="viewType === 'day'" class="dwc-grid dwc-scroll-container" :style="{ gridTemplateColumns: gridCols }">
             <div class="dwc-time-col">
                 <div
                     v-if="showNowLine"
@@ -301,7 +301,7 @@
                 </div>
 
                 <div class="dwc-hours">
-                    <div v-for="h in 14" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+6) }}:00</div>
+                    <div v-for="h in 13" :key="'hr-'+h" class="dwc-hour-row" :style="{ height: hourHeight + 'px' }">@{{ pad2(h+6) }}:00</div>
                 </div>
             </div>
 
@@ -318,7 +318,7 @@
                                  :style="{ top: av.top + 'px', height: av.height + 'px' }">
                             </div>
 
-                            <div v-for="idx in 15" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
+                            <div v-for="idx in 13" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
                             <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
                                 <div class="dwc-event-content dwc-event-layout">
@@ -1133,7 +1133,7 @@
                 return this.hourHeight / 60;
             },
             dayHeight() {
-                return 14 * this.hourHeight;
+                return 13 * this.hourHeight;
             },
             totalHeight() {
                 return this.days.length * this.dayHeight;
@@ -2352,11 +2352,23 @@
         width: 100%
     }
 
+    .dwc-scroll-container {
+        max-height: 70vh; /* O la altura que prefieras */
+        overflow: auto;
+    }
+
+    .dwc-doctor-header {
+        position: -webkit-sticky;
+        position: sticky;
+        top: 0;
+        z-index: 20;
+    }
+
     .dwc-time-col {
         position: -webkit-sticky;
         position: sticky;
         left: 0;
-        z-index: 10;
+        z-index: 30; /* Mayor que el de las cabeceras */
         background: var(--hours-bg, #fff);
     }
 
