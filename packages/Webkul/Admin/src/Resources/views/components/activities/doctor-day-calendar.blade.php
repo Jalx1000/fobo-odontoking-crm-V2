@@ -2,10 +2,13 @@
     <div class="ms-container" ref="root">
         <div class="ms-input" @click="toggleDropdown">
             <div class="ms-chips">
-                <span class="ms-chip" v-for="sid in model" :key="'chip-'+sid">
+                <span class="ms-chip" v-for="sid in model.slice(0, 2)" :key="'chip-'+sid">
                     @{{ nameById(sid) }}
                     <i class="icon-cross-large ms-chip-x" @click.stop="remove(sid)"></i>
                 </span>
+                {{-- <span class="ms-chip" v-if="model.length > 2">
+                    +@{{ model.length - 2 }}
+                </span> --}}
             </div>
             <div class="ms-actions">
                 <span class="ms-count">@{{ model.length }}</span>
