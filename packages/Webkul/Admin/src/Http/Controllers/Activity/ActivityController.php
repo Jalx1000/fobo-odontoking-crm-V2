@@ -218,7 +218,7 @@ class ActivityController extends Controller
         return response()->json([
             'activities' => $activities,
         ]);
-    }
+    } 
 
     /**
      * Store a newly created resource in storage.

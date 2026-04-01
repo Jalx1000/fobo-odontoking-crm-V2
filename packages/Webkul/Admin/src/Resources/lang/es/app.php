@@ -919,7 +919,7 @@ return [
                 'attributes'               => 'Atributos',
                 'attributes-info'          => 'Agregue atributos personalizados al formulario.',
                 'background-color'         => 'Color de Fondo',
-                'create-lead'              => 'Crear Lead',
+                'create-lead'              => 'Crear Cita',
                 'customize-webform'        => 'Personalizar Webform',
                 'customize-webform-info'   => 'Personalice su formulario web con los colores de los elementos de su elección.',
                 'description'              => 'Descripción',
@@ -950,7 +950,7 @@ return [
                 'code-snippet'             => 'Fragmento de Código',
                 'copied'                   => 'Copiado',
                 'copy'                     => 'Copiar',
-                'create-lead'              => 'Crear Lead',
+                'create-lead'              => 'Crear Cita',
                 'customize-webform'        => 'Personalizar Webform',
                 'customize-webform-info'   => 'Personalice su formulario web con los colores de los elementos de su elección.',
                 'description'              => 'Descripción',
@@ -1708,7 +1708,7 @@ return [
             'add-new-lead'               => 'Añadir Nuevo Lead',
             'create-new-contact'         => 'Crear Nuevo Contacto',
             'save-contact'               => 'Guardar Contacto',
-            'create-lead'                => 'Crear Lead',
+            'create-lead'                => 'Crear Cita',
             'linked-contact'             => 'Contacto Vinculado',
             'link-to-contact'            => 'Vincular a Contacto',
             'link-to-lead'               => 'Vincular a Lead',
@@ -1763,7 +1763,7 @@ return [
         ],
         'index' => [
             'title'      => 'Citas',
-            'create-btn' => 'Crear Lead',
+            'create-btn' => 'Crear Cita',
             'datagrid'   => [
                 'id'             => 'ID',
                 'sales-person'   => 'Persona de Ventas',
@@ -1787,7 +1787,7 @@ return [
                 'rotten-days'            => 'El lead está podrido desde hace :days días',
                 'empty-list'             => 'Tu lista de leads está vacía',
                 'empty-list-description' => 'Crea un lead para organizar tus objetivos.',
-                'create-lead-btn'        => 'Crear Lead',
+                'create-lead-btn'        => 'Crear Cita',
                 'columns'                => [
                     'contact-person'      => 'Persona de Contacto',
                     'id'                  => 'ID',
@@ -1836,7 +1836,7 @@ return [
             ],
         ],
         'create' => [
-            'title'          => 'Crear Lead',
+            'title'          => 'Crear Cita',
             'save-btn'       => 'Guardar',
             'details'        => 'Detalles',
             'details-info'   => 'Introduce la Información Básica del Lead',

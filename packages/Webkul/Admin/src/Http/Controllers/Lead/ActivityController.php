@@ -32,7 +32,10 @@ class ActivityController extends Controller
     {
         $activities = $this->activityRepository
             ->leftJoin('lead_activities', 'activities.id', '=', 'lead_activities.activity_id')
+            ->leftJoin('doctor_activities', 'activities.id', '=', 'doctor_activities.activity_id')
+            ->leftJoin('doctors', 'doctor_activities.doctor_id', '=', 'doctors.id')
             ->where('lead_activities.lead_id', $id)
+            ->select('activities.*', 'doctors.name as doctor_name', 'doctor_activities.doctor_id')
             ->get();
 
         return ActivityResource::collection($this->concatEmailAsActivities($id, $activities));

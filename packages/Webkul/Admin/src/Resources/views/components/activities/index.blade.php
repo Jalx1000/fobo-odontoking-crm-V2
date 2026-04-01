@@ -168,14 +168,22 @@
 
                                                 <!-- Activity Participants -->
                                                 <p
-                                                    v-if="activity.participants?.length"
+                                                    v-if="activity.participants?.length || activity.doctor_name"
                                                     class="dark:text-white"
                                                 >
                                                     @lang('admin::app.components.activities.index.participants'):
 
-                                                    <span class="after:content-[',_'] last:after:content-['']" v-for="(participant, index) in activity.participants">
-                                                        @{{ participant.user?.name ?? participant.person.name }}
-                                                    </span>
+                                                    <template v-if="activity.doctor_name">
+                                                        <span class="after:content-[',_'] last:after:content-['']">
+                                                            @{{ activity.doctor_name }}
+                                                        </span>
+                                                    </template>
+
+                                                    <template v-for="(participant, index) in activity.participants">
+                                                        <span class="after:content-[',_'] last:after:content-['']">
+                                                            @{{ participant.user?.name ?? participant.person.name }}
+                                                        </span>
+                                                    </template>
                                                 </p>
 
                                                 <!-- Activity Location -->
