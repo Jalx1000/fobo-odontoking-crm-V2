@@ -73,7 +73,7 @@
                         const seconds = typeof dataSeconds[i] === 'number' ? dataSeconds[i] : 0;
                         if (!seconds) return 0;
                         // El controlador ya devuelve el promedio en segundos, solo convertimos a minutos
-                        return Number((seconds / 60).toFixed(1));
+                        return Number((seconds / 3600).toFixed(1));
                     });
                 },
                 averageMinutesPerLead() {
