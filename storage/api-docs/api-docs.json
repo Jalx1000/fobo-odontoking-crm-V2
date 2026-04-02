@@ -212,6 +212,14 @@
                                                     "type": "string",
                                                     "example": "1"
                                                 }
+                                            },
+                                            "doctors": {
+                                                "description": "List of doctor IDs",
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string",
+                                                    "example": "1"
+                                                }
                                             }
                                         },
                                         "type": "object"
@@ -288,6 +296,14 @@
                                     },
                                     "participants[users][]": {
                                         "description": "List of user IDs",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "example": "1"
+                                        }
+                                    },
+                                    "participants[doctors][]": {
+                                        "description": "List of doctor IDs",
                                         "type": "array",
                                         "items": {
                                             "type": "string",
@@ -458,6 +474,14 @@
                                             },
                                             "users": {
                                                 "description": "List of user IDs",
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string",
+                                                    "example": "1"
+                                                }
+                                            },
+                                            "doctors": {
+                                                "description": "List of doctor IDs",
                                                 "type": "array",
                                                 "items": {
                                                     "type": "string",
