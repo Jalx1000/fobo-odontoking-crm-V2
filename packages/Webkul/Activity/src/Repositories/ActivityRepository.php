@@ -47,7 +47,7 @@ class ActivityRepository extends Repository
         }
 
         if (! isset($data['participants'])) {
-            return $activity;
+            return $this->find($activity->id);
         }
 
         foreach ($data['participants']['users'] ?? [] as $userId) {
