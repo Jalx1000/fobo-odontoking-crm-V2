@@ -419,9 +419,11 @@
                             this.addedParticipants.users.push(participant.user);
                         } else if (participant.person) {
                             this.addedParticipants.persons.push(participant.person);
-                        } else if (participant.doctor) {
-                            this.addedParticipants.doctors.push(participant.doctor);
                         }
+                    });
+
+                    @json($activity->doctors).forEach(doctor => {
+                        this.addedParticipants.doctors.push(doctor);
                     });
                 },
 

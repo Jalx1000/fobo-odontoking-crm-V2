@@ -468,7 +468,7 @@ class ActivityController extends Controller
      */
     public function edit(int $id): View
     {
-        $activity = $this->activityRepository->findOrFail($id);
+        $activity = $this->activityRepository->with(['participants', 'doctors'])->findOrFail($id);
 
         $leadId = old('lead_id') ?? optional($activity->leads()->first())->id;
 
