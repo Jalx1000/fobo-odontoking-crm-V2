@@ -16,10 +16,23 @@ class DoctorController extends Controller
 {
     use AuthorizesRequests, DispatchesJobs, ValidatesRequests;
 
+    /**
+     * Contains route related configuration
+     *
+     * @var array
+     */
+    protected $_config;
+
     public function __construct(
         protected DoctorRepository $doctorRepository,
         protected SpecialtyRepository $specialtyRepository
-    ) {}
+    ) {
+        $this->_config = request('_config');
+
+        if (request()->route()?->getName() != 'admin.doctor.search') {
+            $this->middleware('user');
+        }
+    }
 
     /**
      * Display a listing of the resource.
