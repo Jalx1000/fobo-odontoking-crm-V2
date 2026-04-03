@@ -375,7 +375,69 @@ class ActivityController extends Controller
 
                 $activity->leads()->sync([$lead->id]);
 
-                // Preparar datos para la API externa (n8n)
+                // --- INTEGRACIÓN SHAREMEDATA (Basado en CURL funcional) ---
+                $doctor = DB::table('doctors')->where('id', request()->get('doctor_id'))->first();
+                $doctorExternalId = $doctor?->unique_id ?: '69bd9a9b7549b10008e0acfa';
+                $doctorName = $doctor?->name ?: 'Doctor';
+
+                $nameParts = explode(' ', trim($personPayload['name'] ?? ''));
+                $firstName = $nameParts[0] ?: 'Paciente';
+                $lastName = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : 'Prueba';
+
+                $phone = '77788990';
+                if (!empty($personPayload['id'])) {
+                    $person = DB::table('persons')->where('id', $personPayload['id'])->first();
+                    if ($person && !empty($person->contact_numbers)) {
+                        $contactNumbers = json_decode($person->contact_numbers, true);
+                        if (is_array($contactNumbers) && count($contactNumbers) > 0 && isset($contactNumbers[0]['value'])) {
+                            $phone = (string) $contactNumbers[0]['value'];
+                        }
+                    }
+                }
+
+                $shareMeData = [
+                    'summary'   => "RESERVANDO CITA con {$doctorName}",
+                    'physician' => [
+                        '_id' => $doctorExternalId
+                    ],
+                    'patient'   => [
+                        'name'     => (string) $firstName,
+                        'lastName' => (string) $lastName,
+                        'phone'    => (string) $phone,
+                        'personID' => '',
+                        'birthday' => ''
+                    ],
+                    'slot'      => [
+                        'start' => $scheduleFrom->format('Y-m-d\TH:i:s-04:00'),
+                        'end'   => $scheduleTo->format('Y-m-d\TH:i:s-04:00')
+                    ]
+                ];
+
+                try {
+                    $response = Http::withHeaders([
+                        'Content-Type' => 'application/json',
+                        'Accept'       => 'application/json',
+                        'apiKey'       => '$2a$08$ZnoEdG50NB2n4VfimSpVjOkqgv1VqHVqRRL9Z6pohthsOvTliEWi2',
+                    ])
+                    ->withoutVerifying()
+                    // ->timeout(30)
+                    ->post('https://gamma.sharemedata.com/api/calendar/schedule/createEvent', $shareMeData);
+
+                    if ($response->failed()) {
+                        Log::error("Fallo en SHAREMEDATA", [
+                            'status' => $response->status(),
+                            'body'   => $response->body()
+                        ]);
+                        // Opcional: lanzar excepción si quieres que falle todo
+                        // throw new \Exception('Error al registrar en SHAREMEDATA: ' . $response->body());
+                    }
+                } catch (\Exception $e) {
+                    Log::error("Error de conexión con SHAREMEDATA", [
+                        'message' => $e->getMessage()
+                    ]);
+                }
+
+                // --- INTEGRACIÓN N8N (Existente) ---
                 $nameParts = explode(' ', trim($personPayload['name'] ?? ''));
                 $firstName = $nameParts[0] ?: 'Paciente';
                 $lastName = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : '';
