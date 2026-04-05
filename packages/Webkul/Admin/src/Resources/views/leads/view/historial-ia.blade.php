@@ -180,12 +180,28 @@
                     for (const item of rawList) {
                         let raw = typeof item === 'string' ? item : (item ? JSON.stringify(item) : '');
                         let content = raw;
+                        let type = this.detectType(raw);
+
                         try {
                             const j = JSON.parse(raw);
                             if (j && typeof j === 'object') {
-                                content = j.content ?? j.text ?? j.message ?? raw;
+                                // Extraer contenido inicial (puede ser el JSON anidado en AI)
+                                let extracted = j.content ?? j.text ?? j.message ?? raw;
+                                
+                                // Si es AI y el contenido parece un JSON anidado, intentar parsearlo
+                                if (type === 'ai' && typeof extracted === 'string' && extracted.trim().startsWith('{')) {
+                                    try {
+                                        const inner = JSON.parse(extracted);
+                                        content = inner?.output?.mensaje ?? inner?.mensaje ?? extracted;
+                                    } catch (e) {
+                                        content = extracted;
+                                    }
+                                } else {
+                                    content = extracted;
+                                }
                             }
                         } catch (e) {}
+
                         // Normalizar saltos de línea para que se respeten en la vista
                         if (typeof content === 'string') {
                             content = content
@@ -195,17 +211,24 @@
                                 .replace(/\\n/g, '\n')
                                 .replace(/<br\s*\/>?/gi, '\n');
                         }
+
                         let fecha = null;
                         let mensaje = null;
                         const mFecha = content.match(/Hoy:\s*([^\n]+)/i);
                         if (mFecha) fecha = mFecha[1].trim();
+                        
                         const ix = content.toLowerCase().indexOf('mensaje del usuario:');
-                        if (ix >= 0) mensaje = content.substring(ix + 'Mensaje del Usuario:'.length).trim();
+                        if (ix >= 0) {
+                            mensaje = content.substring(ix + 'Mensaje del Usuario:'.length).trim();
+                        } else {
+                            mensaje = content;
+                        }
+
                         out.push({
-                            raw: content,
+                            raw: raw,
                             fecha,
                             mensaje,
-                            type: this.detectType(content)
+                            type: type
                         });
                     }
                     return out;
