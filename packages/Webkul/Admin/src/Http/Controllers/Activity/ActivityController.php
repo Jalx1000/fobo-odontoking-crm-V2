@@ -18,11 +18,13 @@ use Webkul\Admin\Http\Requests\MassDestroyRequest;
 use Webkul\Admin\Http\Requests\MassUpdateRequest;
 use Webkul\Admin\Http\Resources\ActivityResource;
 use Webkul\Attribute\Repositories\AttributeRepository;
+use Webkul\Contact\Repositories\PersonRepository;
 use Webkul\Lead\Repositories\LeadRepository;
 use Webkul\Lead\Repositories\PipelineRepository;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+
+use Webkul\Admin\Services\ShareMeDataService;
 
 class ActivityController extends Controller
 {
@@ -37,6 +39,8 @@ class ActivityController extends Controller
         protected AttributeRepository $attributeRepository,
         protected LeadRepository $leadRepository,
         protected PipelineRepository $pipelineRepository,
+        protected ShareMeDataService $shareMeDataService,
+        protected PersonRepository $personRepository,
     ) {}
 
     /**
@@ -284,6 +288,7 @@ class ActivityController extends Controller
             'person'                 => 'required|array',
             'person.id'              => 'nullable|exists:persons,id',
             'person.name'            => 'required|string|max:255',
+            'person.phone'           => 'required_without:person.id|nullable|string|min:7|max:20', // Opcional si hay ID
             'doctor_id'              => 'required|exists:doctors,id',
             'product_id'             => 'required|exists:products,id',
             'date'                   => 'required|date_format:Y-m-d',
@@ -292,6 +297,27 @@ class ActivityController extends Controller
             'duration_minutes'       => 'nullable|integer|min:5|max:480',
             'reason'                 => 'nullable|string',
         ]);
+
+        $personPayload = request()->get('person');
+        $personId = $personPayload['id'] ?? null;
+        $personName = $personPayload['name'] ?? '';
+        $personPhone = $personPayload['phone'] ?? '';
+
+        // --- RECUPERACIÓN DE TELÉFONO SI HAY ID ---
+        if (empty($personPhone) && $personId) {
+            $person = DB::table('persons')->where('id', $personId)->first();
+            if ($person && !empty($person->contact_numbers)) {
+                $contactNumbers = json_decode($person->contact_numbers, true);
+                if (is_array($contactNumbers) && count($contactNumbers) > 0 && isset($contactNumbers[0]['value'])) {
+                    $personPhone = (string) $contactNumbers[0]['value'];
+                }
+            }
+        }
+
+        // --- FILTRO DE BASURA ---
+        if (empty(trim($personName)) || empty(trim($personPhone))) {
+            return response()->json(['message' => 'Nombre y teléfono son obligatorios para evitar registros incompletos.'], 422);
+        }
 
         $date = request()->get('date');
         $startTime = request()->get('start_time');
@@ -332,15 +358,208 @@ class ActivityController extends Controller
 
         $reason = request()->get('reason');
 
+        // --- VALIDACIÓN DE DISPONIBILIDAD OBLIGATORIA (SHAREMEDATA) ---
+        $doctor = DB::table('doctors')->where('id', request()->get('doctor_id'))->first();
+        $doctorExternalId = $doctor?->unique_id ?: '69bd9a9b7549b10008e0acfa';
+        
+        // --- NUEVO: Extraer email del external_id (formato: email|nombre) ---
+        $doctorEmail = null;
+        if (str_contains($doctorExternalId, '|')) {
+            $parts = explode('|', $doctorExternalId);
+            $doctorEmail = trim($parts[0]);
+        } else if (filter_var($doctorExternalId, FILTER_VALIDATE_EMAIL)) {
+            $doctorEmail = $doctorExternalId;
+        }
+
+        $doctorModel = app(\Webkul\Doctor\Repositories\DoctorRepository::class)->find(request()->get('doctor_id'));
+        $doctorSpecialties = $doctorModel ? $doctorModel->specialties->pluck('name')->toArray() : ['General'];
+        
+        $startIso = $scheduleFrom->format('Y-m-d\TH:i:s-04:00');
+        $endIso = $scheduleTo->format('Y-m-d\TH:i:s-04:00');
+        
+        $isAvailableExternally = false;
+        $subsidiary = "Santa Cruz";
+        $apiError = null;
+        $steps = [];
+
+        // --- 1. VALIDACIÓN LOCAL (CONFLICTOS EN EL CRM) ---
+        Log::info("Agendamiento: Paso 1 - Validando conflictos locales", ['doctor_id' => request()->get('doctor_id')]);
+        $localConflict = DB::table('activities')
+            ->join('doctor_activities', 'activities.id', '=', 'doctor_activities.activity_id')
+            ->where('doctor_activities.doctor_id', request()->get('doctor_id'))
+            ->where(function ($query) use ($scheduleFrom, $scheduleTo) {
+                $query->where(function ($q) use ($scheduleFrom, $scheduleTo) {
+                    $q->where('schedule_from', '>=', $scheduleFrom)
+                      ->where('schedule_from', '<', $scheduleTo);
+                })->orWhere(function ($q) use ($scheduleFrom, $scheduleTo) {
+                    $q->where('schedule_to', '>', $scheduleFrom)
+                      ->where('schedule_to', '<=', $scheduleTo);
+                })->orWhere(function ($q) use ($scheduleFrom, $scheduleTo) {
+                    $q->where('schedule_from', '<=', $scheduleFrom)
+                      ->where('schedule_to', '>=', $scheduleTo);
+                });
+            })
+            ->exists();
+
+        if ($localConflict) {
+            $steps['local_validation'] = 'Fallo: Conflicto detectado';
+            return response()->json([
+                'message'     => "El doctor ya tiene una cita programada en este horario en el sistema local.",
+                'doctor_info' => [
+                    'id'          => $doctor->id,
+                    'name'        => $doctor->name,
+                    'external_id' => $doctorExternalId,
+                    'email'       => $doctorEmail,
+                    'specialties' => $doctorSpecialties,
+                ],
+                'steps'       => $steps
+            ], 422);
+        }
+        $steps['local_validation'] = 'Éxito: Sin conflictos';
+
+        // --- 2. VALIDACIÓN EXTERNA (SHAREMEDATA) ---
+        Log::info("Agendamiento: Paso 2 - Validando disponibilidad externa", [
+            'doctor_ext_id' => $doctorExternalId, 
+            'doctor_email'  => $doctorEmail,
+            'specialties'   => $doctorSpecialties
+        ]);
+        $availabilityDetails = [];
+        $rawResponses = [];
+        $filteredRawResponses = [];
+        foreach ($doctorSpecialties as $specialty) {
+            try {
+                $slots = $this->shareMeDataService->checkAvailability(
+                    $doctorExternalId, 
+                    $specialty, 
+                    $subsidiary, 
+                    $scheduleFrom->format('Y-m-d H:i:s'), 
+                    $scheduleTo->format('Y-m-d H:i:s')
+                );
+
+                $rawResponse = $this->shareMeDataService->getLastResponse();
+                $rawResponses[$specialty] = $rawResponse;
+
+                $actualSlots = [];
+                $foundDoctorId = null;
+                $matchedDoctor = null;
+
+                if ($rawResponse && isset($rawResponse['body']) && is_array($rawResponse['body'])) {
+                    foreach ($rawResponse['body'] as $item) {
+                        $itemEmail = $item['physician']['email'] ?? null;
+                        $itemId = $item['physician']['_id'] ?? null;
+
+                        if (($doctorEmail && $itemEmail === $doctorEmail) || ($itemId === $doctorExternalId)) {
+                            $matchedDoctor = $item;
+                            $actualSlots = $item['slots'] ?? [];
+                            $foundDoctorId = $itemId;
+                            break;
+                        }
+                    }
+                }
+                
+                $filteredRawResponses[$specialty] = [
+                    'status' => $rawResponse['status'] ?? null,
+                    'body'   => $matchedDoctor ? [$matchedDoctor] : [],
+                ];
+
+                if (!empty($actualSlots)) {
+                    $requestedStart = $scheduleFrom;
+                    $requestedEnd = $scheduleTo;
+                    
+                    $requiredIntervals = [];
+                    $current = $requestedStart->copy();
+                    while ($current->lessThan($requestedEnd)) {
+                        $requiredIntervals[] = [
+                            'start' => $current->copy(),
+                            'end'   => $current->addMinutes(15)->copy()
+                        ];
+                    }
+
+                    $foundCount = 0;
+                    foreach ($requiredIntervals as $required) {
+                        foreach ($actualSlots as $daySlots) {
+                            foreach ($daySlots as $date => $intervals) {
+                                foreach ($intervals as $interval) {
+                                    $apiStart = Carbon::parse($interval['start']);
+                                    $apiEnd = Carbon::parse($interval['end']);
+
+                                    if ($apiStart->equalTo($required['start']) && $apiEnd->equalTo($required['end'])) {
+                                        $foundCount++;
+                                        continue 3; 
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if ($foundCount === count($requiredIntervals)) {
+                        $isAvailableExternally = true;
+                        $doctorExternalId = $foundDoctorId; 
+                        $steps['external_availability'][$specialty] = 'Disponible';
+                        break;
+                    }
+                }
+
+                $steps['external_availability'][$specialty] = 'No disponible';
+                $availabilityDetails[] = "[$specialty]: No disponible";
+
+            } catch (\Exception $e) {
+                $apiError = "Error al consultar disponibilidad ($specialty): " . $e->getMessage();
+                $steps['external_availability'][$specialty] = 'Error: ' . $e->getMessage();
+                $availabilityDetails[] = "[$specialty]: " . $e->getMessage();
+                $rawResponse = $this->shareMeDataService->getLastResponse();
+                $rawResponses[$specialty] = $rawResponse;
+                $filteredRawResponses[$specialty] = [
+                    'status' => $rawResponse['status'] ?? null,
+                    'body'   => [],
+                ];
+            }
+        }
+
+        if (!$isAvailableExternally) {
+            return response()->json([
+                'message'      => $apiError ?: "El doctor no tiene disponibilidad en SHAREMEDATA para el horario solicitado ($startTime a $endTime).",
+                'doctor_info'  => [
+                    'id'          => $doctor->id,
+                    'name'        => $doctor->name,
+                    'external_id' => $doctorExternalId,
+                    'email'       => $doctorEmail,
+                    'specialties' => $doctorSpecialties,
+                ],
+                'details'      => $availabilityDetails,
+                'raw_responses' => $rawResponses,
+                'filtered_raw_responses' => $filteredRawResponses,
+                'steps'        => $steps
+            ], 422);
+        }
+
         try {
-            return DB::transaction(function () use ($leadTitle, $reason, $product, $personPayload, $scheduleFrom, $scheduleTo) {
+            Log::info("Agendamiento: Paso 3 - Creando registros locales");
+            return DB::transaction(function () use ($leadTitle, $reason, $product, $personPayload, $scheduleFrom, $scheduleTo, $personPhone, $doctorExternalId, $doctorEmail, $doctorSpecialties, $doctor, $filteredRawResponses, $steps) {
+                // --- GESTIÓN DE PERSONAS: Evitar duplicados por teléfono ---
+                $personId = $personPayload['id'] ?? null;
+                
+                if (! $personId) {
+                    $existingPerson = $this->personRepository->findOneByField('contact_numbers', $personPhone);
+                    if (! $existingPerson) {
+                        // Búsqueda más profunda si el JSON de contact_numbers varía
+                        $existingPerson = DB::table('persons')
+                            ->where('contact_numbers', 'LIKE', "%{$personPhone}%")
+                            ->first();
+                    }
+                    $personId = $existingPerson?->id;
+                }
+
                 $leadPayload = [
                     'title'       => $leadTitle,
                     'description' => $reason,
                     'entity_type' => 'leads',
                     'person'      => [
-                        'id'   => $personPayload['id'] ?? null,
+                        'id'   => $personId,
                         'name' => $personPayload['name'] ?? '',
+                        'contact_numbers' => [
+                            ['value' => $personPhone, 'label' => 'work']
+                        ]
                     ],
                     'products'    => [[
                         'product_id' => $product->id,
@@ -376,13 +595,21 @@ class ActivityController extends Controller
                 $activity->leads()->sync([$lead->id]);
 
                 // --- INTEGRACIÓN SHAREMEDATA (Basado en CURL funcional) ---
-                $doctor = DB::table('doctors')->where('id', request()->get('doctor_id'))->first();
-                $doctorExternalId = $doctor?->unique_id ?: '69bd9a9b7549b10008e0acfa';
-                $doctorName = $doctor?->name ?: 'Doctor';
+                // $doctor = DB::table('doctors')->where('id', request()->get('doctor_id'))->first();
+                // $doctorExternalId = $doctor?->unique_id ?: '69bd9a9b7549b10008e0acfa';
+                $doctorName = $doctor->name ?? 'Doctor';
+
+                // Obtener especialidades del doctor para validación externa
+                // $doctorModel = app(\Webkul\Doctor\Repositories\DoctorRepository::class)->find(request()->get('doctor_id'));
+                // $doctorSpecialties = $doctorModel ? $doctorModel->specialties->pluck('name')->toArray() : ['General'];
 
                 $nameParts = explode(' ', trim($personPayload['name'] ?? ''));
                 $firstName = $nameParts[0] ?: 'Paciente';
                 $lastName = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : 'Prueba';
+
+                // --- INTEGRACIONES EXTERNAS (FUERA DE LA TRANSACCIÓN) ---
+                Log::info("Agendamiento: Paso 4 - Ejecutando integraciones externas");
+                $steps['crm_creation'] = 'Éxito: Lead y Actividad creados';
 
                 $phone = '77788990';
                 if (!empty($personPayload['id'])) {
@@ -394,6 +621,9 @@ class ActivityController extends Controller
                         }
                     }
                 }
+
+                $startIso = $scheduleFrom->format('Y-m-d\TH:i:s-04:00');
+                $endIso = $scheduleTo->format('Y-m-d\TH:i:s-04:00');
 
                 $shareMeData = [
                     'summary'   => "RESERVANDO CITA con {$doctorName}",
@@ -408,108 +638,74 @@ class ActivityController extends Controller
                         'birthday' => ''
                     ],
                     'slot'      => [
-                        'start' => $scheduleFrom->format('Y-m-d\TH:i:s-04:00'),
-                        'end'   => $scheduleTo->format('Y-m-d\TH:i:s-04:00')
+                        'start' => $startIso,
+                        'end'   => $endIso
                     ]
                 ];
 
-                try {
-                    $response = Http::withHeaders([
-                        'Content-Type' => 'application/json',
-                        'Accept'       => 'application/json',
-                        'apiKey'       => '$2a$08$ZnoEdG50NB2n4VfimSpVjOkqgv1VqHVqRRL9Z6pohthsOvTliEWi2',
-                    ])
-                    ->withoutVerifying()
-                    // ->timeout(30)
-                    ->post('https://gamma.sharemedata.com/api/calendar/schedule/createEvent', $shareMeData);
+                $externalErrors = [];
 
-                    if ($response->failed()) {
-                        Log::error("Fallo en SHAREMEDATA", [
-                            'status' => $response->status(),
-                            'body'   => $response->body()
-                        ]);
-                        // Opcional: lanzar excepción si quieres que falle todo
-                        // throw new \Exception('Error al registrar en SHAREMEDATA: ' . $response->body());
-                    }
-                } catch (\Exception $e) {
-                    Log::error("Error de conexión con SHAREMEDATA", [
-                        'message' => $e->getMessage()
-                    ]);
-                }
-
-                // --- INTEGRACIÓN N8N (Existente) ---
-                $nameParts = explode(' ', trim($personPayload['name'] ?? ''));
-                $firstName = $nameParts[0] ?: 'Paciente';
-                $lastName = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : '';
+                // 1. Validar disponibilidad externa por cada especialidad
+                $isAvailableExternally = false;
+                $subsidiary = "Santa Cruz"; // Por defecto según documentación
                 
-                $doctorName = 'Doctor';
-                if (request()->has('doctor_id')) {
-                    // En el CRM, los doctores suelen estar en la tabla 'doctors' o 'persons' con un rol específico.
-                    // Según la validación 'doctor_id' => 'required|exists:doctors,id', la tabla es 'doctors'
-                    $doctor = DB::table('doctors')->where('id', request()->get('doctor_id'))->first();
-                    if ($doctor) {
-                        $doctorName = $doctor->name;
-                    }
-                }
+                foreach ($doctorSpecialties as $specialty) {
+                    $slots = $this->shareMeDataService->checkAvailability(
+                        $doctorExternalId, 
+                        $specialty, 
+                        $subsidiary, 
+                        $scheduleFrom->format('Y-m-d H:i:s'), 
+                        $scheduleTo->format('Y-m-d H:i:s')
+                    );
 
-                $phone = '77788990';
-                if (!empty($personPayload['id'])) {
-                    $person = DB::table('persons')->where('id', $personPayload['id'])->first();
-                    if ($person && !empty($person->contact_numbers)) {
-                        $contactNumbers = json_decode($person->contact_numbers, true);
-                        if (is_array($contactNumbers) && count($contactNumbers) > 0 && isset($contactNumbers[0]['value'])) {
-                            $phone = $contactNumbers[0]['value'];
+                    // Si hay slots devueltos, verificar si el nuestro está libre
+                    foreach ($slots as $daySlots) {
+                        foreach ($daySlots as $date => $intervals) {
+                            foreach ($intervals as $interval) {
+                                if ($interval['start'] == $startIso && $interval['end'] == $endIso) {
+                                    $isAvailableExternally = true;
+                                    break 3;
+                                }
+                            }
                         }
                     }
                 }
 
-                $startIso = $scheduleFrom->format('Y-m-d\TH:i:sP');
-                $endIso = $scheduleTo->format('Y-m-d\TH:i:sP');
+                if (!$isAvailableExternally) {
+                    Log::warning("ShareMeData: No se confirmó disponibilidad exacta para el slot solicitado", [
+                        'doctor' => $doctorExternalId,
+                        'start'  => $startIso
+                    ]);
+                }
 
-                $externalData = [
-                    'summary' => $reason ?: "RESERVANDO CITA con {$doctorName}",
-                    'physician' => [
-                        '_id' => '69bd9a9b7549b10008e0acfa'
-                    ],
-                    'patient' => [
-                        'name' => $firstName,
-                        'lastName' => $lastName,
-                        'phone' => $phone,
-                        'personID' => '',
-                        'doctorName' => $doctorName,
-                    ],
-                    'slot' => [
-                        'start' => $scheduleFrom->format('Y-m-d H:i:s'),
-                        'end' => $scheduleTo->format('Y-m-d H:i:s')
-                    ]
-                ];
-
-                // Llamada al webhook de n8n
+                // 2. Llamada a SHAREMEDATA para crear el evento
                 try {
-                    $response = Http::withHeaders([
-                        'Content-Type' => 'application/json',
-                        'Accept'       => 'application/json',
-                    ])
-                    ->withoutVerifying()
-                    ->timeout(30) // Aumentado a 30 segundos
-                    ->connectTimeout(15) // Añadido connectTimeout
-                    ->post('http://n8n.sofopolis.com/webhook/365873f3-0891-4b20-a6dc-3db5df3f891c', $externalData);
+                    $response = $this->shareMeDataService->createEvent($shareMeData);
 
-                    if ($response->failed()) {
-                        throw new \Exception('Error al registrar en el sistema externo: ' . $response->body());
+                    if (!$response['success']) {
+                        $externalErrors[] = "SHAREMEDATA: " . $response['message'];
                     }
                 } catch (\Exception $e) {
-                    Log::error("Fallo crítico de conexión en Sync con n8n", [
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
-                    ]);
-                    throw $e; // Re-lanzar para que el DB::transaction haga rollback
+                    $externalErrors[] = "SHAREMEDATA (Conexión): " . $e->getMessage();
                 }
 
                 return response()->json([
                     'lead_id'     => $lead->id,
                     'activity_id' => $activity->id,
-                    'message'     => 'Cita creada correctamente.',
+                    'doctor_info' => [
+                        'id'          => $doctor->id,
+                        'name'        => $doctor->name,
+                        'external_id' => $doctorExternalId,
+                        'email'       => $doctorEmail,
+                        'specialties' => $doctorSpecialties,
+                    ],
+                    'message'     => count($externalErrors) > 0 
+                        ? 'Cita creada en CRM, pero hubo problemas con ShareMeData: ' . implode(', ', $externalErrors)
+                        : 'Cita creada y sincronizada correctamente.',
+                    'sync_errors'   => $externalErrors,
+                    'raw_responses' => count($externalErrors) > 0 ? [$this->shareMeDataService->getLastResponse()] : [],
+                    'filtered_raw_responses' => $filteredRawResponses,
+                    'steps'         => $steps
                 ]);
             });
         } catch (\Throwable $e) {
