@@ -11,7 +11,7 @@
                 </span> --}}
             </div>
             <div class="ms-actions">
-                <span class="ms-count">@{{ model.length - 2 }}</span>
+                <span class="ms-count">@{{ model.length > 2 ? model.length - 2 : 0 }}</span>
                 <i :class="open ? 'icon-up-arrow' : 'icon-down-arrow'" class="text-xl"></i>
             </div>
         </div>
