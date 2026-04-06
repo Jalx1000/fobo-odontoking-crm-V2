@@ -253,7 +253,7 @@
                 60); // Assume a default 1-hour appointment slot for checking
 
                 if (!this.isSlotAvailable(this.dateISO, doctorId, startMins, endMins)) {
-                    alert('Este horario no está disponible para citas.'); // Simple feedback
+                    alert('Este horario no está disponible para pedidos.'); // Simple feedback
                     return;
                 }
 

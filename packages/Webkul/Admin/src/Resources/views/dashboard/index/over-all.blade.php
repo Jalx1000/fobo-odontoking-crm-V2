@@ -108,7 +108,7 @@
                 <!-- Total Services -->
                 <div class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-5 dark:border-gray-800 dark:bg-gray-900">
                     <p class="text-xs font-medium text-gray-600 dark:text-gray-300">
-                        Total servicios solicitados
+                        Total productos solicitados
                     </p>
 
                     <div class="flex gap-2">

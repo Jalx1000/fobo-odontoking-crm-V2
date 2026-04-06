@@ -205,7 +205,7 @@
                 <div v-for="col in columns" :key="'wrow-'+col.id" class="dwc-week-row">
                     <div class="dwc-week-doctor-cell">
                         <span class="font-semibold text-sm">@{{ col.name }}</span>
-                        <span class="text-xs text-gray-500">@{{ totalCount(col.id) }} citas</span>
+                        <span class="text-xs text-gray-500">@{{ totalCount(col.id) }} pedidos</span>
                     </div>
                     <div v-for="day in days" :key="'wcell-'+col.id+'-'+day.date" 
                          class="dwc-week-day-cell"
