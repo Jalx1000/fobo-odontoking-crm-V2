@@ -28,6 +28,8 @@ class DashboardController extends Controller
         'tiempo-por-vendedor'  => 'getResponseTimeByUsersStats',
         'ventas-por-sucursal'  => 'getVentasByBranchesStats',
         'leads-por-sucursal'   => 'getLeadsByBranchesStats',
+        'ventas-por-ciudad'    => 'getVentasByCitiesStats',
+        'leads-por-ciudad'     => 'getLeadsByCitiesStats',
         'total-leads-by-stages' => 'getTotalLeadsByStages',
         'total-leads-by-stages-over-time' => 'getTotalLeadsByStagesOverTime',
         'total-services'       => 'getTotalServicesStats',

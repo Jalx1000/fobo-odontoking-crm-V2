@@ -484,6 +484,127 @@ class Lead extends AbstractReporting
         ];
     }
 
+    public function getLeadsCountByCities(): array
+    {
+        $tablePrefix = DB::getTablePrefix();
+
+        $attribute = $this->attributeRepository->findWhere([
+            'code'        => 'ciudad_lead',
+            'entity_type' => 'leads',
+        ])->first();
+
+        $query = $this->leadRepository
+            ->resetModel()
+            ->leftJoin('users', 'leads.user_id', '=', 'users.id')
+            ->leftJoin('attribute_values as av', function ($join) use ($attribute, $tablePrefix) {
+                $join->on('leads.id', '=', 'av.entity_id')
+                     ->where('av.entity_type', '=', 'leads')
+                     ->when($attribute, fn ($j) => $j->where('av.attribute_id', '=', $attribute->id));
+            })
+            ->select(
+                DB::raw($tablePrefix.'av.integer_value as city_id'),
+                DB::raw($tablePrefix.'av.text_value as city_text'),
+                DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) AS count')
+            )
+            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
+            ->whereNotIn('leads.lead_pipeline_stage_id', $this->lostStageIds)
+            ->groupBy('city_id', 'city_text');
+
+        if (function_exists('bouncer') && ($userIds = bouncer()->getAuthorizedUserIds())) {
+            $query->whereIn('users.id', $userIds);
+        }
+
+        $results = $query->get();
+
+        $countsByName = [];
+
+        foreach ($results as $row) {
+            $name = null;
+
+            if ($attribute && $attribute->lookup_type && $row->city_id) {
+                $entity = $this->attributeRepository->getLookUpEntity($attribute->lookup_type, $row->city_id, ['id', 'name']);
+                $name = $entity?->name;
+            }
+
+            $name = $name ?? ($row->city_text ?: 'Sin ciudad');
+
+            $countsByName[$name] = ($countsByName[$name] ?? 0) + (int) $row->count;
+        }
+
+        $labels = array_keys($countsByName);
+        sort($labels, SORT_NATURAL | SORT_FLAG_CASE);
+
+        $data = [];
+        foreach ($labels as $label) {
+            $data[] = $countsByName[$label];
+        }
+
+        return [
+            'labels' => $labels,
+            'data'   => $data,
+        ];
+    }
+
+    public function getVentasCountByCities(): array
+    {
+        $tablePrefix = DB::getTablePrefix();
+
+        $attribute = $this->attributeRepository->findWhere([
+            'code'        => 'ciudad_lead',
+            'entity_type' => 'leads',
+        ])->first();
+
+        $query = $this->leadRepository
+            ->resetModel()
+            ->leftJoin('users', 'leads.user_id', '=', 'users.id')
+            ->leftJoin('attribute_values as av', function ($join) use ($attribute, $tablePrefix) {
+                $join->on('leads.id', '=', 'av.entity_id')
+                     ->where('av.entity_type', '=', 'leads')
+                     ->when($attribute, fn ($j) => $j->where('av.attribute_id', '=', $attribute->id));
+            })
+            ->select(
+                DB::raw($tablePrefix.'av.integer_value as city_id'),
+                DB::raw($tablePrefix.'av.text_value as city_text'),
+                DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.id END) AS count')
+            )
+            ->whereBetween('leads.closed_at', [$this->startDate, $this->endDate])
+            ->groupBy('city_id', 'city_text');
+
+        if (function_exists('bouncer') && ($userIds = bouncer()->getAuthorizedUserIds())) {
+            $query->whereIn('users.id', $userIds);
+        }
+
+        $results = $query->get();
+
+        $countsByName = [];
+
+        foreach ($results as $row) {
+            $name = null;
+
+            if ($attribute && $attribute->lookup_type && $row->city_id) {
+                $entity = $this->attributeRepository->getLookUpEntity($attribute->lookup_type, $row->city_id, ['id', 'name']);
+                $name = $entity?->name;
+            }
+
+            $name = $name ?? ($row->city_text ?: 'Sin ciudad');
+
+            $countsByName[$name] = ($countsByName[$name] ?? 0) + (int) $row->count;
+        }
+
+        $labels = array_keys($countsByName);
+        sort($labels, SORT_NATURAL | SORT_FLAG_CASE);
+
+        $data = [];
+        foreach ($labels as $label) {
+            $data[] = $countsByName[$label];
+        }
+
+        return [
+            'labels' => $labels,
+            'data'   => $data,
+        ];
+    }
+
     /**
      * Determine the appropriate period based on date range
      *

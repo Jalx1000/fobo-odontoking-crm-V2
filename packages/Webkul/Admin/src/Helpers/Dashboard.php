@@ -172,6 +172,16 @@ class Dashboard
         return $this->leadReporting->getLeadsCountByBranches();
     }
 
+    public function getVentasByCitiesStats(): array
+    {
+        return $this->leadReporting->getVentasCountByCities();
+    }
+
+    public function getLeadsByCitiesStats(): array
+    {
+        return $this->leadReporting->getLeadsCountByCities();
+    }
+
     /**
      * Returns total leads by pipeline stages counts.
      */

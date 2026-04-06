@@ -57,6 +57,12 @@
                     <div class="col-span-1 flex flex-col gap-4">
                         @include('admin::dashboard.index.leads-by-users')
                     </div>
+                    <div class="col-span-1 flex flex-col gap-4">
+                        @include('admin::dashboard.index.leads-por-ciudad')
+                    </div>
+                    <div class="col-span-1 flex flex-col gap-4">
+                        @include('admin::dashboard.index.ventas-por-ciudad')
+                    </div>
                 </div>
             @else
                 @include('admin::dashboard.index.leads-by-users')
@@ -81,6 +87,8 @@
             {{-- @include('admin::dashboard.index.revenue-by-types') --}}
 
             @include('admin::dashboard.index.quantity-products-pie')
+
+            @include('admin::dashboard.index.leads-por-ciudad-pie')
         </div>
 
         {!! view_render_event('admin.dashboard.index.content.right.after') !!}
