@@ -157,7 +157,7 @@ class ProductController extends Controller
      */
     public function search(): JsonResource
     {
-        $limit = request()->get('limit') ?? 5;
+        $limit = request()->get('limit') ?? 200;
 
         $products = $this->productRepository
             ->pushCriteria(app(RequestCriteria::class))

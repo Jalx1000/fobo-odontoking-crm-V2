@@ -423,7 +423,7 @@
                         search: '',
                         searchFields: '',
                         pipeline_id: "{{ request('pipeline_id') }}",
-                        limit: 10,
+                        limit: 20,
                     };
 
                     this.applied.filters.columns.forEach((column) => {
@@ -683,7 +683,7 @@
                         pipeline_stage_id: stage.id,
                         pipeline_id: stage.lead_pipeline_id,
                         page: this.stageLeads[stage.sort_order].leads.meta.current_page + 1,
-                        limit: 10,
+                        limit: 20,
                     });
                 },
 

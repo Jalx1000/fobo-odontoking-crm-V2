@@ -24,7 +24,7 @@ class Product extends AbstractReporting
      *
      * @param  int  $limit
      */
-    public function getTopSellingProductsByRevenue($limit = null): Collection
+    public function getTopSellingProductsByRevenue($limit = 200): Collection
     {
         $tablePrefix = DB::getTablePrefix();
 
