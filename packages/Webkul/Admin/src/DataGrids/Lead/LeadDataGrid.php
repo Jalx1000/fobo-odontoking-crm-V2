@@ -277,7 +277,7 @@ class LeadDataGrid extends DataGrid
                     return '';
                 }
 
-                return $lead->activities->where('type', '!=', 'note')->map(fn ($a) => "[{$a->type}] {$a->title}: {$a->comment}")->implode(' | ');
+                return $lead->activities->whereNotIn('type', ['note', 'system'])->map(fn ($a) => "[{$a->type}] {$a->title}: {$a->comment}")->implode(' | ');
             },
         ]);
 
