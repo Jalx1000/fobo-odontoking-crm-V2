@@ -11,6 +11,8 @@ use Webkul\Lead\Repositories\StageRepository;
 use Webkul\Lead\Repositories\TypeRepository;
 use Webkul\Tag\Repositories\TagRepository;
 use Webkul\User\Repositories\UserRepository;
+use Webkul\Attribute\Repositories\AttributeRepository;
+use Webkul\Lead\Repositories\LeadRepository;
 
 class LeadDataGrid extends DataGrid
 {
@@ -33,6 +35,8 @@ class LeadDataGrid extends DataGrid
         protected TypeRepository $typeRepository,
         protected UserRepository $userRepository,
         protected TagRepository $tagRepository,
+        protected AttributeRepository $attributeRepository,
+        protected LeadRepository $leadRepository,
     ) {
         if (request('pipeline_id')) {
             $this->pipeline = $this->pipelineRepository->find(request('pipeline_id'));
@@ -52,6 +56,7 @@ class LeadDataGrid extends DataGrid
             ->addSelect(
                 'leads.id',
                 'leads.title',
+                'leads.description',
                 'leads.status',
                 'leads.lead_value',
                 'leads.expected_close_date',
@@ -248,6 +253,101 @@ class LeadDataGrid extends DataGrid
                 return trans('admin::app.leads.index.datagrid.yes');
             },
         ]);
+
+        $this->addColumn([
+            'index'      => 'description',
+            'label'      => trans('admin::app.leads.index.datagrid.description'),
+            'type'       => 'string',
+            'visibility' => false,
+        ]);
+
+        $this->addColumn([
+            'index'      => 'activities',
+            'label'      => 'Actividades',
+            'type'       => 'string',
+            'visibility' => false,
+            'closure'    => function ($row) {
+                static $lead;
+
+                if (! $lead || $lead->id != $row->id) {
+                    $lead = $this->leadRepository->find($row->id);
+                }
+
+                if (! $lead) {
+                    return '';
+                }
+
+                return $lead->activities->where('type', '!=', 'note')->map(fn ($a) => "[{$a->type}] {$a->title}: {$a->comment}")->implode(' | ');
+            },
+        ]);
+
+        $this->addColumn([
+            'index'      => 'notes',
+            'label'      => 'Notas',
+            'type'       => 'string',
+            'visibility' => false,
+            'closure'    => function ($row) {
+                static $lead;
+
+                if (! $lead || $lead->id != $row->id) {
+                    $lead = $this->leadRepository->find($row->id);
+                }
+
+                if (! $lead) {
+                    return '';
+                }
+
+                return $lead->activities->where('type', 'note')->map(fn ($a) => "{$a->comment}")->implode(' | ');
+            },
+        ]);
+
+        $this->addColumn([
+            'index'      => 'products',
+            'label'      => 'Productos',
+            'type'       => 'string',
+            'visibility' => false,
+            'closure'    => function ($row) {
+                static $lead;
+
+                if (! $lead || $lead->id != $row->id) {
+                    $lead = $this->leadRepository->find($row->id);
+                }
+
+                if (! $lead) {
+                    return '';
+                }
+
+                return $lead->products->map(fn ($p) => "{$p->name} (Cant: {$p->quantity})")->implode(' | ');
+            },
+        ]);
+
+        $attributes = $this->attributeRepository->findWhere(['entity_type' => 'leads']);
+
+        foreach ($attributes as $attribute) {
+            if (in_array($attribute->code, ['title', 'description'])) {
+                continue;
+            }
+
+            $this->addColumn([
+                'index'      => $attribute->code,
+                'label'      => $attribute->name,
+                'type'       => 'string',
+                'visibility' => false,
+                'closure'    => function ($row) use ($attribute) {
+                    static $lead;
+
+                    if (! $lead || $lead->id != $row->id) {
+                        $lead = $this->leadRepository->find($row->id);
+                    }
+
+                    if (! $lead) {
+                        return '';
+                    }
+
+                    return $lead->getCustomAttributeValue($attribute);
+                },
+            ]);
+        }
 
         $this->addColumn([
             'index'           => 'expected_close_date',

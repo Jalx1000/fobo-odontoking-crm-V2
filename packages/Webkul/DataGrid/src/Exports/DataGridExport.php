@@ -44,17 +44,21 @@ class DataGridExport implements FromQuery, ShouldAutoSize, WithHeadings, WithMap
         return collect($this->datagrid->getColumns())
             ->filter(fn ($column) => $column->getExportable())
             ->map(function ($column) use ($record) {
-                $index = $column->getIndex();
-                $value = $record->{$index};
+                if ($closure = $column->getClosure()) {
+                    $value = $closure($record);
+                } else {
+                    $index = $column->getIndex();
+                    $value = $record->{$index};
 
-                if (
-                    in_array($index, ['emails', 'contact_numbers'])
-                    && is_string($value)
-                ) {
-                    return $this->extractValuesFromJson($value);
+                    if (
+                        in_array($index, ['emails', 'contact_numbers'])
+                        && is_string($value)
+                    ) {
+                        $value = $this->extractValuesFromJson($value);
+                    }
                 }
 
-                return $value;
+                return is_string($value) ? strip_tags($value) : $value;
             })
             ->toArray();
     }
