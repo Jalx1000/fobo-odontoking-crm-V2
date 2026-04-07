@@ -10,11 +10,13 @@ use Illuminate\Support\Str;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Doctor\DataGrids\SpecialtyDataGrid;
 use Webkul\Doctor\Repositories\SpecialtyRepository;
+use Webkul\Admin\Services\ShareMeDataService;
 
 class SpecialtyController extends Controller
 {
     public function __construct(
-        protected SpecialtyRepository $specialtyRepository
+        protected SpecialtyRepository $specialtyRepository,
+        protected ShareMeDataService $shareMeDataService
     ) {}
 
     public function index(): View|JsonResponse
@@ -24,6 +26,23 @@ class SpecialtyController extends Controller
         }
 
         return view('doctor::specialties.index');
+    }
+
+    public function sync(): RedirectResponse
+    {
+        try {
+            $result = $this->shareMeDataService->syncSpecialties();
+
+            if ($result['synced'] > 0) {
+                session()->flash('success', "Se han sincronizado {$result['synced']} especialidades nuevas. ({$result['existed']} ya existían)");
+            } else {
+                session()->flash('info', "No se encontraron especialidades nuevas para sincronizar. ({$result['existed']} ya existían)");
+            }
+        } catch (\Exception $e) {
+            session()->flash('error', 'Error al sincronizar con ShareMeData: ' . $e->getMessage());
+        }
+
+        return redirect()->route('admin.specialties.index');
     }
 
     public function create(): View
