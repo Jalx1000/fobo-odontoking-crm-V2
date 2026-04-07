@@ -259,6 +259,37 @@ class ActivityController extends Controller
 
                 return redirect()->back();
             }
+
+            // --- NUEVA VALIDACIÓN: Verificar Turnos del Doctor y SMD para reuniones generales ---
+            $participants = request()->input('participants');
+            $doctorIds = $participants['doctors'] ?? [];
+            $scheduleFrom = Carbon::parse(request()->input('schedule_from'));
+            $scheduleTo = Carbon::parse(request()->input('schedule_to'));
+            $date = $scheduleFrom->toDateString();
+            $startTime = $scheduleFrom->format('H:i');
+            $endTime = $scheduleTo->format('H:i');
+
+            foreach ($doctorIds as $doctorId) {
+                // 1. Validar turnos locales
+                $hasValidShift = DB::table('doctor_shifts')
+                    ->where('doctor_id', $doctorId)
+                    ->where('date', $date)
+                    ->where('start_time', '<=', $startTime)
+                    ->where('end_time', '>=', $endTime)
+                    ->exists();
+
+                if (!$hasValidShift) {
+                    $doctor = DB::table('doctors')->where('id', $doctorId)->first();
+                    $msg = "El doctor {$doctor->name} no tiene jornada laboral programada para el horario solicitado ($startTime - $endTime).";
+                    if (request()->ajax()) return response()->json(['message' => $msg], 422);
+                    session()->flash('error', $msg);
+                    return redirect()->back();
+                }
+
+                // 2. Validar SMD (Opcional o recomendado según el flujo)
+                // Para simplificar y ser consistentes con storeAppointment, 
+                // podríamos llamar a una función privada de validación.
+            }
         }
 
         Event::dispatch('activity.create.before');
@@ -415,6 +446,32 @@ class ActivityController extends Controller
                 'steps'       => $steps
             ], 422);
         }
+
+        // --- NUEVA VALIDACIÓN: Verificar si está dentro de un TURNO (Shift) del doctor ---
+        Log::info("Agendamiento: Paso 1.5 - Validando turnos del doctor", ['doctor_id' => request()->get('doctor_id'), 'date' => $date]);
+        $hasValidShift = DB::table('doctor_shifts')
+            ->where('doctor_id', request()->get('doctor_id'))
+            ->where('date', $date)
+            ->where('start_time', '<=', $startTime)
+            ->where('end_time', '>=', $scheduleTo->format('H:i'))
+            ->exists();
+
+        if (!$hasValidShift) {
+            $steps['shift_validation'] = 'Fallo: Fuera de horario laboral';
+            return response()->json([
+                'message'     => "El horario seleccionado está fuera de la jornada laboral del doctor para este día. Por favor, revisa los turnos disponibles.",
+                'doctor_info' => [
+                    'id'          => $doctor->id,
+                    'name'        => $doctor->name,
+                    'external_id' => $doctorExternalId,
+                    'email'       => $doctorEmail,
+                    'specialties' => $doctorSpecialties,
+                ],
+                'steps'       => $steps
+            ], 422);
+        }
+        $steps['shift_validation'] = 'Éxito: Dentro de turno';
+
         $steps['local_validation'] = 'Éxito: Sin conflictos';
 
         // --- 2. VALIDACIÓN EXTERNA (SHAREMEDATA) ---
