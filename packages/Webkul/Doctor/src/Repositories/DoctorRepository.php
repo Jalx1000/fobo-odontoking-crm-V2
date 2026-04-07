@@ -61,11 +61,29 @@ class DoctorRepository extends Repository
 
     protected function sanitize(array $data): array
     {
-        $data['number'] = trim((string) ($data['number'] ?? ''));
-        $data['name'] = trim((string) ($data['name'] ?? ''));
-        $data['title'] = trim((string) ($data['title'] ?? ''));
-        $data['unique_id'] = implode('|', array_filter([$data['number'] ?? null, $data['name'] ?? null]));
-        $data['is_active'] = array_key_exists('is_active', $data) ? (bool) $data['is_active'] : true;
+        if (array_key_exists('number', $data)) {
+            $data['number'] = trim((string) $data['number']);
+        }
+
+        if (array_key_exists('name', $data)) {
+            $data['name'] = trim((string) $data['name']);
+        }
+
+        if (array_key_exists('title', $data)) {
+            $data['title'] = trim((string) $data['title']);
+        }
+
+        if (array_key_exists('email', $data)) {
+            $data['email'] = trim((string) $data['email']);
+        }
+        
+        if (! isset($data['unique_id']) && isset($data['name'])) {
+            $data['unique_id'] = implode('|', array_filter([$data['number'] ?? null, $data['name'] ?? null]));
+        }
+
+        if (array_key_exists('is_active', $data)) {
+            $data['is_active'] = (bool) $data['is_active'];
+        }
 
         return $data;
     }

@@ -27,6 +27,24 @@
                 <div class="grid grid-cols-2 gap-4 max-lg:grid-cols-1">
                     <x-admin::form.control-group>
                         <x-admin::form.control-group.label>
+                            Correo electrónico
+                        </x-admin::form.control-group.label>
+
+                        <x-admin::form.control-group.control
+                            type="email"
+                            id="email"
+                            name="email"
+                            :label="trans('Correo electrónico')"
+                            :placeholder="trans('Ej.: doctor@odontoking.com')"
+                             :value="old('email', isset($doctor) ? $doctor->email : '')"
+                            v-debounce="500"
+                        />
+
+                        <x-admin::form.control-group.error control-name="email" />
+                    </x-admin::form.control-group>
+
+                    <x-admin::form.control-group>
+                        <x-admin::form.control-group.label>
                             Nº (Número de identificación)
                         </x-admin::form.control-group.label>
 
@@ -42,6 +60,25 @@
                         />
 
                         <x-admin::form.control-group.error control-name="number" />
+                    </x-admin::form.control-group>
+
+                    <x-admin::form.control-group>
+                        <x-admin::form.control-group.label>
+                            ID de ShareMeData (Hexadecimal)
+                        </x-admin::form.control-group.label>
+
+                        <x-admin::form.control-group.control
+                            type="text"
+                            id="unique_id"
+                            name="unique_id"
+                            :label="trans('ID de ShareMeData')"
+                            :placeholder="trans('Ej.: 69bd9a9b7549b10008e0acfa')"
+                            :value="old('unique_id', isset($doctor) ? $doctor->unique_id : '')"
+                            rules="max:100"
+                            v-debounce="500"
+                        />
+
+                        <x-admin::form.control-group.error control-name="unique_id" />
                     </x-admin::form.control-group>
 
                     <x-admin::form.control-group>

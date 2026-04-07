@@ -685,7 +685,8 @@ class ActivityController extends Controller
                 $shareMeData = [
                     'summary'   => "RESERVANDO CITA con {$doctorName}",
                     'physician' => [
-                        '_id' => $doctorExternalId
+                        '_id'   => $doctorExternalId,
+                        'email' => $doctor->email ?? ($doctorEmail ?: '')
                     ],
                     'patient'   => [
                         'name'     => (string) $firstName,

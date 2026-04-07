@@ -45,13 +45,48 @@ class ShareMeDataWebhookController extends Controller
                 $doctor = $this->doctorRepository->findOneByField('unique_id', $doctorExternalId);
 
                 if (!$doctor) {
-                    // Si no existe, lo creamos con los datos que vengan
-                    $doctor = $this->doctorRepository->create([
-                        'name'      => $data['physician']['name'] ?? 'Doctor Externo',
-                        'unique_id' => $doctorExternalId,
-                        'is_active' => true,
-                    ]);
-                    Log::info("Webhook SMD: Doctor creado automáticamente", ['id' => $doctor->id]);
+                    // Si no existe por unique_id, intentamos buscar por nombre (para evitar el error de unique name)
+                    $doctorName = ($data['physician']['name'] ?? 'Doctor') . ' ' . ($data['physician']['lastName'] ?? '');
+                    $doctorName = trim($doctorName) ?: 'Doctor Externo';
+                    $doctorEmail = $data['physician']['email'] ?? null;
+                    
+                    $doctor = $this->doctorRepository->findOneByField('name', $doctorName);
+                    
+                    if ($doctor) {
+                        // Si existe por nombre pero no tenía unique_id, lo actualizamos SIN borrar el nombre
+                        $updateData = [
+                            'unique_id' => $doctorExternalId,
+                            'name'      => $doctorName
+                        ];
+
+                        if ($doctorEmail && \Illuminate\Support\Facades\Schema::hasColumn('doctors', 'email')) {
+                            $updateData['email'] = $doctorEmail;
+                        }
+
+                        $this->doctorRepository->update($updateData, $doctor->id);
+                        $doctor = $this->doctorRepository->find($doctor->id);
+                    } else {
+                        // Si realmente no existe, lo creamos
+                        $createData = [
+                            'name'      => $doctorName,
+                            'unique_id' => $doctorExternalId,
+                            'is_active' => true,
+                        ];
+
+                        if ($doctorEmail && \Illuminate\Support\Facades\Schema::hasColumn('doctors', 'email')) {
+                            $createData['email'] = $doctorEmail;
+                        }
+
+                        $doctor = $this->doctorRepository->create($createData);
+                        Log::info("Webhook SMD: Doctor creado automáticamente", ['id' => $doctor->id]);
+                    }
+                } else {
+                    // Si ya existe, nos aseguramos de que el email esté actualizado si viene en el payload
+                    $doctorEmail = $data['physician']['email'] ?? null;
+                    if ($doctorEmail && \Illuminate\Support\Facades\Schema::hasColumn('doctors', 'email') && $doctor->email !== $doctorEmail) {
+                        $this->doctorRepository->update(['email' => $doctorEmail], $doctor->id);
+                        $doctor = $this->doctorRepository->find($doctor->id);
+                    }
                 }
 
                 // 2. Gestionar Especialidad (Automatización del Punto 3)
@@ -61,21 +96,40 @@ class ShareMeDataWebhookController extends Controller
                     $doctor->specialties()->attach($specialty->id);
                 }
 
-                // 3. Identificar o Crear Paciente (Evitar duplicados por teléfono)
+                // 3. Identificar o Crear Paciente (Validar por email generado del teléfono)
                 $phone = $data['patient']['phone'];
-                $person = $this->personRepository->findOneByField('contact_numbers', $phone);
+                $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
+                
+                // Si el número no tiene el prefijo 591, se lo agregamos
+                if (!str_starts_with($cleanPhone, '591')) {
+                    $cleanPhone = '591' . $cleanPhone;
+                }
+                
+                $kommoEmail = $cleanPhone . '@s.kommo-whatsapp.net';
+                
+                // Buscamos si existe una persona con ese email de Kommo
+                $person = $this->personRepository
+                    ->whereJsonContains('emails', [['value' => $kommoEmail]])
+                    ->first();
                 
                 if (!$person) {
-                    // Búsqueda profunda en JSON
-                    $person = DB::table('persons')
-                        ->where('contact_numbers', 'LIKE', "%{$phone}%")
+                    // Búsqueda alternativa por teléfono si no existe por email
+                    $person = $this->personRepository
+                        ->whereJsonContains('contact_numbers', [['value' => $phone]])
+                        ->orWhereJsonContains('contact_numbers', [['value' => (string) $phone]])
                         ->first();
+                }
+
+                if ($person && is_object($person) && !($person instanceof \Webkul\Contact\Contracts\Person)) {
+                    $person = $this->personRepository->find($person->id);
                 }
 
                 if (!$person) {
                     $person = $this->personRepository->create([
                         'name'            => ($data['patient']['name'] ?? 'Paciente') . ' ' . ($data['patient']['lastName'] ?? 'Externo'),
+                        'emails'          => [['value' => $kommoEmail, 'label' => 'work']],
                         'contact_numbers' => [['value' => $phone, 'label' => 'work']],
+                        'entity_type'     => 'persons',
                     ]);
                     $personId = $person->id;
                 } else {
@@ -83,14 +137,21 @@ class ShareMeDataWebhookController extends Controller
                 }
 
                 // 4. Crear Lead
-                $leadTitle = ($data['patient']['name'] ?? 'Cita') . " - " . ($specialtyName);
-                $lead = $this->leadRepository->create([
+                $leadTitle = ($person->name ?? (($data['patient']['name'] ?? 'Paciente') . ' ' . ($data['patient']['lastName'] ?? ''))) . " - " . ($specialtyName);
+                
+                $leadData = [
                     'title'       => $leadTitle,
                     'description' => $data['summary'] ?? 'Cita sincronizada desde ShareMeData',
                     'entity_type' => 'leads',
                     'person'      => ['id' => $personId],
-                    'doctor_id'   => $doctor->id,
-                ]);
+                ];
+
+                // Solo agregamos doctor_id si la columna existe en la tabla leads
+                if (\Illuminate\Support\Facades\Schema::hasColumn('leads', 'doctor_id')) {
+                    $leadData['doctor_id'] = $doctor->id;
+                }
+
+                $lead = $this->leadRepository->create($leadData);
 
                 // 5. Crear Actividad (Cita)
                 $scheduleFrom = Carbon::parse($data['slot']['start']);

@@ -18,6 +18,7 @@ class Doctor extends Model implements DoctorContract
     protected $fillable = [
         'number',
         'name',
+        'email',
         'title',
         'unique_id',
         'is_active',
