@@ -48,7 +48,7 @@ abstract class AbstractReporting
      */
     public function setStartDate(?Carbon $startDate = null): self
     {
-        $this->startDate = $startDate ? $startDate->startOfDay() : now()->subDays(30)->startOfDay();
+        $this->startDate = $startDate ? $startDate->startOfDay() : now()->subDays(1)->startOfDay();
 
         $this->setLastStartDate();
 
