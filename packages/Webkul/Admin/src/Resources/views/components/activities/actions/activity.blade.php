@@ -98,29 +98,69 @@
                             <!-- Title -->
                             <x-admin::form.control-group>
                                 <x-admin::form.control-group.label class="required">
-                                    @lang('admin::app.components.activities.actions.activity.title-control')
+                                    <template v-if="selectedType.value === 'meeting'">Motivo de la Consulta</template>
+                                    <template v-else>@lang('admin::app.components.activities.actions.activity.title-control')</template>
                                 </x-admin::form.control-group.label>
                                 
                                 <x-admin::form.control-group.control
                                     type="text"
                                     name="title"
                                     rules="required|max:80"
-                                    :label="trans('admin::app.components.activities.actions.activity.title-control')"
+                                    ::label="selectedType.value === 'meeting' ? 'Motivo de la Consulta' : translations.title"
                                 />
 
                                 <x-admin::form.control-group.error control-name="title" />
                             </x-admin::form.control-group>
 
+                            <!-- Product (Servicio) - Only for Meeting -->
+                            <x-admin::form.control-group v-if="selectedType.value === 'meeting'">
+                                <x-admin::form.control-group.label class="required">
+                                    Servicio o Tratamiento
+                                </x-admin::form.control-group.label>
+                                
+                                <div class="relative">
+                                    <div v-if="selectedProduct" class="flex items-center justify-between rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+                                        <span>@{{ selectedProduct.name }}</span>
+                                        <span class="icon-cross-large cursor-pointer text-xl" @click="removeProduct"></span>
+                                    </div>
+                                    <div v-else>
+                                        <input
+                                            type="text"
+                                            class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
+                                            placeholder="Buscar servicio..."
+                                            v-model="productSearchTerm"
+                                        />
+                                        <div v-if="searchedProducts.length" class="absolute z-10 w-full rounded bg-white shadow-lg dark:bg-gray-900 border dark:border-gray-800 mt-1">
+                                            <ul>
+                                                <li 
+                                                    v-for="product in searchedProducts" 
+                                                    @click="selectProduct(product)"
+                                                    class="cursor-pointer px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
+                                                >
+                                                    @{{ product.name }}
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        <div v-if="isSearchingProducts" class="absolute right-3 top-2">
+                                            <x-admin::spinner />
+                                        </div>
+                                    </div>
+                                </div>
+                                <input type="hidden" name="product_id" :value="selectedProduct ? selectedProduct.id : ''">
+                            </x-admin::form.control-group>
+
                             <!-- Description -->
                             <x-admin::form.control-group>
                                 <x-admin::form.control-group.label>
-                                    @lang('admin::app.components.activities.actions.activity.description')
+                                    <template v-if="selectedType.value === 'meeting'">Detalles o Observaciones Médicas</template>
+                                    <template v-else>@lang('admin::app.components.activities.actions.activity.description')</template>
                                 </x-admin::form.control-group.label>
                                 
                                 <x-admin::form.control-group.control
                                     type="textarea"
                                     name="comment"
                                     rules="max:500"
+                                    ::label="selectedType.value === 'meeting' ? 'Detalles o Observaciones Médicas' : translations.description"
                                 />
 
                                 <x-admin::form.control-group.error control-name="comment" />
@@ -147,7 +187,7 @@
                                         type="datetime"
                                         name="schedule_from"
                                         rules="required"
-                                        :label="trans('admin::app.components.activities.actions.activity.schedule-from')"
+                                        :label="'{{ trans('admin::app.components.activities.actions.activity.schedule-from') }}'"
                                     />
 
                                     <x-admin::form.control-group.error control-name="schedule_from" />
@@ -163,7 +203,7 @@
                                         type="datetime"
                                         name="schedule_to"
                                         rules="required"
-                                        :label="trans('admin::app.components.activities.actions.activity.schedule-to')"
+                                        :label="'{{ trans('admin::app.components.activities.actions.activity.schedule-to') }}'"
                                     />
 
                                     <x-admin::form.control-group.error control-name="schedule_to" />
@@ -190,7 +230,7 @@
 
                             <x-admin::button
                                 class="primary-button"
-                                :title="trans('admin::app.components.activities.actions.activity.save-btn')"
+                                :title="'{{ trans('admin::app.components.activities.actions.activity.save-btn') }}'"
                                 ::loading="isStoring"
                                 ::disabled="isStoring"
                             />
@@ -230,29 +270,85 @@
                     isStoring: false,
                     
                     selectedType: {
-                        label: "{{ trans('admin::app.components.activities.actions.activity.call') }}",
+                        label: @json(trans('admin::app.components.activities.actions.activity.call')),
                         value: 'call'
                     },
 
-                availableTypes: [
-                    {
-                        label: "{{ trans('admin::app.components.activities.actions.activity.call') }}",
-                        value: 'call'
-                    }, {
-                        label: "{{ trans('admin::app.components.activities.actions.activity.meeting') }}",
-                        value: 'meeting'
-                    },
-                ]
+                    translations: @json([
+                        'title'       => trans('admin::app.components.activities.actions.activity.title-control'),
+                        'description' => trans('admin::app.components.activities.actions.activity.description'),
+                    ]),
+
+                    isSearchingProducts: false,
+
+                    productSearchTerm: '',
+
+                    searchedProducts: [],
+
+                    selectedProduct: null,
+
+                    availableTypes: [
+                        {
+                            label: @json(trans('admin::app.components.activities.actions.activity.call')),
+                            value: 'call'
+                        }, {
+                            label: @json(trans('admin::app.components.activities.actions.activity.meeting')),
+                            value: 'meeting'
+                        },
+                    ]
                 }
+            },
+
+            watch: {
+                productSearchTerm(newVal) {
+                    this.searchProducts(newVal);
+                },
             },
 
             methods: {
                 openModal(type) {
+                    this.selectedProduct = null;
+                    this.productSearchTerm = '';
+                    this.searchedProducts = [];
                     this.$refs.activityModal.open();
+                },
+
+                searchProducts(term) {
+                    if (term.length < 2) {
+                        this.searchedProducts = [];
+                        return;
+                    }
+
+                    this.isSearchingProducts = true;
+
+                    this.$axios.get("{{ route('admin.products.search') }}", {
+                            params: { query: term }
+                        })
+                        .then(response => {
+                            this.searchedProducts = response.data.data;
+                            this.isSearchingProducts = false;
+                        })
+                        .catch(error => {
+                            this.isSearchingProducts = false;
+                        });
+                },
+
+                selectProduct(product) {
+                    this.selectedProduct = product;
+                    this.productSearchTerm = '';
+                    this.searchedProducts = [];
+                },
+
+                removeProduct() {
+                    this.selectedProduct = null;
                 },
 
                 save(params) {
                     this.isStoring = true;
+
+                    if (this.selectedProduct) {
+                        params.product_id = this.selectedProduct.id;
+                    }
 
                     this.$axios.post("{{ route('admin.activities.store') }}", params)
                         .then (response => {
@@ -268,7 +364,11 @@
                             this.isStoring = false;
 
                             if (error.response.status == 422) {
-                                setErrors(error.response.data.errors);
+                                // Mostramos el mensaje de error de validación (ej: fuera de horario laboral)
+                                this.$emitter.emit('add-flash', { 
+                                    type: 'error', 
+                                    message: error.response.data.message 
+                                });
                             } else {
                                 this.$emitter.emit('add-flash', { type: 'error', message: error.response.data.message });
 
