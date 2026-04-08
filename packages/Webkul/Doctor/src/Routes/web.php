@@ -17,6 +17,7 @@ Route::prefix('doctor')->group(function () {
 
 Route::prefix('specialties')->group(function () {
     Route::get('', [SpecialtyController::class, 'index'])->name('admin.specialties.index');
+    Route::get('sync', [SpecialtyController::class, 'sync'])->name('admin.specialties.sync');
     Route::get('create', [SpecialtyController::class, 'create'])->name('admin.specialties.create');
     Route::post('create', [SpecialtyController::class, 'store'])->name('admin.specialties.store');
     Route::get('edit/{id}', [SpecialtyController::class, 'edit'])->name('admin.specialties.edit');

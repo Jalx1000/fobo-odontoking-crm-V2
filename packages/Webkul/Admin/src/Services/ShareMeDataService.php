@@ -5,12 +5,17 @@ namespace Webkul\Admin\Services;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
+use Webkul\Doctor\Repositories\SpecialtyRepository;
 
 class ShareMeDataService
 {
     protected $apiKey = '$2a$08$ZnoEdG50NB2n4VfimSpVjOkqgv1VqHVqRRL9Z6pohthsOvTliEWi2';
     protected $baseUrl = 'https://gamma.sharemedata.com/api/calendar';
     protected $lastResponse = null;
+
+    public function __construct(
+        protected SpecialtyRepository $specialtyRepository
+    ) {}
 
     /**
      * Obtener especialidades del sistema externo
@@ -40,6 +45,34 @@ class ShareMeDataService
             Log::error("ShareMeData: Excepción obteniendo especialidades: " . $e->getMessage());
             return [];
         }
+    }
+
+    /**
+     * Sincronizar especialidades con el sistema externo
+     */
+    public function syncSpecialties()
+    {
+        $specialties = $this->getSpecialties();
+        $syncedCount = 0;
+        $alreadyExistCount = 0;
+
+        foreach ($specialties as $name) {
+            $slug = \Illuminate\Support\Str::slug($name);
+            $exists = $this->specialtyRepository->findOneWhere(['slug' => $slug]);
+
+            if ($exists) {
+                $alreadyExistCount++;
+            } else {
+                $this->specialtyRepository->fetchOrCreateByName($name);
+                $syncedCount++;
+            }
+        }
+
+        return [
+            'synced'  => $syncedCount,
+            'existed' => $alreadyExistCount,
+            'total'   => count($specialties)
+        ];
     }
 
     /**

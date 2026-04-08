@@ -13,6 +13,12 @@
 
             <div class="flex items-center gap-x-2.5">
                 <a
+                    href="{{ route('admin.specialties.sync') }}"
+                    class="secondary-button"
+                >
+                    Sincronizar con ShareMeData
+                </a>
+                <a
                     href="{{ route('admin.specialties.create') }}"
                     class="primary-button"
                 >

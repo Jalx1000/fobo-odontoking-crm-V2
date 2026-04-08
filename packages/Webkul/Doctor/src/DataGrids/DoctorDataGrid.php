@@ -18,6 +18,8 @@ class DoctorDataGrid extends DataGrid
     {
         $hasSpecialtyTables = Schema::hasTable('doctor_specialty') && Schema::hasTable('specialties');
         $hasIsActiveColumn = Schema::hasColumn('doctors', 'is_active');
+        $hasEmailColumn = Schema::hasColumn('doctors', 'email');
+        $hasUniqueIdColumn = Schema::hasColumn('doctors', 'unique_id');
         $prefix = DB::connection()->getTablePrefix();
 
         $queryBuilder = DB::table('doctors')
@@ -25,6 +27,8 @@ class DoctorDataGrid extends DataGrid
                 'doctors.id',
                 'doctors.name',
                 'doctors.created_at',
+                $hasEmailColumn ? 'doctors.email' : DB::raw('NULL as email'),
+                $hasUniqueIdColumn ? 'doctors.unique_id' : DB::raw('NULL as unique_id'),
                 $hasIsActiveColumn ? 'doctors.is_active' : DB::raw('NULL as is_active'),
                 $hasSpecialtyTables
                     ? DB::raw('GROUP_CONCAT(DISTINCT ' . $prefix . 'specialties.name SEPARATOR ", ") as specialties')
@@ -41,10 +45,18 @@ class DoctorDataGrid extends DataGrid
         if ($hasIsActiveColumn) {
             $groupColumns[] = 'doctors.is_active';
         }
+        if ($hasEmailColumn) {
+            $groupColumns[] = 'doctors.email';
+        }
+        if ($hasUniqueIdColumn) {
+            $groupColumns[] = 'doctors.unique_id';
+        }
         $queryBuilder->groupBy($groupColumns);
 
         $this->addFilter('id', 'doctors.id');
         $this->addFilter('name', 'doctors.name');
+        $this->addFilter('email', 'doctors.email');
+        $this->addFilter('unique_id', 'doctors.unique_id');
         $this->addFilter('created_at', 'doctors.created_at');
         if ($hasSpecialtyTables) {
             $this->addFilter('specialties', 'specialties.name');
@@ -73,6 +85,24 @@ class DoctorDataGrid extends DataGrid
         $this->addColumn([
             'index'      => 'name',
             'label'      => 'Nombre',
+            'type'       => 'string',
+            'filterable' => true,
+            'sortable'   => true,
+            'searchable' => true,
+        ]);
+
+        $this->addColumn([
+            'index'      => 'email',
+            'label'      => 'Correo',
+            'type'       => 'string',
+            'filterable' => true,
+            'sortable'   => true,
+            'searchable' => true,
+        ]);
+
+        $this->addColumn([
+            'index'      => 'unique_id',
+            'label'      => 'ID ShareMeData',
             'type'       => 'string',
             'filterable' => true,
             'sortable'   => true,

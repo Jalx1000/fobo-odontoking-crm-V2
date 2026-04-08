@@ -70,7 +70,9 @@ class DoctorController extends Controller
         $validated = request()->validate([
             'number'             => ['nullable', 'string', 'max:50'],
             'name'               => ['required', 'string', 'min:2', 'max:150', 'unique:doctors,name'],
+            'email'              => ['nullable', 'email', 'max:150'],
             'title'              => ['nullable', 'string', 'max:100'],
+            'unique_id'          => ['nullable', 'string', 'max:100'],
             'specialties'        => ['nullable'],
             'specialty_names'    => ['nullable', 'array'],
             'specialty_names.*'  => ['string', 'max:100'],
@@ -109,7 +111,9 @@ class DoctorController extends Controller
         $validated = request()->validate([
             'number'             => ['nullable', 'string', 'max:50'],
             'name'               => ['required', 'string', 'min:2', 'max:150', 'unique:doctors,name,'.$id],
+            'email'              => ['nullable', 'email', 'max:150'],
             'title'              => ['nullable', 'string', 'max:100'],
+            'unique_id'          => ['nullable', 'string', 'max:100'],
             'is_active'          => ['nullable'],
             'specialties'        => ['nullable'],
             'specialty_names'    => ['nullable', 'array'],

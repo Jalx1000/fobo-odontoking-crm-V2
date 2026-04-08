@@ -109,3 +109,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/horarios', [\App\Http\Controllers\Api\ScheduleController::class, 'getHorarios']);
     Route::get('/disponibilidad', [\App\Http\Controllers\Api\ScheduleController::class, 'getDisponibilidad']);
 });
+
+/**
+ * Webhook para ShareMeData
+ */
+Route::post('/webhooks/sharemedata', [\Webkul\Admin\Http\Controllers\ShareMeDataWebhookController::class, 'receive']);
