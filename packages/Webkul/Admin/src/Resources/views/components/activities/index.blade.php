@@ -354,7 +354,7 @@
 
                             <!-- Empty Placeholder -->
                             <div
-                                class="grid justify-center justify-items-center gap-3.5 py-12"
+                                class="grid justify-center justify-items-center gap-3.5 py-12 min-h-[100vh]"
                                 v-if="! filteredActivities.length"
                             >
                                 <img

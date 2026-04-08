@@ -9,7 +9,7 @@
         type="text/x-template"
         id="v-lead-products-template"
     >
-        <div v-if="products.length" class="flex flex-col gap-4 p-3">
+        <div v-if="products.length" class="flex flex-col gap-4 p-3 min-h-[100vh]">
             {!! view_render_event('admin.leads.view.products.table.before', ['lead' => $lead]) !!}
 
             <!-- Table -->
@@ -82,7 +82,7 @@
         </div>
 
         <div v-else>
-            <div class="grid justify-center justify-items-center gap-3.5 py-12">
+            <div class="grid justify-center justify-items-center gap-3.5 py-12 min-h-[100vh]">
                 <img
                     class="dark:mix-blend-exclusion dark:invert"
                     src="{{ vite()->asset('images/empty-placeholders/products.svg') }}"
@@ -311,11 +311,8 @@
                  */
                 addProduct(result) {
                     this.product.product_id = result.id;
-
                     this.product.name = result.name;
-
                     this.product.price = result.price;
-
                     this.product.quantity = result.quantity ?? 0;
                 },
 
