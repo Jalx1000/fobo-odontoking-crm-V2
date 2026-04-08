@@ -1881,7 +1881,7 @@ return [
                 'quotes'      => 'Cotizaciones',
             ],
             'attributes' => [
-                'title' => 'Sobre el Lead',
+                'title' => 'Sobre la cita',
             ],
             'quotes' => [
                 'subject'         => 'Asunto',

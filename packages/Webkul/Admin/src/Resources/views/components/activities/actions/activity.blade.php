@@ -107,6 +107,7 @@
                                     name="title"
                                     rules="required|max:80"
                                     ::label="selectedType.value === 'meeting' ? 'Motivo de la Consulta' : translations.title"
+                                    placeholder="Motivo de la Consulta"
                                 />
 
                                 <x-admin::form.control-group.error control-name="title" />
@@ -187,7 +188,7 @@
                                         type="datetime"
                                         name="schedule_from"
                                         rules="required"
-                                        :label="'{{ trans('admin::app.components.activities.actions.activity.schedule-from') }}'"
+                                        :label="trans('admin::app.components.activities.actions.activity.schedule-from')"
                                     />
 
                                     <x-admin::form.control-group.error control-name="schedule_from" />
@@ -203,7 +204,7 @@
                                         type="datetime"
                                         name="schedule_to"
                                         rules="required"
-                                        :label="'{{ trans('admin::app.components.activities.actions.activity.schedule-to') }}'"
+                                        :label="trans('admin::app.components.activities.actions.activity.schedule-to')"
                                     />
 
                                     <x-admin::form.control-group.error control-name="schedule_to" />
@@ -230,7 +231,7 @@
 
                             <x-admin::button
                                 class="primary-button"
-                                :title="'{{ trans('admin::app.components.activities.actions.activity.save-btn') }}'"
+                                :title="trans('admin::app.components.activities.actions.activity.save-btn')"
                                 ::loading="isStoring"
                                 ::disabled="isStoring"
                             />
@@ -270,14 +271,14 @@
                     isStoring: false,
                     
                     selectedType: {
-                        label: @json(trans('admin::app.components.activities.actions.activity.call')),
+                        label: {!! json_encode(trans('admin::app.components.activities.actions.activity.call')) !!},
                         value: 'call'
                     },
 
-                    translations: @json([
-                        'title'       => trans('admin::app.components.activities.actions.activity.title-control'),
-                        'description' => trans('admin::app.components.activities.actions.activity.description'),
-                    ]),
+                    translations: {
+                        title: {!! json_encode(trans('admin::app.components.activities.actions.activity.title-control')) !!},
+                        description: {!! json_encode(trans('admin::app.components.activities.actions.activity.description')) !!}
+                    },
 
                     isSearchingProducts: false,
 
@@ -289,10 +290,10 @@
 
                     availableTypes: [
                         {
-                            label: @json(trans('admin::app.components.activities.actions.activity.call')),
+                            label: {!! json_encode(trans('admin::app.components.activities.actions.activity.call')) !!},
                             value: 'call'
                         }, {
-                            label: @json(trans('admin::app.components.activities.actions.activity.meeting')),
+                            label: {!! json_encode(trans('admin::app.components.activities.actions.activity.meeting')) !!},
                             value: 'meeting'
                         },
                     ]
