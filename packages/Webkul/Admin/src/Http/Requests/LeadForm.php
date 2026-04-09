@@ -136,6 +136,8 @@ class LeadForm extends FormRequest
 
         return [
             ...$this->rules,
+            'appointment_start'     => 'nullable|date_format:Y-m-d H:i:s',
+            'appointment_end'       => 'nullable|date_format:Y-m-d H:i:s|after:appointment_start',
             'products'              => 'array',
             'products.*.product_id' => 'sometimes|required|exists:products,id',
             'products.*.name'       => 'required_with:products.*.product_id',
@@ -150,6 +152,7 @@ class LeadForm extends FormRequest
     public function messages(): array
     {
         return [
+            'appointment_end.after'             => 'La fecha/hora de fin debe ser posterior a la fecha/hora de inicio.',
             'products.*.product_id.exists'      => trans('admin::app.leads.selected-product-not-exist'),
             'products.*.name.required_with'     => trans('admin::app.leads.product-name-required'),
             'products.*.price.required_with'    => trans('admin::app.leads.product-price-required'),

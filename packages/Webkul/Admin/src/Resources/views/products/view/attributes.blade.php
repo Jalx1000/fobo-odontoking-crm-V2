@@ -28,14 +28,14 @@
                     :custom-attributes="$defaultAttributes"
                     :entity="$product"
                     :url="route('admin.products.update', $product->id)"   
-                    :allow-edit="true"
+                    :allow-edit="bouncer()->hasPermission('products.edit')"
                 />
 
                 <x-admin::attributes.view
                     :custom-attributes="$customAttributes"
                     :entity="$product"
                     :url="route('admin.products.update', $product->id)"   
-                    :allow-edit="true"
+                    :allow-edit="bouncer()->hasPermission('products.edit')"
                 />
             </div>
             

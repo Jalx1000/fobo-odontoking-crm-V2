@@ -31,12 +31,14 @@
                         {!! view_render_event('admin.products.edit.create_button.before', ['product' => $product]) !!}
                         
                         <!-- Edit button for Product -->
-                        <button
-                            type="submit"
-                            class="primary-button"
-                        >
-                            @lang('admin::app.products.create.save-btn')
-                        </button>
+                        @if (bouncer()->hasPermission('products.edit'))
+                            <button
+                                type="submit"
+                                class="primary-button"
+                            >
+                                @lang('admin::app.products.edit.save-btn')
+                            </button>
+                        @endif
 
                         {!! view_render_event('admin.products.edit.create_button.after', ['product' => $product]) !!}
                     </div>

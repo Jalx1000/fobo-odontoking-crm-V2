@@ -182,6 +182,55 @@
 
                     {!! view_render_event('admin.leads.create.contact_person.after') !!}
 
+                    <!-- Appointment Section -->
+                    <div class="flex flex-col gap-4" id="appointment">
+                        <div class="flex flex-col gap-1">
+                            <p class="text-base font-semibold dark:text-white">
+                                @lang('admin::app.leads.create.appointment-info')
+                            </p>
+
+                            <p class="text-gray-600 dark:text-white">
+                                @lang('admin::app.leads.create.appointment-info-help')
+                            </p>
+                        </div>
+
+                        <div class="w-1/2 max-md:w-full">
+                            <div class="flex gap-4 max-sm:flex-wrap">
+                                <div class="w-full">
+                                    <x-admin::form.control-group>
+                                        <x-admin::form.control-group.label>
+                                            @lang('admin::app.leads.create.start-datetime')
+                                        </x-admin::form.control-group.label>
+
+                                        <x-admin::form.control-group.control
+                                            type="datetime"
+                                            name="appointment_start"
+                                            :label="trans('admin::app.leads.create.start-datetime')"
+                                        />
+
+                                        <x-admin::form.control-group.error control-name="appointment_start" />
+                                    </x-admin::form.control-group>
+                                </div>
+
+                                <div class="w-full">
+                                    <x-admin::form.control-group>
+                                        <x-admin::form.control-group.label>
+                                            @lang('admin::app.leads.create.end-datetime')
+                                        </x-admin::form.control-group.label>
+
+                                        <x-admin::form.control-group.control
+                                            type="datetime"
+                                            name="appointment_end"
+                                            :label="trans('admin::app.leads.create.end-datetime')"
+                                        />
+
+                                        <x-admin::form.control-group.error control-name="appointment_end" />
+                                    </x-admin::form.control-group>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Product Section -->
                     <div
                         class="flex flex-col gap-4"

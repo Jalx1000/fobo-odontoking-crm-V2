@@ -643,8 +643,8 @@ return [
             'price'    => 'Precio',
         ],
         'edit' => [
-            'title'    => 'Editar Servicios',
-            'save-btn' => 'Guardar Servicios',
+            'title'    => 'Editar Servicio',
+            'save-btn' => 'Editar Servicio',
             'general'  => 'General',
             'price'    => 'Precio',
         ],
@@ -1844,6 +1844,10 @@ return [
             'contact-info'   => 'Información Sobre el Paciente',
             'products'       => 'Servicios',
             'products-info'  => 'Servicios a Realizar',
+            'appointment-info' => 'Programación de Cita',
+            'appointment-info-help' => 'Define el horario si deseas agendar una cita confirmada automáticamente',
+            'start-datetime' => 'Fecha y Hora de Inicio',
+            'end-datetime' => 'Fecha y Hora de Fin',
         ],
         'edit' => [
             'title'          => 'Editar Lead',

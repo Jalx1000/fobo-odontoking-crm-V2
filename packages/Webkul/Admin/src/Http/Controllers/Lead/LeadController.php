@@ -29,6 +29,9 @@ use Webkul\Lead\Repositories\TypeRepository;
 use Webkul\Lead\Services\MagicAIService;
 use Webkul\Tag\Repositories\TagRepository;
 use Webkul\User\Repositories\UserRepository;
+use Webkul\Activity\Repositories\ActivityRepository;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class LeadController extends Controller
 {
@@ -51,7 +54,8 @@ class LeadController extends Controller
         protected StageRepository $stageRepository,
         protected LeadRepository $leadRepository,
         protected ProductRepository $productRepository,
-        protected PersonRepository $personRepository
+        protected PersonRepository $personRepository,
+        protected ActivityRepository $activityRepository
     ) {
         request()->request->add(['entity_type' => 'leads']);
     }
@@ -165,48 +169,101 @@ class LeadController extends Controller
 
         $data = request()->all();
 
-        $data['status'] = 1;
+        return DB::transaction(function () use ($data) {
+            $data['status'] = 1;
 
-        if (! empty($data['lead_pipeline_stage_id'])) {
-            $stage = $this->stageRepository->findOrFail($data['lead_pipeline_stage_id']);
+            $hasAppointment = ! empty($data['appointment_start']) && ! empty($data['appointment_end']);
 
-            $data['lead_pipeline_id'] = $stage->lead_pipeline_id;
-        } else {
-            if (empty($data['lead_pipeline_id'])) {
-                $pipeline = $this->pipelineRepository->getDefaultPipeline();
-
-                $data['lead_pipeline_id'] = $pipeline->id;
+            if ($hasAppointment) {
+                // Estado "Confirmada" (ID 7 según requerimiento)
+                $data['lead_pipeline_stage_id'] = 7;
             } else {
-                $pipeline = $this->pipelineRepository->findOrFail($data['lead_pipeline_id']);
+                // Estado "Consulta" (ID 1 según requerimiento)
+                $data['lead_pipeline_stage_id'] = 1;
             }
 
-            $stage = $pipeline->stages()->first();
+            $stage = $this->stageRepository->findOrFail($data['lead_pipeline_stage_id']);
+            $data['lead_pipeline_id'] = $stage->lead_pipeline_id;
 
-            $data['lead_pipeline_stage_id'] = $stage->id;
-        }
+            if (in_array($stage->code, ['won', 'lost'])) {
+                $data['closed_at'] = Carbon::now();
+            }
 
-        if (in_array($stage->code, ['won', 'lost'])) {
-            $data['closed_at'] = Carbon::now();
-        }
+            $lead = $this->leadRepository->create($data);
 
-        $lead = $this->leadRepository->create($data);
+            if ($hasAppointment) {
+                $this->createAutomaticAppointment($lead, $data);
+            }
 
-        if (request()->ajax()) {
-            return response()->json([
-                'message' => trans('admin::app.leads.create-success'),
-                'data'    => new LeadResource($lead),
+            Event::dispatch('lead.create.after', $lead);
+
+            if (request()->ajax()) {
+                return response()->json([
+                    'message' => trans('admin::app.leads.create-success'),
+                    'data'    => new LeadResource($lead),
+                ]);
+            }
+
+            session()->flash('success', trans('admin::app.leads.create-success'));
+
+            if (! empty($data['lead_pipeline_id'])) {
+                $params['pipeline_id'] = $data['lead_pipeline_id'];
+            }
+
+            return redirect()->route('admin.leads.index', $params ?? []);
+        });
+    }
+
+    /**
+     * Crea una cita automática asociada al lead.
+     */
+    protected function createAutomaticAppointment($lead, $data)
+    {
+        try {
+            $activityData = [
+                'type'          => 'meeting',
+                'title'         => 'Cita Confirmada: ' . $lead->title,
+                'comment'       => 'Cita creada automáticamente desde la creación de Lead.',
+                'schedule_from' => Carbon::parse($data['appointment_start'])->format('Y-m-d H:i:s'),
+                'schedule_to'   => Carbon::parse($data['appointment_end'])->format('Y-m-d H:i:s'),
+                'is_done'       => 0,
+                'user_id'       => auth()->guard('user')->id() ?? $lead->user_id,
+            ];
+
+            $activity = $this->activityRepository->create($activityData);
+
+            // Asociar actividad con el lead
+            $activity->leads()->attach($lead->id);
+
+            // Asociar actividad con la persona
+            if ($lead->person_id) {
+                $activity->persons()->attach($lead->person_id);
+            }
+
+            // Si el lead tiene doctor asignado, añadirlo como participante
+            if (isset($data['doctor_id'])) {
+                DB::table('activity_participants')->insert([
+                    'activity_id' => $activity->id,
+                    'doctor_id'   => $data['doctor_id'],
+                ]);
+            }
+
+            Log::info('Cita automática creada con éxito', [
+                'lead_id'     => $lead->id,
+                'activity_id' => $activity->id,
+                'start'       => $data['appointment_start'],
+                'end'         => $data['appointment_end'],
             ]);
+
+            return $activity;
+        } catch (\Exception $e) {
+            Log::error('Error al crear la cita automática', [
+                'lead_id' => $lead->id,
+                'error'   => $e->getMessage(),
+            ]);
+            
+            throw $e; // Provoca el rollback de la transacción
         }
-
-        Event::dispatch('lead.create.after', $lead);
-
-        session()->flash('success', trans('admin::app.leads.create-success'));
-
-        if (! empty($data['lead_pipeline_id'])) {
-            $params['pipeline_id'] = $data['lead_pipeline_id'];
-        }
-
-        return redirect()->route('admin.leads.index', $params ?? []);
     }
 
     /**
