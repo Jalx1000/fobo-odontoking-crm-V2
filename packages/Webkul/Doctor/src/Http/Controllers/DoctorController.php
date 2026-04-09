@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use Webkul\Doctor\Repositories\DoctorRepository;
 use Webkul\Doctor\Repositories\SpecialtyRepository;
+use Webkul\Attribute\Repositories\AttributeValueRepository;
 use Prettus\Repository\Criteria\RequestCriteria;
 
 class DoctorController extends Controller
@@ -25,7 +26,8 @@ class DoctorController extends Controller
 
     public function __construct(
         protected DoctorRepository $doctorRepository,
-        protected SpecialtyRepository $specialtyRepository
+        protected SpecialtyRepository $specialtyRepository,
+        protected AttributeValueRepository $attributeValueRepository
     ) {
         $this->_config = request('_config');
 
@@ -80,6 +82,11 @@ class DoctorController extends Controller
 
         $doctor = $this->doctorRepository->create($validated);
 
+        $this->attributeValueRepository->save(array_merge(request()->all(), [
+            'entity_id'   => $doctor->id,
+            'entity_type' => 'doctors',
+        ]));
+
         session()->flash('success', 'Doctor creado correctamente');
 
         return redirect()->route('admin.doctor.index');
@@ -121,6 +128,11 @@ class DoctorController extends Controller
         ]);
 
         $this->doctorRepository->update($validated, $id);
+
+        $this->attributeValueRepository->save(array_merge(request()->all(), [
+            'entity_id'   => $id,
+            'entity_type' => 'doctors',
+        ]));
 
         session()->flash('success', 'Doctor actualizado correctamente');
 

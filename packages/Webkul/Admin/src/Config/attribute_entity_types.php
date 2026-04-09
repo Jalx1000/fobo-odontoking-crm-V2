@@ -30,4 +30,9 @@ return [
         'name'       => 'admin::app.settings.warehouses.index.title',
         'repository' => 'Webkul\Warehouse\Repositories\WarehouseRepository',
     ],
+
+    'doctors'         => [
+        'name'       => 'admin::app.doctors.index.title',
+        'repository' => 'Webkul\Doctor\Repositories\DoctorRepository',
+    ],
 ];

@@ -161,6 +161,20 @@
                     </x-admin::form.control-group>
                 </div>
             </div>
+
+            <!-- Custom Attributes -->
+            @if (count($attributes = app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere(['entity_type' => 'doctors', 'quick_add' => 1])))
+                <div class="box-shadow rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                    <p class="mb-4 text-base font-semibold text-gray-800 dark:text-white">
+                        Información adicional
+                    </p>
+
+                    <x-admin::attributes
+                        :custom-attributes="$attributes"
+                        :entity="isset($doctor) ? $doctor : null"
+                    />
+                </div>
+            @endif
         </div>
     </x-admin::form>
 

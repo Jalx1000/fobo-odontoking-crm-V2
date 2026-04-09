@@ -7,11 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Webkul\Activity\Models\ActivityProxy;
 use Webkul\Activity\Traits\LogsActivity;
+use Webkul\Attribute\Traits\CustomAttribute;
 use Webkul\Doctor\Contracts\Doctor as DoctorContract;
 
 class Doctor extends Model implements DoctorContract
 {
-    use HasFactory, LogsActivity;
+    use HasFactory, LogsActivity, CustomAttribute;
 
     protected $table = 'doctors';
 
