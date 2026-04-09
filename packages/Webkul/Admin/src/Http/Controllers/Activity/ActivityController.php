@@ -493,7 +493,7 @@ class ActivityController extends Controller
         // 5. Creación Local y Sincronización SMD
         try {
             return DB::transaction(function () use ($data, $scheduleFrom, $scheduleTo, $doctor, $doctorExternalId, $doctorEmail, $personData, $productId, $product) {
-                // Gestión de Persona
+                // Gestión de Paciente
                 $personId = $personData['id'] ?? null;
                 $person = $this->personRepository->find($personId);
                 
