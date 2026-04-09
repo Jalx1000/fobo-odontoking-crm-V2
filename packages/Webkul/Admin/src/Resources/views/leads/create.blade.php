@@ -198,6 +198,30 @@
                             <div class="flex gap-4 max-sm:flex-wrap">
                                 <div class="w-full">
                                     <x-admin::form.control-group>
+                                        <x-admin::form.control-group.label class="required">
+                                            Doctor
+                                        </x-admin::form.control-group.label>
+
+                                        <x-admin::form.control-group.control
+                                            type="select"
+                                            name="doctor_id"
+                                            rules="required"
+                                            label="Doctor"
+                                        >
+                                            <option value="">Selecciona un doctor</option>
+                                            @foreach ($doctors as $doctor)
+                                                <option value="{{ $doctor->id }}">{{ $doctor->name }}</option>
+                                            @endforeach
+                                        </x-admin::form.control-group.control>
+
+                                        <x-admin::form.control-group.error control-name="doctor_id" />
+                                    </x-admin::form.control-group>
+                                </div>
+                            </div>
+
+                            <div class="flex gap-4 max-sm:flex-wrap">
+                                <div class="w-full">
+                                    <x-admin::form.control-group>
                                         <x-admin::form.control-group.label>
                                             @lang('admin::app.leads.create.start-datetime')
                                         </x-admin::form.control-group.label>

@@ -54,7 +54,7 @@ class SpecialtyController extends Controller
     {
         $validated = $request->validate([
             'name'        => ['required', 'string', 'min:2', 'max:150', 'unique:specialties,name'],
-            'description' => ['required', 'string'],
+            'description' => ['nullable', 'string'],
         ]);
 
         $validated['slug'] = Str::slug($validated['name']);
@@ -79,7 +79,7 @@ class SpecialtyController extends Controller
 
         $validated = $request->validate([
             'name'        => ['required', 'string', 'min:2', 'max:150', 'unique:specialties,name,'.$specialty->id],
-            'description' => ['required', 'string'],
+            'description' => ['nullable', 'string'],
         ]);
 
         $validated['slug'] = Str::slug($validated['name']);

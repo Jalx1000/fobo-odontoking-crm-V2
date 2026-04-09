@@ -45,14 +45,13 @@
                     </x-admin::form.control-group>
 
                     <x-admin::form.control-group class="col-span-2">
-                        <x-admin::form.control-group.label class="required">
+                        <x-admin::form.control-group.label>
                             Descripción
                         </x-admin::form.control-group.label>
                         <x-admin::form.control-group.control
                             type="textarea"
                             id="description"
                             name="description"
-                            rules="required"
                             tinymce="true"
                             :label="trans('Descripción')"
                             :placeholder="trans('Describe la especialidad')"

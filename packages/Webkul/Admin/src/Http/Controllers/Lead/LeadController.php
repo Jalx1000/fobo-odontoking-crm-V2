@@ -30,6 +30,7 @@ use Webkul\Lead\Services\MagicAIService;
 use Webkul\Tag\Repositories\TagRepository;
 use Webkul\User\Repositories\UserRepository;
 use Webkul\Activity\Repositories\ActivityRepository;
+use Webkul\Doctor\Repositories\DoctorRepository;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -55,7 +56,8 @@ class LeadController extends Controller
         protected LeadRepository $leadRepository,
         protected ProductRepository $productRepository,
         protected PersonRepository $personRepository,
-        protected ActivityRepository $activityRepository
+        protected ActivityRepository $activityRepository,
+        protected DoctorRepository $doctorRepository
     ) {
         request()->request->add(['entity_type' => 'leads']);
     }
@@ -157,7 +159,9 @@ class LeadController extends Controller
             'quick_add'   => 1,
         ]);
 
-        return view('admin::leads.create', compact('attributes'));
+        $doctors = $this->doctorRepository->all();
+
+        return view('admin::leads.create', compact('attributes', 'doctors'));
     }
 
     /**
@@ -241,12 +245,10 @@ class LeadController extends Controller
             }
 
             // Si el lead tiene doctor asignado, añadirlo como participante
-            if (isset($data['doctor_id'])) {
-                DB::table('activity_participants')->insert([
-                    'activity_id' => $activity->id,
-                    'doctor_id'   => $data['doctor_id'],
-                ]);
-            }
+            DB::table('activity_participants')->insert([
+                'activity_id' => $activity->id,
+                'doctor_id'   => $lead->doctor_id,
+            ]);
 
             Log::info('Cita automática creada con éxito', [
                 'lead_id'     => $lead->id,
