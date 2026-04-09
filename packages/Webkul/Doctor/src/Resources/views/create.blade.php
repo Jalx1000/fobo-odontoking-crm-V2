@@ -123,22 +123,137 @@
                         />
                     </x-admin::form.control-group>
                 </div>
-            </div>
 
-            <!-- Custom Attributes -->
-            @if (count($attributes = app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere(['entity_type' => 'doctors', 'quick_add' => 1])))
-                <div class="box-shadow rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-                    <p class="mb-4 text-base font-semibold text-gray-800 dark:text-white">
-                        Información adicional
-                    </p>
-
-                    <x-admin::attributes
-                        :custom-attributes="$attributes"
-                        :entity="isset($doctor) ? $doctor : null"
-                    />
+                <!-- Age Range Section Integrated -->
+                <div class="mt-4 border-t pt-4 dark:border-gray-800">
+                    <v-age-range-selector :doctor='@json(isset($doctor) ? $doctor : null)'></v-age-range-selector>
                 </div>
-            @endif
+
+                <!-- Other Custom Attributes Integrated -->
+                @php
+                    $attributes = app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere(['entity_type' => 'doctors', 'quick_add' => 1]);
+                    $otherAttributes = $attributes->whereNotIn('code', ['age_range_min', 'age_range_max', 'age_range_notes']);
+                @endphp
+
+                @if (count($otherAttributes))
+                    <div class="mt-4 border-t pt-4 dark:border-gray-800">
+                        <p class="mb-4 text-base font-semibold text-gray-800 dark:text-white">
+                            Información adicional
+                        </p>
+
+                        <x-admin::attributes
+                            :custom-attributes="$otherAttributes"
+                            :entity="isset($doctor) ? $doctor : null"
+                        />
+                    </div>
+                @endif
+            </div>
         </div>
     </x-admin::form>
+
+    @pushOnce('scripts')
+        <script type="text/x-template" id="v-age-range-selector-template">
+            <div>
+                <div class="flex items-center justify-between mb-4">
+                    <p class="text-base font-semibold text-gray-800 dark:text-white">
+                        Rango de edad de pacientes
+                    </p>
+
+                    <label class="flex cursor-pointer items-center gap-2">
+                        <input 
+                            type="checkbox" 
+                            class="peer hidden" 
+                            v-model="allAges"
+                            @change="toggleAllAges"
+                        >
+                        <span class="icon-checkbox-outline peer-checked:icon-checkbox-select text-2xl text-gray-600 peer-checked:text-brandColor transition-all"></span>
+                        <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Atiende todas las edades (0-99)</span>
+                    </label>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-4 max-lg:grid-cols-1">
+                    <x-admin::form.control-group class="!mb-0">
+                        <x-admin::form.control-group.label>
+                            Edad mínima
+                        </x-admin::form.control-group.label>
+
+                        <x-admin::form.control-group.control
+                            type="number"
+                            name="age_range_min"
+                            ::value="ageMin"
+                            v-model="ageMin"
+                            min="0"
+                            max="99"
+                            :label="trans('Edad mínima')"
+                            ::disabled="allAges"
+                        />
+                        <x-admin::form.control-group.error control-name="age_range_min" />
+                    </x-admin::form.control-group>
+
+                    <x-admin::form.control-group class="!mb-0">
+                        <x-admin::form.control-group.label>
+                            Edad máxima
+                        </x-admin::form.control-group.label>
+
+                        <x-admin::form.control-group.control
+                            type="number"
+                            name="age_range_max"
+                            ::value="ageMax"
+                            v-model="ageMax"
+                            min="0"
+                            max="99"
+                            :label="trans('Edad máxima')"
+                            ::disabled="allAges"
+                        />
+                        <x-admin::form.control-group.error control-name="age_range_max" />
+                    </x-admin::form.control-group>
+                </div>
+
+                <x-admin::form.control-group class="!mb-0">
+                    <x-admin::form.control-group.label>
+                        Observaciones de atención
+                    </x-admin::form.control-group.label>
+
+                    <x-admin::form.control-group.control
+                        type="textarea"
+                        name="age_range_notes"
+                        ::value="notes"
+                        v-model="notes"
+                        :label="trans('Observaciones')"
+                        placeholder="Ej: Solo atiende niños acompañados de sus padres o adultos mayores"
+                    />
+                    <x-admin::form.control-group.error control-name="age_range_notes" />
+                </x-admin::form.control-group>
+            </div>
+        </script>
+
+        <script type="module">
+            app.component('v-age-range-selector', {
+                template: '#v-age-range-selector-template',
+                props: ['doctor'],
+                data() {
+                    return {
+                        ageMin: this.doctor ? this.doctor.age_range_min : 0,
+                        ageMax: this.doctor ? this.doctor.age_range_max : 99,
+                        notes: this.doctor ? this.doctor.age_range_notes : '',
+                        allAges: false
+                    }
+                },
+                mounted() {
+                    if (this.ageMin == 0 && this.ageMax == 99) {
+                        this.allAges = true;
+                    }
+                },
+                methods: {
+                    toggleAllAges() {
+                        if (this.allAges) {
+                            this.ageMin = 0;
+                            this.ageMax = 99;
+                        }
+                    }
+                }
+            });
+        </script>
+    @endPushOnce
 
 </x-admin::layouts>
