@@ -56,7 +56,6 @@ class DoctorDataGrid extends DataGrid
         $this->addFilter('id', 'doctors.id');
         $this->addFilter('name', 'doctors.name');
         $this->addFilter('email', 'doctors.email');
-        $this->addFilter('unique_id', 'doctors.unique_id');
         $this->addFilter('created_at', 'doctors.created_at');
         if ($hasSpecialtyTables) {
             $this->addFilter('specialties', 'specialties.name');
@@ -104,7 +103,7 @@ class DoctorDataGrid extends DataGrid
             'index'      => 'unique_id',
             'label'      => 'ID ShareMeData',
             'type'       => 'string',
-            'filterable' => true,
+            'filterable' => false,
             'sortable'   => true,
             'searchable' => true,
         ]);

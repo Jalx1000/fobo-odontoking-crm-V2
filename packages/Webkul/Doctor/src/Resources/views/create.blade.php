@@ -45,25 +45,6 @@
 
                     <x-admin::form.control-group>
                         <x-admin::form.control-group.label>
-                            Nº (Número de identificación)
-                        </x-admin::form.control-group.label>
-
-                        <x-admin::form.control-group.control
-                            type="text"
-                            id="number"
-                            name="number"
-                            :label="trans('Nº')"
-                            :placeholder="trans('Nº')"
-                            :value="old('number', isset($doctor) ? $doctor->number : '')"
-                            rules="max:50"
-                            v-debounce="500"
-                        />
-
-                        <x-admin::form.control-group.error control-name="number" />
-                    </x-admin::form.control-group>
-
-                    <x-admin::form.control-group>
-                        <x-admin::form.control-group.label>
                             ID de ShareMeData (Hexadecimal)
                         </x-admin::form.control-group.label>
 
@@ -76,6 +57,7 @@
                             :value="old('unique_id', isset($doctor) ? $doctor->unique_id : '')"
                             rules="max:100"
                             v-debounce="500"
+                            disabled="true"
                         />
 
                         <x-admin::form.control-group.error control-name="unique_id" />
@@ -98,25 +80,6 @@
                         />
 
                         <x-admin::form.control-group.error control-name="name" />
-                    </x-admin::form.control-group>
-
-                    <x-admin::form.control-group>
-                        <x-admin::form.control-group.label>
-                            Título profesional
-                        </x-admin::form.control-group.label>
-
-                        <x-admin::form.control-group.control
-                            type="text"
-                            id="title"
-                            name="title"
-                            rules="max:100"
-                            :label="trans('Título profesional')"
-                            :placeholder="trans('Ej.: Doctor en Odontología')"
-                             :value="old('title', isset($doctor) ? $doctor->title : '')"
-                            v-debounce="500"
-                        />
-
-                        <x-admin::form.control-group.error control-name="title" />
                     </x-admin::form.control-group>
 
                     <x-admin::form.control-group>
