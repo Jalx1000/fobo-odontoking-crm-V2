@@ -35,6 +35,7 @@
                 <x-admin::drawer
                     width="350px"
                     ref="filterDrawer"
+                    v-if="available.columns.some(column => column.filterable)"
                 >
                     <x-slot:toggle>
                         <div class="relative flex cursor-pointer items-center rounded-md bg-sky-100 px-4 py-[9px] font-semibold text-sky-600 dark:bg-brandColor dark:text-white">

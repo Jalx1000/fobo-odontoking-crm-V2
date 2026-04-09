@@ -36,15 +36,6 @@ class ProductDataGrid extends DataGrid
             $queryBuilder->where('product_inventories.warehouse_id', request()->route('id'));
         }
 
-        $this->addFilter('id', 'products.id');
-        $this->addFilter('sku', 'products.sku');
-        $this->addFilter('name', 'products.name');
-        $this->addFilter('price', 'products.price');
-        $this->addFilter('total_in_stock', 'total_in_stock');
-        $this->addFilter('total_allocated', 'total_allocated');
-        $this->addFilter('total_on_hand', 'total_on_hand');
-        $this->addFilter('tag_name', 'tags.name');
-
         return $queryBuilder;
     }
 
@@ -59,7 +50,7 @@ class ProductDataGrid extends DataGrid
             'type'       => 'string',
             'sortable'   => true,
             'searchable' => true,
-            'filterable' => true,
+            'filterable' => false,
         ]);
 
         $this->addColumn([
@@ -68,7 +59,7 @@ class ProductDataGrid extends DataGrid
             'type'       => 'string',
             'sortable'   => true,
             'searchable' => true,
-            'filterable' => true,
+            'filterable' => false,
         ]);
 
         $this->addColumn([
@@ -77,7 +68,7 @@ class ProductDataGrid extends DataGrid
             'type'       => 'string',
             'sortable'   => true,
             'searchable' => true,
-            'filterable' => true,
+            'filterable' => false,
             'closure'    => fn ($row) => round($row->price, 2),
         ]);
 
@@ -86,7 +77,7 @@ class ProductDataGrid extends DataGrid
             'label'      => trans('admin::app.products.index.datagrid.in-stock'),
             'type'       => 'aggregate',
             'sortable'   => true,
-            'filterable' => true,
+            'filterable' => false,
         ]);
 
         $this->addColumn([
@@ -94,7 +85,7 @@ class ProductDataGrid extends DataGrid
             'label'      => trans('admin::app.products.index.datagrid.allocated'),
             'type'       => 'aggregate',
             'sortable'   => true,
-            'filterable' => true,
+            'filterable' => false,
         ]);
 
         $this->addColumn([
@@ -102,7 +93,7 @@ class ProductDataGrid extends DataGrid
             'label'      => trans('admin::app.products.index.datagrid.on-hand'),
             'type'       => 'aggregate',
             'sortable'   => true,
-            'filterable' => true,
+            'filterable' => false,
         ]);
 
         $this->addColumn([
@@ -111,7 +102,7 @@ class ProductDataGrid extends DataGrid
             'type'               => 'string',
             'searchable'         => false,
             'sortable'           => true,
-            'filterable'         => true,
+            'filterable'         => false,
             'filterable_type'    => 'searchable_dropdown',
             'closure'            => fn ($row) => $row->tag_name ?? '--',
             'filterable_options' => [
