@@ -50,7 +50,7 @@
 
                 <x-admin::attributes
                     :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
-                        ['code', 'NOTIN', ['organization_id']],
+                        ['code', 'NOTIN', ['organization_id', 'expected_close_date']],
                         'entity_type' => 'persons',
                     ])"
                     :custom-validations="[
@@ -64,7 +64,7 @@
                     ]"
                 />
 
-                <v-organization></v-organization>
+                <!-- <v-organization></v-organization> -->
 
                 {!! view_render_event('admin.persons.create.form_controls.after') !!}
             </div>

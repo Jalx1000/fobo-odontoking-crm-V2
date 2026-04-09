@@ -38,7 +38,6 @@ class PersonDataGrid extends DataGrid
 
         $this->addFilter('id', 'persons.id');
         $this->addFilter('person_name', 'persons.name');
-        $this->addFilter('organization', 'organizations.name');
 
         return $queryBuilder;
     }
@@ -91,7 +90,7 @@ class PersonDataGrid extends DataGrid
             'label'              => trans('admin::app.contacts.persons.index.datagrid.organization-name'),
             'type'               => 'string',
             'searchable'         => true,
-            'filterable'         => true,
+            'filterable'         => false,
             'sortable'           => true,
             'filterable_type'    => 'searchable_dropdown',
             'filterable_options' => [
