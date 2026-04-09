@@ -27,7 +27,7 @@ class DoctorController extends Controller
             if ($limit < 1) $limit = 10;
 
             // Apply filters
-            $query = $this->doctorRepository->getModel()->newQuery()->with('specialties');
+            $query = $this->doctorRepository->getModel()->newQuery()->with(['specialties', 'attribute_values']);
 
             if ($request->has('specialty')) {
                 $query->whereHas('specialties', function ($q) use ($request) {
@@ -81,7 +81,7 @@ class DoctorController extends Controller
                 return response()->json(['message' => 'Invalid doctor ID format'], 400);
             }
 
-            $doctor = $this->doctorRepository->with(['specialties'])->find($id);
+            $doctor = $this->doctorRepository->with(['specialties', 'attribute_values'])->find($id);
 
             if (!$doctor) {
                 return response()->json(['message' => 'Doctor not found'], 404);
