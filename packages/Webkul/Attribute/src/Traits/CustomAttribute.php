@@ -44,6 +44,10 @@ trait CustomAttribute
      */
     public function getAttribute($key)
     {
+        if (in_array($key, ['pivot', 'relations', 'attributes', 'appends', 'hidden', 'visible', 'fillable', 'casts'])) {
+            return parent::getAttribute($key);
+        }
+
         if (! method_exists(static::class, $key) && ! isset($this->attributes[$key])) {
             if (isset($this->id)) {
                 $this->attributes[$key] = '';
