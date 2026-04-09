@@ -17,10 +17,21 @@
                     </div>
                 </div>
 
-                <div class="flex gap-2">
-                    <i class="icon-list cursor-pointer rounded p-2 text-2xl"></i>
+                <div class="flex items-center gap-x-2.5">
+                    @if (bouncer()->hasPermission('leads.create'))
+                        <a
+                            href="{{ route('admin.leads.create') }}"
+                            class="primary-button"
+                        >
+                            @lang('admin::app.leads.index.create-btn')
+                        </a>
+                    @endif
 
-                    <i class="icon-calendar cursor-pointe rounded p-2 text-2xl"></i>
+                    <div class="flex gap-2">
+                        <i class="icon-list cursor-pointer rounded p-2 text-2xl"></i>
+
+                        <i class="icon-calendar cursor-pointer rounded p-2 text-2xl"></i>
+                    </div>
                 </div>
             </div>
 
@@ -53,18 +64,29 @@
 
                     {!! view_render_event('admin.activities.index.toggle_view.before') !!}
 
-                    <div class="flex">
-                        <i
-                            class="icon-list cursor-pointer rounded-md p-2 text-2xl"
-                            :class="{'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-white': viewType == 'table'}"
-                            @click="toggleView('table')"
-                        ></i>
+                    <div class="flex items-center gap-x-2.5">
+                        @if (bouncer()->hasPermission('leads.create'))
+                            <a
+                                href="{{ route('admin.leads.create') }}"
+                                class="primary-button"
+                            >
+                                @lang('admin::app.leads.index.create-btn')
+                            </a>
+                        @endif
 
-                        <i
-                            class="icon-calendar cursor-pointer rounded-md p-2 text-2xl"
-                            :class="{'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-white': viewType == 'calendar'}"
-                            @click="toggleView('calendar')"
-                        ></i>
+                        <div class="flex">
+                            <i
+                                class="icon-list cursor-pointer rounded-md p-2 text-2xl"
+                                :class="{'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-white': viewType == 'table'}"
+                                @click="toggleView('table')"
+                            ></i>
+
+                            <i
+                                class="icon-calendar cursor-pointer rounded-md p-2 text-2xl"
+                                :class="{'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-white': viewType == 'calendar'}"
+                                @click="toggleView('calendar')"
+                            ></i>
+                        </div>
                     </div>
 
                     {!! view_render_event('admin.activities.index.toggle_view.after') !!}

@@ -1730,7 +1730,7 @@ return [
             'contact'              => 'Números de Contacto',
             'country'              => 'País',
             'email'                => 'Correo Electrónico',
-            'home'                 => 'Hogar',
+            'home'                 => 'Personal',
             'postcode'             => 'Código Postal',
             'save'                 => 'Guardar',
             'select'               => 'Seleccionar',
@@ -1739,7 +1739,7 @@ return [
             'state'                => 'Estado',
             'update-contact-title' => 'Actualizar Números de Contacto',
             'update-emails-title'  => 'Actualizar Correos Electrónicos de Contacto',
-            'work'                 => 'Trabajo',
+            'work'                 => 'Corporativo',
         ],
     ],
     'leads' => [
