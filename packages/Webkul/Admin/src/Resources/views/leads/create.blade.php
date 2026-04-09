@@ -207,10 +207,11 @@
                                             name="doctor_id"
                                             rules="required"
                                             label="Doctor"
+                                            :value="old('doctor_id')"
                                         >
                                             <option value="">Selecciona un doctor</option>
                                             @foreach ($doctors as $doctor)
-                                                <option value="{{ $doctor->id }}">{{ $doctor->name }}</option>
+                                                <option value="{{ $doctor->id }}" {{ old('doctor_id') == $doctor->id ? 'selected' : '' }}>{{ $doctor->name }}</option>
                                             @endforeach
                                         </x-admin::form.control-group.control>
 
@@ -230,6 +231,7 @@
                                             type="datetime"
                                             name="appointment_start"
                                             :label="trans('admin::app.leads.create.start-datetime')"
+                                            :value="old('appointment_start')"
                                         />
 
                                         <x-admin::form.control-group.error control-name="appointment_start" />
@@ -246,6 +248,7 @@
                                             type="datetime"
                                             name="appointment_end"
                                             :label="trans('admin::app.leads.create.end-datetime')"
+                                            :value="old('appointment_end')"
                                         />
 
                                         <x-admin::form.control-group.error control-name="appointment_end" />
@@ -288,6 +291,10 @@
                 data() {
                     return {
                         activeTab: 'lead-details',
+
+                        person: @json(old('person') ?: []),
+
+                        products: @json(old('products') ?: []),
 
                         tabs: [
                             { id: 'lead-details', label: '@lang('admin::app.leads.create.details')' },

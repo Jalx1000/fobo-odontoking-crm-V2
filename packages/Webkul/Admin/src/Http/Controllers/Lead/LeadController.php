@@ -183,7 +183,7 @@ class LeadController extends Controller
                 $msg = "Debe seleccionar un doctor para programar una cita.";
                 if (request()->ajax()) return response()->json(['message' => $msg], 422);
                 session()->flash('error', $msg);
-                return redirect()->back();
+                return redirect()->back()->withInput();
             }
 
             $scheduleFrom = Carbon::parse($data['appointment_start']);
@@ -211,7 +211,7 @@ class LeadController extends Controller
                 $msg = "El doctor ya tiene una cita programada en este horario en el sistema local.";
                 if (request()->ajax()) return response()->json(['message' => $msg], 422);
                 session()->flash('error', $msg);
-                return redirect()->back();
+                return redirect()->back()->withInput();
             }
 
             // 2. Validar Jornada Laboral (Shifts)
@@ -226,7 +226,7 @@ class LeadController extends Controller
                 $msg = "El horario seleccionado está fuera de la jornada laboral del doctor para este día.";
                 if (request()->ajax()) return response()->json(['message' => $msg], 422);
                 session()->flash('error', $msg);
-                return redirect()->back();
+                return redirect()->back()->withInput();
             }
 
             // 3. Validar Disponibilidad en SMD
@@ -267,7 +267,7 @@ class LeadController extends Controller
                 $msg = "El doctor no tiene disponibilidad en SHAREMEDATA para el horario solicitado.";
                 if (request()->ajax()) return response()->json(['message' => $msg], 422);
                 session()->flash('error', $msg);
-                return redirect()->back();
+                return redirect()->back()->withInput();
             }
         }
 
