@@ -17,24 +17,21 @@ class ProductDataGrid extends DataGrid
         $tablePrefix = DB::getTablePrefix();
 
         $queryBuilder = DB::table('products')
-            ->leftJoin('product_inventories', 'products.id', '=', 'product_inventories.product_id')
-            ->leftJoin('product_tags', 'products.id', '=', 'product_tags.product_id')
-            ->leftJoin('tags', 'tags.id', '=', 'product_tags.tag_id')
+            ->leftJoin('attribute_values as type_service_2_av', function ($join) use ($tablePrefix) {
+                $join->on('products.id', '=', 'type_service_2_av.entity_id')
+                    ->where('type_service_2_av.entity_type', '=', DB::raw("'products'"))
+                    ->where('type_service_2_av.attribute_id', '=', function ($query) use ($tablePrefix) {
+                        $query->select('id')->from('attributes')->where('code', '=', DB::raw("'type_service_2'"))->limit(1);
+                    });
+            })
+            ->leftJoin('attribute_options as type_service_2_options', 'type_service_2_av.integer_value', '=', 'type_service_2_options.id')
             ->select(
                 'products.id',
                 'products.sku',
                 'products.name',
-                'products.price',
-                'tags.name as tag_name',
+                DB::raw('COALESCE('.$tablePrefix.'type_service_2_options.name, '.$tablePrefix.'type_service_2_av.text_value) as type_service_2')
             )
-            ->addSelect(DB::raw('SUM('.$tablePrefix.'product_inventories.in_stock) as total_in_stock'))
-            ->addSelect(DB::raw('SUM('.$tablePrefix.'product_inventories.allocated) as total_allocated'))
-            ->addSelect(DB::raw('SUM('.$tablePrefix.'product_inventories.in_stock - '.$tablePrefix.'product_inventories.allocated) as total_on_hand'))
             ->groupBy('products.id');
-
-        if (request()->route('id')) {
-            $queryBuilder->where('product_inventories.warehouse_id', request()->route('id'));
-        }
 
         return $queryBuilder;
     }
@@ -63,55 +60,12 @@ class ProductDataGrid extends DataGrid
         ]);
 
         $this->addColumn([
-            'index'      => 'price',
-            'label'      => trans('admin::app.products.index.datagrid.price'),
+            'index'      => 'type_service_2',
+            'label'      => 'Tipo de servicio',
             'type'       => 'string',
             'sortable'   => true,
             'searchable' => true,
             'filterable' => false,
-            'closure'    => fn ($row) => round($row->price, 2),
-        ]);
-
-        $this->addColumn([
-            'index'      => 'total_in_stock',
-            'label'      => trans('admin::app.products.index.datagrid.in-stock'),
-            'type'       => 'aggregate',
-            'sortable'   => true,
-            'filterable' => false,
-        ]);
-
-        $this->addColumn([
-            'index'      => 'total_allocated',
-            'label'      => trans('admin::app.products.index.datagrid.allocated'),
-            'type'       => 'aggregate',
-            'sortable'   => true,
-            'filterable' => false,
-        ]);
-
-        $this->addColumn([
-            'index'      => 'total_on_hand',
-            'label'      => trans('admin::app.products.index.datagrid.on-hand'),
-            'type'       => 'aggregate',
-            'sortable'   => true,
-            'filterable' => false,
-        ]);
-
-        $this->addColumn([
-            'index'              => 'tag_name',
-            'label'              => trans('admin::app.products.index.datagrid.tag-name'),
-            'type'               => 'string',
-            'searchable'         => false,
-            'sortable'           => true,
-            'filterable'         => false,
-            'filterable_type'    => 'searchable_dropdown',
-            'closure'            => fn ($row) => $row->tag_name ?? '--',
-            'filterable_options' => [
-                'repository' => TagRepository::class,
-                'column'     => [
-                    'label' => 'name',
-                    'value' => 'name',
-                ],
-            ],
         ]);
     }
 
