@@ -787,13 +787,13 @@ app.component('v-schedules', {
                         });
                     },
                     goPrevWeek() {
-                        const date = new Date(this.start);
+                        const date = new Date(this.start + 'T00:00:00');
                         date.setDate(date.getDate() - 7);
                         this.start = this.toISO(date);
                         this.fetchWeek();
                     },
                     goNextWeek() {
-                        const date = new Date(this.start);
+                        const date = new Date(this.start + 'T00:00:00');
                         date.setDate(date.getDate() + 7);
                         this.start = this.toISO(date);
                         this.fetchWeek();
