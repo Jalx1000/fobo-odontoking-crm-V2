@@ -172,58 +172,71 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-4 mb-4 max-lg:grid-cols-1">
-                    <x-admin::form.control-group class="!mb-0">
-                        <x-admin::form.control-group.label>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-medium text-gray-600 dark:text-gray-300">
                             Edad mínima
-                        </x-admin::form.control-group.label>
+                        </label>
 
-                        <x-admin::form.control-group.control
-                            type="number"
+                        <v-field
                             name="age_range_min"
-                            ::value="ageMin"
                             v-model="ageMin"
-                            min="0"
-                            max="99"
-                            :label="trans('Edad mínima')"
-                            ::disabled="allAges"
-                        />
-                        <x-admin::form.control-group.error control-name="age_range_min" />
-                    </x-admin::form.control-group>
+                            v-slot="{ field }"
+                        >
+                            <input
+                                type="number"
+                                name="age_range_min"
+                                v-bind="field"
+                                min="0"
+                                max="99"
+                                class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm font-normal text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
+                                :readonly="allAges"
+                                :class="{'bg-gray-100 dark:bg-gray-800 cursor-not-allowed': allAges}"
+                            >
+                        </v-field>
+                    </div>
 
-                    <x-admin::form.control-group class="!mb-0">
-                        <x-admin::form.control-group.label>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-medium text-gray-600 dark:text-gray-300">
                             Edad máxima
-                        </x-admin::form.control-group.label>
+                        </label>
 
-                        <x-admin::form.control-group.control
-                            type="number"
+                        <v-field
                             name="age_range_max"
-                            ::value="ageMax"
                             v-model="ageMax"
-                            min="0"
-                            max="99"
-                            :label="trans('Edad máxima')"
-                            ::disabled="allAges"
-                        />
-                        <x-admin::form.control-group.error control-name="age_range_max" />
-                    </x-admin::form.control-group>
+                            v-slot="{ field }"
+                        >
+                            <input
+                                type="number"
+                                name="age_range_max"
+                                v-bind="field"
+                                min="0"
+                                max="99"
+                                class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm font-normal text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
+                                :readonly="allAges"
+                                :class="{'bg-gray-100 dark:bg-gray-800 cursor-not-allowed': allAges}"
+                            >
+                        </v-field>
+                    </div>
                 </div>
 
-                <x-admin::form.control-group class="!mb-0">
-                    <x-admin::form.control-group.label>
-                        Observaciones de atención
-                    </x-admin::form.control-group.label>
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-medium text-gray-600 dark:text-gray-300">
+                        Observaciones de atención (Rango de edad)
+                    </label>
 
-                    <x-admin::form.control-group.control
-                        type="textarea"
+                    <v-field
                         name="age_range_notes"
-                        ::value="notes"
                         v-model="notes"
-                        :label="trans('Observaciones')"
-                        placeholder="Ej: Solo atiende niños acompañados de sus padres o adultos mayores"
-                    />
-                    <x-admin::form.control-group.error control-name="age_range_notes" />
-                </x-admin::form.control-group>
+                        v-slot="{ field }"
+                    >
+                        <textarea
+                            name="age_range_notes"
+                            v-bind="field"
+                            class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm font-normal text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
+                            placeholder="Ej: Solo atiende niños acompañados de sus padres o adultos mayores"
+                        ></textarea>
+                    </v-field>
+                </div>
             </div>
         </script>
 
@@ -249,6 +262,18 @@
                         if (this.allAges) {
                             this.ageMin = 0;
                             this.ageMax = 99;
+                        }
+                    }
+                },
+                watch: {
+                    ageMin(val) {
+                        if (val != 0 || this.ageMax != 99) {
+                            this.allAges = false;
+                        }
+                    },
+                    ageMax(val) {
+                        if (val != 99 || this.ageMin != 0) {
+                            this.allAges = false;
                         }
                     }
                 }
