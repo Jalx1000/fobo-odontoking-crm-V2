@@ -53,17 +53,6 @@ class DoctorDataGrid extends DataGrid
         }
         $queryBuilder->groupBy($groupColumns);
 
-        $this->addFilter('id', 'doctors.id');
-        $this->addFilter('name', 'doctors.name');
-        $this->addFilter('email', 'doctors.email');
-        $this->addFilter('created_at', 'doctors.created_at');
-        if ($hasSpecialtyTables) {
-            $this->addFilter('specialties', 'specialties.name');
-        }
-        if ($hasIsActiveColumn) {
-            $this->addFilter('is_active', 'doctors.is_active');
-        }
-
         return $queryBuilder;
     }
 
@@ -76,7 +65,7 @@ class DoctorDataGrid extends DataGrid
             'index'      => 'id',
             'label'      => 'ID',
             'type'       => 'integer',
-            'filterable' => true,
+            'filterable' => false,
             'sortable'   => true,
             'searchable' => true,
         ]);
@@ -85,7 +74,7 @@ class DoctorDataGrid extends DataGrid
             'index'      => 'name',
             'label'      => 'Nombre',
             'type'       => 'string',
-            'filterable' => true,
+            'filterable' => false,
             'sortable'   => true,
             'searchable' => true,
         ]);
@@ -94,7 +83,7 @@ class DoctorDataGrid extends DataGrid
             'index'      => 'email',
             'label'      => 'Correo',
             'type'       => 'string',
-            'filterable' => true,
+            'filterable' => false,
             'sortable'   => true,
             'searchable' => true,
         ]);
@@ -112,7 +101,7 @@ class DoctorDataGrid extends DataGrid
             'index'      => 'specialties',
             'label'      => 'Especialidad',
             'type'       => 'string',
-            'filterable' => $hasSpecialtyTables,
+            'filterable' => false,
             'sortable'   => $hasSpecialtyTables,
             'searchable' => $hasSpecialtyTables,
         ]);
@@ -121,7 +110,7 @@ class DoctorDataGrid extends DataGrid
             'index'      => 'created_at',
             'label'      => 'Creado',
             'type'       => 'date',
-            'filterable' => true,
+            'filterable' => false,
             'sortable'   => true,
             'searchable' => false,
         ]);
@@ -130,7 +119,7 @@ class DoctorDataGrid extends DataGrid
             'index'      => 'is_active',
             'label'      => 'Estado',
             'type'       => 'boolean',
-            'filterable' => $hasIsActiveColumn,
+            'filterable' => false,
             'sortable'   => $hasIsActiveColumn,
             'searchable' => false,
             'closure'    => function ($row) {

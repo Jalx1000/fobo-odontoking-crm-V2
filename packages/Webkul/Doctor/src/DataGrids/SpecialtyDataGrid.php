@@ -25,11 +25,6 @@ class SpecialtyDataGrid extends DataGrid
                 'specialties.created_at',
             );
 
-        $this->addFilter('id', 'specialties.id');
-        $this->addFilter('name', 'specialties.name');
-        $this->addFilter('description', 'specialties.description');
-        $this->addFilter('created_at', 'specialties.created_at');
-
         return $queryBuilder;
     }
 
@@ -39,7 +34,7 @@ class SpecialtyDataGrid extends DataGrid
             'index'      => 'id',
             'label'      => 'ID',
             'type'       => 'integer',
-            'filterable' => true,
+            'filterable' => false,
             'sortable'   => true,
             'searchable' => true,
         ]);
@@ -48,7 +43,7 @@ class SpecialtyDataGrid extends DataGrid
             'index'      => 'name',
             'label'      => 'Nombre',
             'type'       => 'string',
-            'filterable' => true,
+            'filterable' => false,
             'sortable'   => true,
             'searchable' => true,
         ]);
@@ -57,7 +52,7 @@ class SpecialtyDataGrid extends DataGrid
             'index'      => 'description',
             'label'      => 'Descripción',
             'type'       => 'string',
-            'filterable' => true,
+            'filterable' => false,
             'sortable'   => true,
             'searchable' => false,
         ]);
@@ -66,7 +61,7 @@ class SpecialtyDataGrid extends DataGrid
             'index'      => 'created_at',
             'label'      => 'Creado',
             'type'       => 'datetime',
-            'filterable' => true,
+            'filterable' => false,
             'sortable'   => true,
             'searchable' => false,
         ]);
