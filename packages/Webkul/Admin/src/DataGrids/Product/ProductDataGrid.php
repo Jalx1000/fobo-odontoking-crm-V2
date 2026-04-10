@@ -27,7 +27,6 @@ class ProductDataGrid extends DataGrid
             ->leftJoin('attribute_options as type_service_2_options', 'type_service_2_av.integer_value', '=', 'type_service_2_options.id')
             ->select(
                 'products.id',
-                'products.sku',
                 'products.name',
                 DB::raw('COALESCE('.$tablePrefix.'type_service_2_options.name, '.$tablePrefix.'type_service_2_av.text_value) as type_service_2')
             )
@@ -41,14 +40,6 @@ class ProductDataGrid extends DataGrid
      */
     public function prepareColumns(): void
     {
-        $this->addColumn([
-            'index'      => 'sku',
-            'label'      => trans('admin::app.products.index.datagrid.sku'),
-            'type'       => 'string',
-            'sortable'   => true,
-            'searchable' => true,
-            'filterable' => false,
-        ]);
 
         $this->addColumn([
             'index'      => 'name',
