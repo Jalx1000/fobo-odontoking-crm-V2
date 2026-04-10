@@ -187,7 +187,7 @@
                                         type="datetime"
                                         name="schedule_from"
                                         rules="required"
-                                        :label="'{{ trans('admin::app.components.activities.actions.activity.schedule-from') }}'"
+                                        :label="trans('admin::app.components.activities.actions.activity.schedule-from')"
                                     />
 
                                     <x-admin::form.control-group.error control-name="schedule_from" />
@@ -203,7 +203,7 @@
                                         type="datetime"
                                         name="schedule_to"
                                         rules="required"
-                                        :label="'{{ trans('admin::app.components.activities.actions.activity.schedule-to') }}'"
+                                        :label="trans('admin::app.components.activities.actions.activity.schedule-to')"
                                     />
 
                                     <x-admin::form.control-group.error control-name="schedule_to" />
@@ -230,7 +230,7 @@
 
                             <x-admin::button
                                 class="primary-button"
-                                :title="'{{ trans('admin::app.components.activities.actions.activity.save-btn') }}'"
+                                :title="trans('admin::app.components.activities.actions.activity.save-btn')"
                                 ::loading="isStoring"
                                 ::disabled="isStoring"
                             />
