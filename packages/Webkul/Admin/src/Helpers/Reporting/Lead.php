@@ -850,30 +850,25 @@ class Lead extends AbstractReporting
      */
     public function getOpenLeadsByStatesFixed()
     {
-        $pipeline = $this->pipelineRepository->getDefaultPipeline();
         $tablePrefix = DB::getTablePrefix();
+        $pipelineId = request('pipeline_id');
 
-        $stages = $pipeline->stages()->get();
-
-        $wonCodes = ['won'];
-        $lostCodes = ['lost'];
-
-        $normalStages = $stages->filter(fn ($s) => ! in_array($s->code, array_merge($wonCodes, $lostCodes)))->values();
-
-        $wonStage = $stages->first(fn ($s) => in_array($s->code, $wonCodes));
-        $lostStage = $stages->first(fn ($s) => in_array($s->code, $lostCodes));
-
-        $orderedStages = $normalStages;
-
-        if ($wonStage) {
-            $orderedStages = $orderedStages->push($wonStage);
+        // 1. Obtener las etapas de referencia para el orden y nombres
+        if ($pipelineId) {
+            $referencePipeline = $this->pipelineRepository->find($pipelineId);
+        } else {
+            $referencePipeline = $this->pipelineRepository->getDefaultPipeline();
         }
 
-        if ($lostStage) {
-            $orderedStages = $orderedStages->push($lostStage);
+        if (! $referencePipeline) {
+            return collect();
         }
 
-        $counts = $this->leadRepository
+        $referenceStages = $referencePipeline->stages()->orderBy('sort_order')->get();
+
+        // 2. Sumatoria total de leads por nombre de etapa
+        // Eliminamos el filtro de fecha para obtener la "cantidad total de personas" como se solicitó
+        $query = $this->leadRepository
             ->resetModel()
             ->when(request('user_id'), function ($q) {
                 $q->where('leads.user_id', request('user_id'));
@@ -882,20 +877,21 @@ class Lead extends AbstractReporting
                 $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
                   ->where('persons.organization_id', request('organization_id'));
             })
+            ->when($pipelineId, function ($q) use ($pipelineId) {
+                $q->where('leads.lead_pipeline_id', $pipelineId);
+            })
             ->select(
-                'lead_pipeline_stages.id',
-                'lead_pipeline_stages.name',
-                DB::raw('COUNT('.$tablePrefix.'leads.id) as total')
+                'lead_pipeline_stages.name as stage_name',
+                DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) as total')
             )
             ->leftJoin('lead_pipeline_stages', 'leads.lead_pipeline_stage_id', '=', 'lead_pipeline_stages.id')
-            ->where('leads.lead_pipeline_id', $pipeline->id)
-            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
-            ->groupBy('lead_pipeline_stages.id', 'lead_pipeline_stages.name')
-            ->get()
-            ->keyBy('id');
+            ->groupBy('lead_pipeline_stages.name');
 
-        return $orderedStages->map(function ($stage) use ($counts) {
-            $stat = $counts->get($stage->id);
+        $results = $query->get()->keyBy('stage_name');
+
+        // 3. Mapear los resultados a las etapas de referencia
+        return $referenceStages->map(function ($stage) use ($results) {
+            $stat = $results->get($stage->name);
 
             return (object) [
                 'name'  => $stage->name,

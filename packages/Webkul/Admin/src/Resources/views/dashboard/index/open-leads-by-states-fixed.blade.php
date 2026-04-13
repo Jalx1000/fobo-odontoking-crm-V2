@@ -1,6 +1,14 @@
 {!! view_render_event('admin.dashboard.index.open_leads_by_states_fixed.before') !!}
 
-<v-dashboard-open-leads-by-states-fixed>
+@inject('pipelineRepository', 'Webkul\Lead\Repositories\PipelineRepository')
+
+@php
+    $pipelines = $pipelineRepository->all();
+@endphp
+
+<v-dashboard-open-leads-by-states-fixed
+    :pipelines='@json($pipelines)'
+>
     <x-admin::shimmer.dashboard.index.open-leads-by-states />
 </v-dashboard-open-leads-by-states-fixed>
 
@@ -14,19 +22,30 @@
 
         <template v-else>
             <div class="grid gap-4 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-                <div class="flex flex-col justify-between gap-1">
+                <div class="flex items-center justify-between gap-1">
                     <p class="text-base font-semibold dark:text-gray-300">
                         Vista por etapa
                     </p>
+
+                    <div class="flex gap-2">
+                        <select
+                            class="custom-select flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                            v-model="filters.pipeline_id"
+                            @change="getStats(filters)"
+                        >
+                            <option value="">Todas las ciudades</option>
+                            <option v-for="pipeline in pipelines" :value="pipeline.id">@{{ pipeline.name }}</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="relative flex w-full max-w-full flex-col gap-4" v-if="report.statistics.length">
-                    <canvas :id="$.uid + '_chart'" class="w-full max-w-full items-end px-12" :style="{ height: report.statistics.length * 60 + 'px' }"></canvas>
+                    <canvas :id="$.uid + '_chart'" class="w-full max-w-full items-end px-12" :style="{ height: report.statistics.length * 40 + 'px' }"></canvas>
 
                     <ul class="absolute flex w-full flex-col">
-                        <li class="flex w-full flex-col border-b border-gray-200 pb-[9px] pt-2.5 last:border-none dark:border-gray-800" v-for="(stat, index) in report.statistics">
-                            <span class="text-sm font-semibold dark:text-gray-100">@{{ stat.name }}</span>
-                            <span class="text-sm font-semibold dark:text-gray-100">@{{ stat.total }}</span>
+                        <li class="flex w-full flex-col border-b border-gray-200 pb-[2px] pt-1 last:border-none dark:border-gray-800" v-for="(stat, index) in report.statistics">
+                            <span class="text-[10px] font-semibold dark:text-gray-100">@{{ stat.name }}</span>
+                            <span class="text-[10px] font-semibold dark:text-gray-100">@{{ stat.total }}</span>
                         </li>
                     </ul>
                 </div>
@@ -48,25 +67,33 @@
         app.component('v-dashboard-open-leads-by-states-fixed', {
             template: '#v-dashboard-open-leads--by-states-fixed-template',
 
+            props: ['pipelines'],
+
             data() {
                 return {
                     report: [],
                     isLoading: true,
                     chart: undefined,
+                    filters: {
+                        pipeline_id: '',
+                    }
                 }
             },
 
             mounted() {
                 this.getStats({});
-                this.$emitter.on('reporting-filter-updated', this.getStats);
+                this.$emitter.on('reporting-filter-updated', (globalFilters) => {
+                    this.filters = Object.assign(this.filters, globalFilters);
+                    this.getStats(this.filters);
+                });
             },
 
             methods: {
                 getStats(filters) {
                     this.isLoading = true;
-                    var filters = Object.assign({}, filters);
-                    filters.type = 'open-leads-by-states-fixed';
-                    this.$axios.get("{{ route('admin.dashboard.stats') }}", { params: filters })
+                    var params = Object.assign({}, filters);
+                    params.type = 'open-leads-by-states-fixed';
+                    this.$axios.get("{{ route('admin.dashboard.stats') }}", { params: params })
                         .then(response => {
                             this.report = response.data;
                             this.isLoading = false;
