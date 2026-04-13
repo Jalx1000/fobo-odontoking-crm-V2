@@ -1,6 +1,9 @@
 {!! view_render_event('admin.leads.create.products.form_controls.before') !!}
 
-<v-product-list :data="products"></v-product-list>
+<v-product-list 
+    :data="products"
+    @onProductListUpdated="updateLeadValue($event)"
+></v-product-list>
 
 {!! view_render_event('admin.leads.create.products.form_controls.after') !!}
 
@@ -182,6 +185,34 @@
             data: function () {
                 return {
                     products: this.data ? this.data : [],
+                }
+            },
+
+            computed: {
+                totalAmount() {
+                    return this.products.reduce((acc, product) => {
+                        return acc + (parseFloat(product.price || 0) * parseFloat(product.quantity || 0));
+                    }, 0);
+                }
+            },
+
+            watch: {
+                data: {
+                    handler(newVal) {
+                        this.products = newVal;
+                    },
+                    deep: true
+                },
+
+                totalAmount(newVal) {
+                    this.$emit('onProductListUpdated', newVal);
+                },
+
+                products: {
+                    deep: true,
+                    handler() {
+                        this.$emit('onProductListUpdated', this.totalAmount);
+                    }
                 }
             },
 

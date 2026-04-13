@@ -126,12 +126,6 @@
                                     'entity_type' => 'leads',
                                     'quick_add'   => 1
                                 ])"
-                                :custom-validations="[
-                                    'expected_close_date' => [
-                                        'date_format:yyyy-MM-dd',
-                                        'after:' .  \Carbon\Carbon::yesterday()->format('Y-m-d')
-                                    ],
-                                ]"
                             />
 
                             <!-- Lead Details Other input fields -->
@@ -143,33 +137,36 @@
                                             'entity_type' => 'leads',
                                             'quick_add'   => 1
                                         ])"
-                                        :custom-validations="[
-                                            'expected_close_date' => [
-                                                'date_format:yyyy-MM-dd',
-                                                'after:' .  \Carbon\Carbon::yesterday()->format('Y-m-d')
-                                            ],
-                                        ]"
                                     />
                                 </div>
 
                                 <div class="w-full">
                                     <x-admin::attributes
                                         :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
-                                            ['code', 'IN', ['expected_close_date', 'user_id']],
+                                            ['code', 'IN', ['user_id']],
                                             'entity_type' => 'leads',
                                             'quick_add'   => 1
                                         ])"
-                                        :custom-validations="[
-                                            'expected_close_date' => [
-                                                'date_format:yyyy-MM-dd',
-                                                'after:' .  \Carbon\Carbon::yesterday()->format('Y-m-d')
-                                            ],
-                                        ]"
                                     />
                                 </div>
                             </div>
 
                             {!! view_render_event('admin.leads.create.details.attributes.after') !!}
+                        </div>
+
+                        <!-- Product Section Integrated -->
+                        <div class="mt-4">
+                            <div class="flex flex-col gap-1 mb-4">
+                                <p class="text-base font-semibold dark:text-white">
+                                    @lang('admin::app.leads.create.products')
+                                </p>
+
+                                <p class="text-sm text-gray-600 dark:text-white">
+                                    @lang('admin::app.leads.create.products-info')
+                                </p>
+                            </div>
+
+                            @include('admin::leads.common.products')
                         </div>
                     </div>
 
@@ -199,27 +196,6 @@
                     </div>
 
                     {!! view_render_event('admin.leads.create.contact_person.after') !!}
-
-                    <!-- Product Section -->
-                    <div
-                        class="flex flex-col gap-4"
-                        id="products"
-                    >
-                        <div class="flex flex-col gap-1">
-                            <p class="text-base font-semibold dark:text-white">
-                                @lang('admin::app.leads.create.products')
-                            </p>
-
-                            <p class="text-gray-600 dark:text-white">
-                                @lang('admin::app.leads.create.products-info')
-                            </p>
-                        </div>
-
-                        <div>
-                            <!-- Product Component -->
-                            @include('admin::leads.common.products')
-                        </div>
-                    </div>
                 </div>
 
                 {!! view_render_event('admin.leads.form_controls.after') !!}
@@ -234,15 +210,35 @@
                     return {
                         activeTab: 'lead-details',
 
+                        products: [],
+
                         tabs: [
                             { id: 'lead-details', label: '@lang('admin::app.leads.create.details')' },
-                            { id: 'contact-person', label: '@lang('admin::app.leads.create.contact-person')' },
-                            { id: 'products', label: '@lang('admin::app.leads.create.products')' }
+                            { id: 'contact-person', label: '@lang('admin::app.leads.create.contact-person')' }
                         ],
                     };
                 },
 
+                mounted() {
+                    this.updateLeadValue(0);
+                    
+                    const leadValueInput = document.getElementById('lead_value');
+                    if (leadValueInput) {
+                        leadValueInput.readOnly = true;
+                        leadValueInput.style.backgroundColor = '#f3f4f6'; // Light gray to indicate read-only
+                    }
+                },
+
                 methods: {
+                    updateLeadValue(total) {
+                        const leadValueInput = document.getElementById('lead_value');
+                        if (leadValueInput) {
+                            leadValueInput.value = total;
+                            // Trigger input event for VeeValidate or other listeners
+                            leadValueInput.dispatchEvent(new Event('input'));
+                        }
+                    },
+
                     /**
                      * Scroll to the section.
                      *

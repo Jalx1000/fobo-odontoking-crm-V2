@@ -111,12 +111,6 @@
                                     'entity_type' => 'leads',
                                     'quick_add'   => 1
                                 ])"
-                                :custom-validations="[
-                                    'expected_close_date' => [
-                                        'date_format:yyyy-MM-dd',
-                                        'after:' .  \Carbon\Carbon::yesterday()->format('Y-m-d')
-                                    ],
-                                ]"
                                 :entity="$lead"
                             />
 
@@ -129,12 +123,6 @@
                                             'entity_type' => 'leads',
                                             'quick_add'   => 1
                                         ])"
-                                        :custom-validations="[
-                                            'expected_close_date' => [
-                                                'date_format:yyyy-MM-dd',
-                                                'after:' .  \Carbon\Carbon::yesterday()->format('Y-m-d')
-                                            ],
-                                        ]"
                                         :entity="$lead"
                                     />
                                 </div>
@@ -142,22 +130,31 @@
                                 <div class="w-full">
                                     <x-admin::attributes
                                         :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
-                                            ['code', 'IN', ['expected_close_date', 'user_id']],
+                                            ['code', 'IN', ['user_id']],
                                             'entity_type' => 'leads',
                                             'quick_add'   => 1
                                         ])"
-                                        :custom-validations="[
-                                            'expected_close_date' => [
-                                                'date_format:yyyy-MM-dd',
-                                                'after:' .  \Carbon\Carbon::yesterday()->format('Y-m-d')
-                                            ],
-                                        ]"
                                         :entity="$lead"
                                         />
                                 </div>
                             </div>
 
                             {!! view_render_event('admin.leads.edit.lead_details.attributes.after', ['lead' => $lead]) !!}
+                        </div>
+
+                        <!-- Product Section Integrated -->
+                        <div class="mt-4">
+                            <div class="flex flex-col gap-1 mb-4">
+                                <p class="text-base font-semibold dark:text-white">
+                                    @lang('admin::app.leads.edit.products')
+                                </p>
+
+                                <p class="text-sm text-gray-600 dark:text-white">
+                                    @lang('admin::app.leads.edit.products-info')
+                                </p>
+                            </div>
+
+                            @include('admin::leads.common.products')
                         </div>
                     </div>
 
@@ -187,31 +184,6 @@
                     </div>
 
                     {!! view_render_event('admin.leads.edit.contact_person.after', ['lead' => $lead]) !!}
-
-                    {!! view_render_event('admin.leads.edit.contact_person.products.before', ['lead' => $lead]) !!}
-
-                    <!-- Product Section -->
-                    <div 
-                        class="flex flex-col gap-4" 
-                        id="products"
-                    >
-                        <div class="flex flex-col gap-1">
-                            <p class="text-base font-semibold dark:text-white">
-                                @lang('admin::app.leads.edit.products')
-                            </p>
-
-                            <p class="text-gray-600 dark:text-white">
-                                @lang('admin::app.leads.edit.products-info')
-                            </p>
-                        </div>
-
-                        <div>
-                            <!-- Product Component -->
-                            @include('admin::leads.common.products')
-                        </div>
-                    </div>
-
-                    {!! view_render_event('admin.leads.edit.contact_person.products.after', ['lead' => $lead]) !!}
                 </div>
                 
                 {!! view_render_event('admin.leads.form_controls.after') !!}
@@ -234,13 +206,29 @@
 
                         tabs: [
                             { id: 'lead-details', label: '@lang('admin::app.leads.edit.details')' },
-                            { id: 'contact-person', label: '@lang('admin::app.leads.edit.contact-person')' },
-                            { id: 'products', label: '@lang('admin::app.leads.edit.products')' }
+                            { id: 'contact-person', label: '@lang('admin::app.leads.edit.contact-person')' }
                         ],
                     };
                 },
 
+                mounted() {
+                    const leadValueInput = document.getElementById('lead_value');
+                    if (leadValueInput) {
+                        leadValueInput.readOnly = true;
+                        leadValueInput.style.backgroundColor = '#f3f4f6'; // Light gray to indicate read-only
+                    }
+                },
+
                 methods: {
+                    updateLeadValue(total) {
+                        const leadValueInput = document.getElementById('lead_value');
+                        if (leadValueInput) {
+                            leadValueInput.value = total;
+                            // Trigger input event for VeeValidate or other listeners
+                            leadValueInput.dispatchEvent(new Event('input'));
+                        }
+                    },
+
                     /**
                      * Scroll to the section.
                      * 
