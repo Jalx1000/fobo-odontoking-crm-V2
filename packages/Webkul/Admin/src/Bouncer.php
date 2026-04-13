@@ -14,15 +14,35 @@ class Bouncer
      */
     public function hasPermission($permission)
     {
-        if (auth()->guard('user')->check() && auth()->guard('user')->user()->role->permission_type == 'all') {
+        if (! auth()->guard('user')->check()) {
+            return false;
+        }
+
+        $user = auth()->guard('user')->user();
+
+        // Si es administrador, tiene todo
+        if ($user->role->permission_type == 'all') {
             return true;
-        } else {
-            if (! auth()->guard('user')->check() || ! auth()->guard('user')->user()->hasPermission($permission)) {
-                return false;
+        }
+
+        // Si tiene el permiso exacto, permitir
+        if ($user->hasPermission($permission)) {
+            return true;
+        }
+
+        // Fallback: Si estamos en actividades o etiquetas, permitir si tiene algún acceso a Leads
+        if (str_contains($permission, 'activities') || str_contains($permission, 'tags')) {
+            // Buscamos cualquier permiso que empiece por "leads" en el array de permisos del rol
+            $rolePermissions = $user->role->permissions ?? [];
+
+            foreach ($rolePermissions as $p) {
+                if (str_starts_with($p, 'leads')) {
+                    return true;
+                }
             }
         }
 
-        return true;
+        return false;
     }
 
     /**
@@ -33,7 +53,7 @@ class Bouncer
      */
     public static function allow($permission)
     {
-        if (! auth()->guard('user')->check() || ! auth()->guard('user')->user()->hasPermission($permission)) {
+        if (! bouncer()->hasPermission($permission)) {
             abort(401, 'This action is unauthorized');
         }
     }

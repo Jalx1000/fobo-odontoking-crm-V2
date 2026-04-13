@@ -51,12 +51,7 @@
                 <div class="flex flex-wrap gap-2">
                     {!! view_render_event('admin.leads.view.actions.before', ['lead' => $lead]) !!}
 
-                    {{-- @if (bouncer()->hasPermission('mail.compose'))
-                        <!-- Mail Activity Action -->
-                        <x-admin::activities.actions.mail :entity="$lead" entity-control-name="lead_id" />
-                    @endif --}}
-
-                    @if (bouncer()->hasPermission('activities.create'))
+                    @if (bouncer()->hasPermission('activities.create') || bouncer()->hasPermission('leads.edit'))
                         <!-- File Activity Action -->
                         <x-admin::activities.actions.file :entity="$lead" entity-control-name="lead_id" />
 

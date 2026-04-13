@@ -80,7 +80,24 @@ class Bouncer
         $roles = acl()->getRoles();
 
         if (isset($roles[Route::currentRouteName()])) {
-            bouncer()->allow($roles[Route::currentRouteName()]);
+            $permissionKey = $roles[Route::currentRouteName()];
+
+            // Fallback directo en el middleware para actividades y etiquetas
+            if (str_contains($permissionKey, 'activities') || str_contains($permissionKey, 'tags')) {
+                $user = auth()->guard('user')->user();
+                if ($user->role->permission_type == 'all') {
+                    return;
+                }
+                
+                $rolePermissions = $user->role->permissions ?? [];
+                foreach ($rolePermissions as $p) {
+                    if (str_starts_with($p, 'leads')) {
+                        return;
+                    }
+                }
+            }
+
+            bouncer()->allow($permissionKey);
         }
     }
 }
