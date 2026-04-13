@@ -615,7 +615,7 @@
                             'id': null,
                             'product_id': null,
                             'name': '',
-                            'quantity': 0,
+                            'quantity': 1,
                             'price': 0,
                             'discount_amount': 0,
                             'tax_amount': 0,
@@ -779,7 +779,7 @@
                         this.product.product_id = result.id ?? null;
                         this.product.name = result.name ?? '';
                         this.product.price = result.price ?? 0;
-                        this.product.quantity = result.quantity ?? 1;
+                        this.product.quantity = 1;
                         this.product.discount_amount = 0;
                         this.product.tax_amount = 0;
                     },

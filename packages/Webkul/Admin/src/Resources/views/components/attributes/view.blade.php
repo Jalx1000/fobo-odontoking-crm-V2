@@ -12,9 +12,17 @@
                 <div class="label dark:text-white">{{ $attribute->name }}</div>
 
                 <div class="font-medium dark:text-white">
+                    @php
+                        $value = isset($entity) ? $entity[$attribute->code] : null;
+
+                        if (in_array($attribute->code, ['lead_value', 'price']) && is_numeric($value)) {
+                            $value = number_format((float) $value, 2, '.', '');
+                        }
+                    @endphp
+
                     @include ($typeView, [
                         'attribute' => $attribute,
-                        'value'     => isset($entity) ? $entity[$attribute->code] : null,
+                        'value'     => $value,
                         'allowEdit' => $allowEdit,
                         'url'       => $url,
                     ])

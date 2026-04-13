@@ -772,7 +772,7 @@
                         this.product.product_id = result.id;
                         this.product.name = result.name;
                         this.product.price = result.price ?? 0;
-                        this.product.quantity = result.quantity ?? 1;
+                        this.product.quantity = 1;
                         this.product.discount_amount = 0;
                         this.product.tax_amount = 0;
                     },

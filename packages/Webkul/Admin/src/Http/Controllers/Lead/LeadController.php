@@ -595,7 +595,7 @@ class LeadController extends Controller
                 'type'                  => 'string',
                 'searchable'            => false,
                 'search_field'          => 'in',
-                'filterable'            => true,
+                'filterable'            => false,
                 'filterable_type'       => 'dropdown',
                 'filterable_options'    => $this->typeRepository->all(['name as label', 'id as value'])->toArray(),
                 'allow_multiple_values' => true,

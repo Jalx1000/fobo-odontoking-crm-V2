@@ -97,9 +97,9 @@ class LeadDataGrid extends DataGrid
         $this->addFilter('user', 'leads.user_id');
         $this->addFilter('sales_person', 'users.name');
         $this->addFilter('lead_source_name', 'lead_sources.id');
-        $this->addFilter('lead_type_name', 'lead_types.id');
+        // $this->addFilter('lead_type_name', 'lead_types.id');
         $this->addFilter('person_name', 'persons.name');
-        $this->addFilter('type', 'lead_pipeline_stages.code');
+        // $this->addFilter('type', 'lead_pipeline_stages.code');
         $this->addFilter('stage', 'lead_pipeline_stages.id');
         $this->addFilter('tag_name', 'tags.name');
         $this->addFilter('expected_close_date', 'leads.expected_close_date');
@@ -168,16 +168,6 @@ class LeadDataGrid extends DataGrid
             'closure'    => fn ($row) => core()->formatBasePrice($row->lead_value, 2),
         ]);
 
-        $this->addColumn([
-            'index'              => 'lead_type_name',
-            'label'              => trans('admin::app.leads.index.datagrid.lead-type'),
-            'type'               => 'string',
-            'searchable'         => false,
-            'sortable'           => true,
-            'filterable'         => true,
-            'filterable_type'    => 'dropdown',
-            'filterable_options' => $this->typeRepository->all(['name as label', 'id as value'])->toArray(),
-        ]);
 
         $this->addColumn([
             'index'              => 'tag_name',
@@ -324,7 +314,7 @@ class LeadDataGrid extends DataGrid
         $attributes = $this->attributeRepository->findWhere(['entity_type' => 'leads']);
 
         foreach ($attributes as $attribute) {
-            if (in_array($attribute->code, ['title', 'description'])) {
+            if (in_array($attribute->code, ['title', 'description', 'lead_type_id', 'lead_type'])) {
                 continue;
             }
 

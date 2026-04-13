@@ -29,10 +29,18 @@
         </x-admin::form.control-group.label>
 
         @if (isset($attribute))
+            @php
+                $val = isset($entity) ? $entity[$attribute->code] : null;
+
+                if (in_array($attribute->code, ['lead_value', 'price']) && is_numeric($val)) {
+                    $val = number_format((float) $val, 2, '.', '');
+                }
+            @endphp
+
             <x-admin::attributes.edit.index
                 :attribute="$attribute"
                 :validations="$validations"
-                :value="isset($entity) ? $entity[$attribute->code] : null"
+                :value="$val"
             />
         @endif
 

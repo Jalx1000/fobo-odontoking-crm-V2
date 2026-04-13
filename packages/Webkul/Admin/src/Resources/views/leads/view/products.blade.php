@@ -255,7 +255,7 @@
                         id: null,
                         product_id: null,
                         name: '',
-                        quantity: 0,
+                        quantity: 1,
                         price: 0,
                         amount: null,
                     })
@@ -313,7 +313,7 @@
                     this.product.product_id = result.id;
                     this.product.name = result.name;
                     this.product.price = result.price;
-                    this.product.quantity = result.quantity ?? 0;
+                    this.product.quantity = 1;
                 },
 
                 /**
