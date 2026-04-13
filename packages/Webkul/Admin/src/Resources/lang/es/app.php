@@ -634,6 +634,8 @@ return [
                 'price'     => 'Precio',
                 'sku'       => 'SKU',
                 'view'      => 'Ver',
+                'precio_promocion' => 'Precio Promoción',
+                'ciudad_producto_sucursal' => 'Ciudad Producto Sucursal',
             ],
         ],
         'create' => [

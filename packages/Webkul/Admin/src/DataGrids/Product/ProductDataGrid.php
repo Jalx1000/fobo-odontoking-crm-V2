@@ -10,40 +10,48 @@ use Webkul\Tag\Repositories\TagRepository;
 class ProductDataGrid extends DataGrid
 {
     /**
+     * Default sort column of datagrid.
+     *
+     * @var ?string
+     */
+    protected $sortColumn = 'id';
+
+    /**
      * Prepare query builder.
      */
     public function prepareQueryBuilder(): Builder
     {
+        if (request()->query('sort') && isset(request()->query('sort')['column']) && request()->query('sort')['column'] == 'ciudad_producto_sucursal') {
+            $params = request()->query();
+            $params['sort']['column'] = 'id';
+            $params['sort']['order'] = 'desc';
+            request()->merge($params);
+        }
+
         $tablePrefix = DB::getTablePrefix();
 
         $queryBuilder = DB::table('products')
-            ->leftJoin('product_inventories', 'products.id', '=', 'product_inventories.product_id')
-            ->leftJoin('product_tags', 'products.id', '=', 'product_tags.product_id')
-            ->leftJoin('tags', 'tags.id', '=', 'product_tags.tag_id')
+            ->leftJoin('attribute_values as precio_promocion_val', function ($join) {
+                $join->on('products.id', '=', 'precio_promocion_val.entity_id')
+                    ->where('precio_promocion_val.entity_type', '=', 'products')
+                    ->where('precio_promocion_val.attribute_id', '=', function ($query) {
+                        $query->select('id')->from('attributes')->where('code', 'precio_promocion')->where('entity_type', 'products')->limit(1);
+                    });
+            })
             ->select(
                 'products.id',
                 'products.sku',
                 'products.name',
                 'products.price',
-                'tags.name as tag_name',
+                DB::raw('COALESCE('.$tablePrefix.'precio_promocion_val.integer_value, '.$tablePrefix.'precio_promocion_val.float_value, '.$tablePrefix.'precio_promocion_val.text_value) as precio_promocion')
             )
-            ->addSelect(DB::raw('SUM('.$tablePrefix.'product_inventories.in_stock) as total_in_stock'))
-            ->addSelect(DB::raw('SUM('.$tablePrefix.'product_inventories.allocated) as total_allocated'))
-            ->addSelect(DB::raw('SUM('.$tablePrefix.'product_inventories.in_stock - '.$tablePrefix.'product_inventories.allocated) as total_on_hand'))
             ->groupBy('products.id');
-
-        if (request()->route('id')) {
-            $queryBuilder->where('product_inventories.warehouse_id', request()->route('id'));
-        }
 
         $this->addFilter('id', 'products.id');
         $this->addFilter('sku', 'products.sku');
         $this->addFilter('name', 'products.name');
         $this->addFilter('price', 'products.price');
-        $this->addFilter('total_in_stock', 'total_in_stock');
-        $this->addFilter('total_allocated', 'total_allocated');
-        $this->addFilter('total_on_hand', 'total_on_hand');
-        $this->addFilter('tag_name', 'tags.name');
+        $this->addFilter('precio_promocion', DB::raw('COALESCE('.$tablePrefix.'precio_promocion_val.integer_value, '.$tablePrefix.'precio_promocion_val.float_value, '.$tablePrefix.'precio_promocion_val.text_value)'));
 
         return $queryBuilder;
     }
@@ -78,49 +86,17 @@ class ProductDataGrid extends DataGrid
             'sortable'   => true,
             'searchable' => true,
             'filterable' => true,
-            'closure'    => fn ($row) => round($row->price, 2),
+            'closure'    => fn ($row) => core()->formatBasePrice($row->price, 2),
         ]);
 
         $this->addColumn([
-            'index'      => 'total_in_stock',
-            'label'      => trans('admin::app.products.index.datagrid.in-stock'),
-            'type'       => 'aggregate',
+            'index'      => 'precio_promocion',
+            'label'      => trans('admin::app.products.index.datagrid.precio_promocion'),
+            'type'       => 'string',
             'sortable'   => true,
+            'searchable' => true,
             'filterable' => true,
-        ]);
-
-        $this->addColumn([
-            'index'      => 'total_allocated',
-            'label'      => trans('admin::app.products.index.datagrid.allocated'),
-            'type'       => 'aggregate',
-            'sortable'   => true,
-            'filterable' => true,
-        ]);
-
-        $this->addColumn([
-            'index'      => 'total_on_hand',
-            'label'      => trans('admin::app.products.index.datagrid.on-hand'),
-            'type'       => 'aggregate',
-            'sortable'   => true,
-            'filterable' => true,
-        ]);
-
-        $this->addColumn([
-            'index'              => 'tag_name',
-            'label'              => trans('admin::app.products.index.datagrid.tag-name'),
-            'type'               => 'string',
-            'searchable'         => false,
-            'sortable'           => true,
-            'filterable'         => true,
-            'filterable_type'    => 'searchable_dropdown',
-            'closure'            => fn ($row) => $row->tag_name ?? '--',
-            'filterable_options' => [
-                'repository' => TagRepository::class,
-                'column'     => [
-                    'label' => 'name',
-                    'value' => 'name',
-                ],
-            ],
+            'closure'    => fn ($row) => $row->precio_promocion ? core()->formatBasePrice($row->precio_promocion, 2) : '--',
         ]);
     }
 
@@ -171,5 +147,19 @@ class ProductDataGrid extends DataGrid
             'method' => 'POST',
             'url'    => route('admin.products.mass_delete'),
         ]);
+    }
+
+    /**
+     * Process requested sorting.
+     *
+     * @return \Illuminate\Database\Query\Builder
+     */
+    protected function processRequestedSorting($requestedSort)
+    {
+        if (isset($requestedSort['column']) && $requestedSort['column'] === 'ciudad_producto_sucursal') {
+            $requestedSort['column'] = 'id';
+        }
+
+        return parent::processRequestedSorting($requestedSort);
     }
 }
