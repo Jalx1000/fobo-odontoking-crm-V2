@@ -136,7 +136,7 @@ class LeadForm extends FormRequest
 
         return [
             ...$this->rules,
-            'doctor_id'             => 'required|exists:doctors,id',
+            'doctor_id'             => 'nullable|exists:doctors,id',
             'appointment_start'     => 'nullable|date_format:Y-m-d H:i:s',
             'appointment_end'       => 'nullable|date_format:Y-m-d H:i:s|after:appointment_start',
             'products'              => 'array',
