@@ -42,6 +42,14 @@
             <x-admin::shimmer.datagrid :is-multi-row="true"/>
         </v-persons>
 
+        @push('styles')
+            <style>
+                .toolbarLeft > div > div > div > .relative.flex.cursor-pointer.items-center {
+                    display: none !important;
+                }
+            </style>
+        @endpush
+
         {!! view_render_event('admin.persons.index.datagrid.after') !!}
     </div>
 

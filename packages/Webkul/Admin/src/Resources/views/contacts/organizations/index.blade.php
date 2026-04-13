@@ -45,6 +45,14 @@
             <x-admin::shimmer.datagrid />
         </x-admin::datagrid>
 
+        @push('styles')
+            <style>
+                .toolbarLeft > div > div > div > .relative.flex.cursor-pointer.items-center {
+                    display: none !important;
+                }
+            </style>
+        @endpush
+
         {!! view_render_event('admin.organizations.datagrid.index.after') !!}
     </div>
 </x-admin::layouts>
