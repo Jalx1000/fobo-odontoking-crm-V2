@@ -59,7 +59,7 @@
                         <x-admin::activities.actions.note :entity="$lead" entity-control-name="lead_id" />
 
                         <!-- Activity Action -->
-                        <x-admin::activities.actions.activity :entity="$lead" entity-control-name="lead_id" />
+                        {{-- <x-admin::activities.actions.activity :entity="$lead" entity-control-name="lead_id" /> --}}
                     @endif
 
                     {!! view_render_event('admin.leads.view.actions.after', ['lead' => $lead]) !!}

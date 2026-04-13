@@ -515,17 +515,8 @@
                             name: 'all',
                             label: "{{ trans('admin::app.components.activities.index.all') }}",
                         }, {
-                            name: 'planned',
-                            label: "{{ trans('admin::app.components.activities.index.planned') }}",
-                        }, {
                             name: 'note',
                             label: "{{ trans('admin::app.components.activities.index.notes') }}",
-                        }, {
-                            name: 'call',
-                            label: "{{ trans('admin::app.components.activities.index.calls') }}",
-                        }, {
-                            name: 'meeting',
-                            label: "{{ trans('admin::app.components.activities.index.meetings') }}",
                         }, {
                             name: 'file',
                             label: "{{ trans('admin::app.components.activities.index.files') }}",

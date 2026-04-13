@@ -617,7 +617,7 @@ return [
     'products' => [
         'index' => [
             'title'          => 'Productos',
-            'create-btn'     => 'Crear Servicio',
+            'create-btn'     => 'Crear Producto',
             'create-success' => 'Servicio creado con éxito.',
             'update-success' => 'Servicio actualizado con éxito.',
             'delete-success' => 'Servicio eliminado con éxito.',
