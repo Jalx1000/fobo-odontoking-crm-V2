@@ -42,19 +42,6 @@
         
                         {!! view_render_event('admin.leads.view.person.job_title.before', ['lead' => $lead]) !!}
         
-                        <!-- @if ($lead->person->job_title)
-                            <span class="dark:text-white">
-                                @if ($lead->person->organization)
-                                    @lang('admin::app.leads.view.persons.job-title', [
-                                        'job_title'    => $lead->person->job_title,
-                                        'organization' => $lead->person->organization->name
-                                    ])
-                                @else
-                                    {{ $lead->person->job_title }}
-                                @endif
-                            </span>
-                        @endif -->
-        
                         {!! view_render_event('admin.leads.view.person.job_title.after', ['lead' => $lead]) !!}
                     
                         {!! view_render_event('admin.leads.view.person.email.before', ['lead' => $lead]) !!}

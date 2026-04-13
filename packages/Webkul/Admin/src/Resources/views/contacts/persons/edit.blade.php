@@ -63,7 +63,7 @@
                     :entity="$person"
                 />
 
-                <v-organization></v-organization>
+                <v-organization v-if="false"></v-organization>
 
                 {!! view_render_event('admin.contacts.persons.edit.form_controls.after') !!}
             </div>

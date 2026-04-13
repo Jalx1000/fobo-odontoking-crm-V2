@@ -62,7 +62,7 @@
                     ]"
                 />
 
-                <v-organization></v-organization>
+                <v-organization v-if="false"></v-organization>
 
                 {!! view_render_event('admin.persons.create.form_controls.after') !!}
             </div>

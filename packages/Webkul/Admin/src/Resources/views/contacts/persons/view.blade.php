@@ -78,7 +78,7 @@
             @include ('admin::contacts.persons.view.attributes')
 
             <!-- Contact Organization -->
-            @include ('admin::contacts.persons.view.organization')
+            {{-- @include ('admin::contacts.persons.view.organization') --}}
         </div>
 
         {!! view_render_event('admin.contact.persons.view.left.after', ['person' => $person]) !!}
