@@ -31,7 +31,7 @@
                         {!! view_render_event('admin.products.create.save_button.before') !!}
 
                         <!-- Create button for Product -->
-                        @if (bouncer()->hasPermission('settings.user.groups.create'))
+                        @if (bouncer()->hasPermission('products.create'))
                             <button
                                 type="submit"
                                 class="primary-button"
