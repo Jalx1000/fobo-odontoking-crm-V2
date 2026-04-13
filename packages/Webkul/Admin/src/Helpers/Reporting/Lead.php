@@ -484,59 +484,34 @@ class Lead extends AbstractReporting
         ];
     }
 
-    public function getLeadsCountByCities(): array
+    public function getLeadsCountByPipelines(): array
     {
         $tablePrefix = DB::getTablePrefix();
 
-        $attribute = $this->attributeRepository->findWhere([
-            'code'        => 'ciudad_lead',
-            'entity_type' => 'leads',
-        ])->first();
+        $pipelines = $this->pipelineRepository->all();
 
         $query = $this->leadRepository
             ->resetModel()
             ->leftJoin('users', 'leads.user_id', '=', 'users.id')
-            ->leftJoin('attribute_values as av', function ($join) use ($attribute, $tablePrefix) {
-                $join->on('leads.id', '=', 'av.entity_id')
-                     ->where('av.entity_type', '=', 'leads')
-                     ->when($attribute, fn ($j) => $j->where('av.attribute_id', '=', $attribute->id));
-            })
             ->select(
-                DB::raw($tablePrefix.'av.integer_value as city_id'),
-                DB::raw($tablePrefix.'av.text_value as city_text'),
+                'leads.lead_pipeline_id as pipeline_id',
                 DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) AS count')
             )
             ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
-            ->whereNotIn('leads.lead_pipeline_stage_id', $this->lostStageIds)
-            ->groupBy('city_id', 'city_text');
+            ->groupBy('leads.lead_pipeline_id');
 
         if (function_exists('bouncer') && ($userIds = bouncer()->getAuthorizedUserIds())) {
             $query->whereIn('users.id', $userIds);
         }
 
-        $results = $query->get();
+        $results = $query->get()->keyBy('pipeline_id');
 
-        $countsByName = [];
-
-        foreach ($results as $row) {
-            $name = null;
-
-            if ($attribute && $attribute->lookup_type && $row->city_id) {
-                $entity = $this->attributeRepository->getLookUpEntity($attribute->lookup_type, $row->city_id, ['id', 'name']);
-                $name = $entity?->name;
-            }
-
-            $name = $name ?? ($row->city_text ?: 'Sin ciudad');
-
-            $countsByName[$name] = ($countsByName[$name] ?? 0) + (int) $row->count;
-        }
-
-        $labels = array_keys($countsByName);
-        sort($labels, SORT_NATURAL | SORT_FLAG_CASE);
-
+        $labels = [];
         $data = [];
-        foreach ($labels as $label) {
-            $data[] = $countsByName[$label];
+
+        foreach ($pipelines as $pipeline) {
+            $labels[] = $pipeline->name;
+            $data[] = (int) ($results->get($pipeline->id)->count ?? 0);
         }
 
         return [
@@ -545,58 +520,34 @@ class Lead extends AbstractReporting
         ];
     }
 
-    public function getVentasCountByCities(): array
+    public function getVentasCountByPipelines(): array
     {
         $tablePrefix = DB::getTablePrefix();
 
-        $attribute = $this->attributeRepository->findWhere([
-            'code'        => 'ciudad_lead',
-            'entity_type' => 'leads',
-        ])->first();
+        $pipelines = $this->pipelineRepository->all();
 
         $query = $this->leadRepository
             ->resetModel()
             ->leftJoin('users', 'leads.user_id', '=', 'users.id')
-            ->leftJoin('attribute_values as av', function ($join) use ($attribute, $tablePrefix) {
-                $join->on('leads.id', '=', 'av.entity_id')
-                     ->where('av.entity_type', '=', 'leads')
-                     ->when($attribute, fn ($j) => $j->where('av.attribute_id', '=', $attribute->id));
-            })
             ->select(
-                DB::raw($tablePrefix.'av.integer_value as city_id'),
-                DB::raw($tablePrefix.'av.text_value as city_text'),
+                'leads.lead_pipeline_id as pipeline_id',
                 DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.id END) AS count')
             )
             ->whereBetween('leads.closed_at', [$this->startDate, $this->endDate])
-            ->groupBy('city_id', 'city_text');
+            ->groupBy('leads.lead_pipeline_id');
 
         if (function_exists('bouncer') && ($userIds = bouncer()->getAuthorizedUserIds())) {
             $query->whereIn('users.id', $userIds);
         }
 
-        $results = $query->get();
+        $results = $query->get()->keyBy('pipeline_id');
 
-        $countsByName = [];
-
-        foreach ($results as $row) {
-            $name = null;
-
-            if ($attribute && $attribute->lookup_type && $row->city_id) {
-                $entity = $this->attributeRepository->getLookUpEntity($attribute->lookup_type, $row->city_id, ['id', 'name']);
-                $name = $entity?->name;
-            }
-
-            $name = $name ?? ($row->city_text ?: 'Sin ciudad');
-
-            $countsByName[$name] = ($countsByName[$name] ?? 0) + (int) $row->count;
-        }
-
-        $labels = array_keys($countsByName);
-        sort($labels, SORT_NATURAL | SORT_FLAG_CASE);
-
+        $labels = [];
         $data = [];
-        foreach ($labels as $label) {
-            $data[] = $countsByName[$label];
+
+        foreach ($pipelines as $pipeline) {
+            $labels[] = $pipeline->name;
+            $data[] = (int) ($results->get($pipeline->id)->count ?? 0);
         }
 
         return [

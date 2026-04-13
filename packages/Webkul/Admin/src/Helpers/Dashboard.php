@@ -172,14 +172,14 @@ class Dashboard
         return $this->leadReporting->getLeadsCountByBranches();
     }
 
-    public function getVentasByCitiesStats(): array
+    public function getVentasByPipelinesStats(): array
     {
-        return $this->leadReporting->getVentasCountByCities();
+        return $this->leadReporting->getVentasCountByPipelines();
     }
 
-    public function getLeadsByCitiesStats(): array
+    public function getLeadsByPipelinesStats(): array
     {
-        return $this->leadReporting->getLeadsCountByCities();
+        return $this->leadReporting->getLeadsCountByPipelines();
     }
 
     /**
