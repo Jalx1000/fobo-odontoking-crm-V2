@@ -1,4 +1,4 @@
-{!! view_render_event('admin.leads.index.kanban.filter.before') !!}
+{{-- {!! view_render_event('admin.leads.index.kanban.filter.before') !!}
 
 <v-kanban-filter
     :is-loading="isLoading"
@@ -1090,4 +1090,4 @@
             }
         });
     </script>
-@endpushOnce
+@endpushOnce --}}
