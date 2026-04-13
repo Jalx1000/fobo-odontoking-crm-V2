@@ -1,7 +1,7 @@
 <?php
 
 return [
-    [
+    /* [
         'key'        => 'doctors',
         'name'       => 'Doctor',
         'route'      => 'admin.doctor.index',
@@ -28,5 +28,5 @@ return [
         'route'      => 'admin.schedules.index',
         'sort'       => 3,
         'icon-class' => '',
-    ],
+    ], */
 ];

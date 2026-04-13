@@ -85,13 +85,13 @@ return [
         'sort'       => 1,
         'icon-class' => 'icon-settings-group',
     ],
-    [
+    /* [
         'key'        => 'activities',
         'name'       => 'admin::app.layouts.activities',
         'route'      => 'admin.activities.index',
         'sort'       => 5,
         'icon-class' => 'icon-activity',
-    ],
+    ], */
     [
         'key'        => 'settings.user.groups',
         'name'       => 'admin::app.layouts.groups',
@@ -188,14 +188,14 @@ return [
         'sort'       => 2,
         'icon-class' => 'icon-settings-mail',
     ],
-    [
+    /* [
         'key'        => 'settings.automation.events',
         'name'       => 'admin::app.layouts.events',
         'info'       => 'admin::app.layouts.events-info',
         'route'      => 'admin.settings.marketing.events.index',
         'sort'       => 2,
         'icon-class' => 'icon-calendar',
-    ],
+    ], */
     [
         'key'        => 'settings.automation.campaigns',
         'name'       => 'admin::app.layouts.campaigns',
