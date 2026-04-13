@@ -39,10 +39,6 @@
                         {{ $person->name }}
                     </h3>
 
-                    <p class="dark:text-white">
-                        {{ $person->job_title }}
-                    </p>
-
                     {!! view_render_event('admin.contact.persons.view.title.after', ['person' => $person]) !!}
                 </div>
                 

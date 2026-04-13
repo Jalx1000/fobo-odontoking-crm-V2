@@ -51,15 +51,12 @@
 
                 <x-admin::attributes
                     :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
-                        ['code', 'NOTIN', ['organization_id']],
+                        ['code', 'NOTIN', ['organization_id', 'job_title']],
                         'entity_type' => 'persons',
                     ])"
                     :custom-validations="[
                         'name' => [
                             'min:2',
-                            'max:100',
-                        ],
-                        'job_title' => [
                             'max:100',
                         ],
                     ]"
