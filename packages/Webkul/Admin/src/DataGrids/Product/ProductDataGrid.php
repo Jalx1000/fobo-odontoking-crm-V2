@@ -24,13 +24,17 @@ class ProductDataGrid extends DataGrid
                         $query->select('id')->from('attributes')->where('code', '=', DB::raw("'type_service_2'"))->limit(1);
                     });
             })
-            ->leftJoin('attribute_options as type_service_2_options', 'type_service_2_av.integer_value', '=', 'type_service_2_options.id')
-            ->select(
+            ->leftJoin('attribute_options as type_service_2_options', 'type_service_2_av.integer_value', '=', 'type_service_2_options.id')->select(
                 'products.id',
-                'products.name',
+                'products.sku',
+                'products.name as name',
                 DB::raw('COALESCE('.$tablePrefix.'type_service_2_options.name, '.$tablePrefix.'type_service_2_av.text_value) as type_service_2')
             )
             ->groupBy('products.id');
+
+        $this->addFilter('sku', 'products.sku');
+        $this->addFilter('name', 'products.name');
+        $this->addFilter('type_service_2', DB::raw('COALESCE('.$tablePrefix.'type_service_2_options.name, '.$tablePrefix.'type_service_2_av.text_value)'));
 
         return $queryBuilder;
     }
@@ -40,6 +44,14 @@ class ProductDataGrid extends DataGrid
      */
     public function prepareColumns(): void
     {
+        $this->addColumn([
+            'index'      => 'sku',
+            'label'      => trans('admin::app.products.index.datagrid.sku'),
+            'type'       => 'string',
+            'sortable'   => true,
+            'searchable' => true,
+            'filterable' => false,
+        ]);
 
         $this->addColumn([
             'index'      => 'name',
