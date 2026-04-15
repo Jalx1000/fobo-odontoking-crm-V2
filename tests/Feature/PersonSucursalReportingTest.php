@@ -7,12 +7,19 @@ use Webkul\Contact\Models\Person;
 use Webkul\Lead\Models\Lead;
 use Webkul\Attribute\Models\Attribute;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Webkul\Admin\Helpers\Reporting\Lead as LeadReporting;
+use Webkul\User\Models\User;
 
 class PersonSucursalReportingTest extends TestCase
 {
+    use DatabaseTransactions;
+
     public function test_leads_count_by_branches_uses_person_attribute()
     {
+        $adminUser = User::find(1);
+        $this->actingAs($adminUser, 'user');
+
         // Ensure the attribute exists (mimic migration)
         $attribute = Attribute::where('code', 'sucursal')
             ->where('entity_type', 'persons')

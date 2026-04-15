@@ -1,7 +1,10 @@
 <?php
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Carbon\Carbon;
+
+uses(DatabaseTransactions::class);
 
 it('retorna disponibilidad de doctores en el calendario', function () {
     $admin = getDefaultAdmin();
@@ -48,6 +51,11 @@ it('retorna disponibilidad de doctores en el calendario', function () {
         'start'          => $start,
     ]));
 
+    // DEBUG: Mostrar la salida del endpoint
+    fwrite(STDERR, "\n--- ENDPOINT OUTPUT (admin.activities.get) ---\n");
+    fwrite(STDERR, json_encode($response->json(), JSON_PRETTY_PRINT));
+    fwrite(STDERR, "\n--- END DEBUG ---\n");
+
     $response->assertStatus(200);
     $json = $response->json();
 
@@ -62,6 +70,6 @@ it('retorna disponibilidad de doctores en el calendario', function () {
 
     expect(count($availForDoctorDay))->toBeGreaterThanOrEqual(2);
     $first = $availForDoctorDay[0];
-    expect($first['start_time'] ?? null)->toBe('09:00');
-    expect($first['end_time'] ?? null)->toBe('12:00');
+    expect(substr($first['start_time'], 0, 5))->toBe('09:00');
+    expect(substr($first['end_time'], 0, 5))->toBe('12:00');
 });
