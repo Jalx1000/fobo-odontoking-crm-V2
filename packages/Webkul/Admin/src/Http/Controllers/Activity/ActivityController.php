@@ -171,6 +171,9 @@ class ActivityController extends Controller
                 ->orderBy('start_time')
                 ->get();
 
+            // Transformar bloques de disponibilidad en slots de 30 minutos
+            $availability = $this->generateSlotsFromAvailability($availability);
+
             return response()->json([
                 'range'        => [
                     'start' => $start->format('Y-m-d'),
@@ -716,5 +719,36 @@ class ActivityController extends Controller
                 'message' => trans('admin::app.activities.mass-delete-failed'),
             ], 400);
         }
+    }
+
+    /**
+     * Transforma bloques continuos de disponibilidad en slots de tiempo fijos.
+     *
+     * @param  \Illuminate\Support\Collection  $availability
+     * @param  int  $durationMinutes
+     * @return \Illuminate\Support\Collection
+     */
+    private function generateSlotsFromAvailability($availability, $durationMinutes = 30)
+    {
+        $slots = collect();
+
+        foreach ($availability as $block) {
+            $current = Carbon::parse($block->date . ' ' . $block->start_time);
+            $end = Carbon::parse($block->date . ' ' . $block->end_time);
+
+            while ($current->copy()->addMinutes($durationMinutes)->lte($end)) {
+                $slots->push([
+                    'id'         => $block->id, // Mantenemos el ID del bloque original
+                    'doctor_id'  => $block->doctor_id,
+                    'date'       => $block->date,
+                    'start_time' => $current->format('H:i:s'),
+                    'end_time'   => $current->copy()->addMinutes($durationMinutes)->format('H:i:s'),
+                ]);
+
+                $current->addMinutes($durationMinutes);
+            }
+        }
+
+        return $slots;
     }
 }
