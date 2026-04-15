@@ -1,0 +1,72 @@
+{
+    "type": "object",
+    "properties": {
+        "seguro": {
+            "type": "string"
+        },
+        "numero_carnet_identidad": {
+            "type": "string"
+        },
+        "servicio_id": {
+            "type": "number"
+        },
+        "servicio_name": {
+            "type": "string"
+        },
+        "doctor_id": {
+            "type": "number"
+        },
+        "doctor_name": {
+            "type": "string"
+        },
+        "nombre_del_cliente": {
+            "type": "string",
+            "description": "Nombre de quien escribe"
+        },
+        "edad_del_cliente": {
+            "type": "number"
+        },
+        "nombre_paciente_de_otra_persona": {
+            "type": "string",
+            "description": "Solo si agenda para otra persona"
+        },
+        "edad_paciente_de_otra_persona": {
+            "type": "number"
+        },
+        "motivo_de_consulta": {
+            "type": "string"
+        },
+        "titulo_de_consulta": {
+            "type": "string"
+        },
+        "descripcion_corta": {
+            "type": "string"
+        },
+        "es_cita_cancelada": {
+            "type": "boolean"
+        },
+        "es_cita_reprogramada": {
+            "type": "boolean"
+        },
+        "es_cita_confirmada": {
+            "type": "boolean"
+        },
+        "es_paciente_antiguo": {
+            "type": "boolean"
+        },
+        "fecha_de_cita": {
+            "type": "string",
+            "description": "Formato DD/MM/AAAA HH:MM"
+        },
+        "ciudad": {
+            "type": "string"
+        },
+        "mensaje_list": {
+            "type": "object"
+        },
+        "mensaje": {
+            "type": "string"
+        }
+    },
+    "required": ["mensaje"]
+}

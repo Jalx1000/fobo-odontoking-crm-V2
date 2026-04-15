@@ -15,5 +15,6 @@ class VerifyCsrfToken extends Middleware
         'admin/mail/inbound-parse',
         'admin/web-forms/forms/*',
         'api/webhooks/sharemedata',
+        'api/v1/*',
     ];
 }
