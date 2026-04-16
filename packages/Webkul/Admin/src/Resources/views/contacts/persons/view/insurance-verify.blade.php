@@ -11,14 +11,26 @@
                 class="flex cursor-pointer h-[74px] w-[84px] flex-col items-center justify-center gap-1 rounded-lg border border-transparent bg-orange-200 font-medium text-orange-800 transition-all hover:border-orange-400"
                 @click="initVerification"
             >
-                <span class="icon-shield text-2xl text-orange-600"></span>
+                <span class="icon-success text-2xl text-orange-600"></span>
                 <p class="text-xs font-medium text-orange-600 dark:text-gray-300">Seguro</p>
             </div>
 
             <!-- Modal de Captura de Datos -->
             <x-admin::modal ref="insuranceModal">
                 <x-slot:header>
-                    <p class="text-lg font-bold text-gray-800 dark:text-white">Verificación de Seguro</p>
+                    <div class="flex items-center justify-between w-full pr-8">
+                        <p class="text-lg font-bold text-gray-800 dark:text-white">Verificación de Seguro</p>
+                        
+                        <button 
+                            v-if="status !== 'CAMPOS_VACIOS'"
+                            class="text-xs text-red-600 hover:underline flex items-center gap-1"
+                            @click="clearCache"
+                            title="Limpiar datos guardados para forzar nueva consulta"
+                        >
+                            <span class="icon-delete text-sm"></span>
+                            Borrar Caché
+                        </button>
+                    </div>
                 </x-slot:header>
 
                 <x-slot:content>
@@ -191,6 +203,25 @@
                         })
                         .finally(() => {
                             this.isSaving = false;
+                        });
+                },
+
+                clearCache() {
+                    if (!confirm('¿Estás seguro de que deseas borrar los datos guardados de esta verificación? Esto forzará una nueva consulta a la aseguradora.')) {
+                        return;
+                    }
+
+                    this.$axios.post(`{{ url('admin/contacts/persons') }}/${this.personId}/clear-insurance-cache`)
+                        .then(res => {
+                            this.$emitter.emit('add-flash', { type: 'success', message: res.data.message });
+                            this.$refs.insuranceModal.toggle();
+                            this.initVerification();
+                        })
+                        .catch(err => {
+                            this.$emitter.emit('add-flash', { 
+                                type: 'error', 
+                                message: 'No se pudo limpiar la caché.' 
+                            });
                         });
                 }
             }

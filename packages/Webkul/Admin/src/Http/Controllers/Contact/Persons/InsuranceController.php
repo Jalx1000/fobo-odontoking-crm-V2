@@ -92,8 +92,29 @@ class InsuranceController extends Controller
         ]);
 
         // Limpiar cache previa si existe para forzar nueva verificación
-        \Illuminate\Support\Facades\Cache::forget("insurance_verify_{$id}");
+        $this->clearCache($id);
 
         return $this->verify($id);
+    }
+
+    /**
+     * Limpia la caché de verificación de un paciente.
+     */
+    public function clearCache(int $id): JsonResponse
+    {
+        $person = $this->personRepository->find($id);
+
+        if (! $person) {
+            return response()->json(['message' => 'Paciente no encontrado.'], 404);
+        }
+
+        $ci = $person->getCustomAttributeValue(app(\Webkul\Attribute\Repositories\AttributeRepository::class)->findOneByField('code', 'ci_paciente'));
+        $seguroId = $person->getCustomAttributeValue(app(\Webkul\Attribute\Repositories\AttributeRepository::class)->findOneByField('code', 'seguro_paciente'));
+
+        $cacheKey = "insurance_verify_{$id}_" . md5($ci . '|' . $seguroId);
+        
+        \Illuminate\Support\Facades\Cache::forget($cacheKey);
+
+        return response()->json(['message' => 'Caché de seguro limpiada correctamente.']);
     }
 }

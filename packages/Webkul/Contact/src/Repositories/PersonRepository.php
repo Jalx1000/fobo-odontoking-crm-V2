@@ -204,6 +204,13 @@ class PersonRepository extends Repository
             $data['unique_id'] .= '|'.$data['contact_numbers'][0]['value'];
         }
 
+        if (
+            array_key_exists('unique_id', $data)
+            && empty($data['unique_id'])
+        ) {
+            unset($data['unique_id']);
+        }
+
         return $data;
     }
 }

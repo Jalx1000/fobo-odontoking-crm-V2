@@ -23,6 +23,7 @@ Route::prefix('contacts')->group(function () {
 
         Route::post('{id}/verify-insurance', [InsuranceController::class, 'verify'])->name('admin.contacts.persons.verify_insurance');
         Route::post('{id}/update-insurance', [InsuranceController::class, 'updateAndVerify'])->name('admin.contacts.persons.update_insurance');
+        Route::post('{id}/clear-insurance-cache', [InsuranceController::class, 'clearCache'])->name('admin.contacts.persons.clear_insurance_cache');
 
         Route::get('edit/{id}', 'edit')->name('admin.contacts.persons.edit');
 

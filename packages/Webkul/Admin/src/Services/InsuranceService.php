@@ -159,7 +159,8 @@ class InsuranceService
         $success = $data['success'] ?? false;
         $results = $data['data'] ?? [];
 
-        if (! $success || empty($results)) {
+        // Caso: success false, data vacía, o data es el string "no registrado"
+        if (! $success || empty($results) || (is_string($results) && trim(strtolower($results)) === 'no registrado')) {
             return [
                 'status'  => 'NO_REGISTRADO',
                 'message' => 'El paciente no figura en la base de datos de esta aseguradora.',
@@ -169,7 +170,17 @@ class InsuranceService
         }
 
         // Tomamos el primer resultado encontrado
-        $insuranceData = $results[0];
+        $insuranceData = is_array($results) ? $results[0] : null;
+        
+        if (! $insuranceData) {
+            return [
+                'status'  => 'NO_REGISTRADO',
+                'message' => 'El paciente no figura en la base de datos de esta aseguradora.',
+                'badge'   => 'warning',
+                'data'    => null,
+            ];
+        }
+
         $estado = strtoupper($insuranceData['ESTADO'] ?? '');
 
         if ($estado === 'VIGENTE') {
@@ -197,7 +208,7 @@ class InsuranceService
         if (!isset($result['data']) || empty($result['data'])) return;
 
         $data = $result['data'];
-        $comment = "### Verificación de Seguro: {$result['status']}\n";
+        $comment = "Verificación de Seguro: {$result['status']}\n";
         $comment .= "- **Aseguradora:** " . ($data['CONTRATANTE'] ?? 'N/A') . "\n";
         $comment .= "- **Estado:** " . ($data['ESTADO'] ?? 'N/A') . "\n";
         $comment .= "- **Coaseguro:** " . ($data['COASEGURO ODONTOLOGICO'] ?? 'N/A') . "\n";

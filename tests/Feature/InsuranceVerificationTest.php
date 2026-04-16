@@ -194,6 +194,27 @@ it('maneja el estado INDETERMINADO cuando n8n devuelve JSON inválido o vacío',
         ]);
 });
 
+it('mapea correctamente un paciente NO_REGISTRADO (caso string)', function () {
+    $this->person->attribute_values()->create(['attribute_id' => $this->ciAttr->id, 'text_value' => '12387735', 'entity_type' => 'persons']);
+    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 87, 'entity_type' => 'persons']);
+
+    Http::fake([
+        'n8n.sofopolis.com/*' => Http::response([
+            'success' => true,
+            'data' => 'no registrado'
+        ], 200)
+    ]);
+
+    actingAs($this->adminUser, 'user')
+        ->post(route('admin.contacts.persons.verify_insurance', $this->person->id))
+        ->assertStatus(200)
+        ->assertJson([
+            'status' => 'NO_REGISTRADO',
+            'badge' => 'warning',
+            'message' => 'El paciente no figura en la base de datos de esta aseguradora.'
+        ]);
+});
+
 it('utiliza la caché para evitar llamadas redundantes a n8n', function () {
     $this->person->attribute_values()->create(['attribute_id' => $this->ciAttr->id, 'text_value' => '5856583', 'entity_type' => 'persons']);
     $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 1, 'entity_type' => 'persons']);
@@ -219,12 +240,17 @@ it('utiliza la caché para evitar llamadas redundantes a n8n', function () {
 it('valida reglas de negocio en tiempo real ante cambios de aseguradora', function () {
     // Este test simula lo que el componente Vue haría al recibir el evento global
     // Caso 1: Cambio a "No tiene"
-    $service = app(\Webkul\Admin\Services\InsuranceService.php);
+    $service = app(\Webkul\Admin\Services\InsuranceService::class);
     
     // Forzamos el atributo a "No tiene" (ID 89 según tinker)
     $this->person->attribute_values()->updateOrCreate(
         ['attribute_id' => $this->seguroAttr->id, 'entity_type' => 'persons'],
         ['integer_value' => 89]
+    );
+    
+    $this->person->attribute_values()->updateOrCreate(
+        ['attribute_id' => $this->ciAttr->id, 'entity_type' => 'persons'],
+        ['text_value' => '5856583']
     );
 
     $result = $service->verify($this->person->id);
