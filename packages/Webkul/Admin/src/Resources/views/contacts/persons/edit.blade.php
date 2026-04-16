@@ -46,27 +46,61 @@
                 </div>
             </div>
 
-            <div class="box-shadow rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+            <div class="flex flex-col gap-4">
                 {!! view_render_event('admin.contacts.persons.edit.form_controls.before') !!}
 
-                <x-admin::attributes
-                    :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
-                        ['code', 'NOTIN', ['organization_id', 'expected_close_date']],
-                        'entity_type' => 'persons',
-                    ])"
-                    :custom-validations="[
-                        'name' => [
-                            'min:2',
-                            'max:100',
-                        ],
-                        'job_title' => [
-                            'max:100',
-                        ],
-                    ]"
-                    :entity="$person"
-                />
+                <!-- Sección 1: Datos del Paciente -->
+                <div class="box-shadow rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                    <h4 class="mb-4 text-base font-bold dark:text-white">Datos del Paciente</h4>
+                    
+                    <x-admin::attributes
+                        :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
+                            ['code', 'IN', ['name', 'job_title', 'emails', 'contact_numbers']],
+                            'entity_type' => 'persons',
+                        ])"
+                        :custom-validations="[
+                            'name' => ['min:2', 'max:100'],
+                            'job_title' => ['max:100'],
+                        ]"
+                        :entity="$person"
+                    />
+                </div>
 
-                <!-- <v-organization></v-organization> -->
+                <!-- Sección 2: Datos del Seguro -->
+                <div class="box-shadow rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-base font-bold dark:text-white">Datos del Seguro</h4>
+                        
+                        <!-- Integración del Validador de Seguro -->
+                        @php
+                            $seguroAttr = app(\Webkul\Attribute\Repositories\AttributeRepository::class)->findOneByField('code', 'seguro_paciente');
+                            $seguroId = $person->getCustomAttributeValue($seguroAttr);
+                            $seguroLabel = app(\Webkul\Attribute\Repositories\AttributeValueRepository::class)->getAttributeLabel($seguroId, $seguroAttr);
+                        @endphp
+                        @include ('admin::contacts.persons.view.insurance-verify', ['currentInsurance' => $seguroLabel])
+                    </div>
+                    
+                    <x-admin::attributes
+                        :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
+                            ['code', 'IN', ['ci_paciente', 'seguro_paciente', 'estado_seguro_paciente']],
+                            'entity_type' => 'persons',
+                        ])"
+                        :entity="$person"
+                    />
+                </div>
+
+                <!-- Sección 3: Equipo de Atención -->
+                <div class="box-shadow rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                    <h4 class="mb-4 text-base font-bold dark:text-white">Equipo de Atención</h4>
+                    
+                    <x-admin::attributes
+                        :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
+                            ['code', 'IN', ['person_doctor', 'user_id']],
+                            'entity_type' => 'persons',
+                        ])"
+                        :entity="$person"
+                    />
+                </div>
 
                 {!! view_render_event('admin.contacts.persons.edit.form_controls.after') !!}
             </div>

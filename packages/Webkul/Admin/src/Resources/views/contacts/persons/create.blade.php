@@ -45,26 +45,50 @@
             </div>
 
             <!-- Form fields -->
-            <div class="box-shadow rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+            <div class="flex flex-col gap-4">
                 {!! view_render_event('admin.persons.create.form_controls.before') !!}
 
-                <x-admin::attributes
-                    :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
-                        ['code', 'NOTIN', ['organization_id', 'expected_close_date']],
-                        'entity_type' => 'persons',
-                    ])"
-                    :custom-validations="[
-                        'name' => [
-                            'min:2',
-                            'max:100',
-                        ],
-                        'job_title' => [
-                            'max:100',
-                        ],
-                    ]"
-                />
+                <!-- Sección 1: Datos del Paciente -->
+                <div class="box-shadow rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                    <h4 class="mb-4 text-base font-bold dark:text-white">Datos del Paciente</h4>
+                    
+                    <x-admin::attributes
+                        :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
+                            ['code', 'IN', ['name', 'job_title', 'emails', 'contact_numbers']],
+                            'entity_type' => 'persons',
+                        ])"
+                        :custom-validations="[
+                            'name' => ['min:2', 'max:100'],
+                            'job_title' => ['max:100'],
+                        ]"
+                    />
+                </div>
 
-                <!-- <v-organization></v-organization> -->
+                <!-- Sección 2: Datos del Seguro -->
+                <div class="box-shadow rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                    <h4 class="mb-4 text-base font-bold dark:text-white">Datos del Seguro</h4>
+                    
+                    <x-admin::attributes
+                        :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
+                            ['code', 'IN', ['ci_paciente', 'seguro_paciente', 'estado_seguro_paciente']],
+                            'entity_type' => 'persons',
+                        ])"
+                    />
+                    
+                    <p class="mt-2 text-xs text-gray-500 italic">Nota: La verificación del seguro se realiza una vez guardado el paciente.</p>
+                </div>
+
+                <!-- Sección 3: Equipo de Atención -->
+                <div class="box-shadow rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                    <h4 class="mb-4 text-base font-bold dark:text-white">Equipo de Atención</h4>
+                    
+                    <x-admin::attributes
+                        :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
+                            ['code', 'IN', ['person_doctor', 'user_id']],
+                            'entity_type' => 'persons',
+                        ])"
+                    />
+                </div>
 
                 {!! view_render_event('admin.persons.create.form_controls.after') !!}
             </div>

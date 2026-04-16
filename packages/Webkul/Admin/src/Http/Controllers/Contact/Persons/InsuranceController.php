@@ -59,6 +59,36 @@ class InsuranceController extends Controller
 
         $result = $this->insuranceService->verify($id);
 
+        // Actualizar el estado del seguro en el atributo personalizado si se obtuvo respuesta
+        if (isset($result['status'])) {
+            $estadoAttr = app(\Webkul\Attribute\Repositories\AttributeRepository::class)->findOneByField('code', 'estado_seguro_paciente');
+
+            if ($estadoAttr) {
+                // Mapear status a los nombres de las opciones de la base de datos
+                $statusMap = [
+                    'VIGENTE' => 'Vigente',
+                    'EN_MORA' => 'Pagos pendientes',
+                ];
+
+                $targetName = $statusMap[$result['status']] ?? null;
+
+                if ($targetName) {
+                    $option = DB::table('attribute_options')
+                        ->where('attribute_id', $estadoAttr->id)
+                        ->where('name', $targetName)
+                        ->first();
+                    
+                    if ($option) {
+                        app(\Webkul\Attribute\Repositories\AttributeValueRepository::class)->save([
+                            'entity_id'   => $id,
+                            'entity_type' => 'persons',
+                            'estado_seguro_paciente' => $option->id,
+                        ]);
+                    }
+                }
+            }
+        }
+
         // Si se obtuvo un resultado (Vigente o Mora), creamos la nota automática
         if (in_array($result['status'], ['VIGENTE', 'EN_MORA'])) {
             $this->insuranceService->createNoteActivity($id, $result);
