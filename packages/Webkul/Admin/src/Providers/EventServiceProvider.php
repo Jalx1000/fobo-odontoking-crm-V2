@@ -16,8 +16,17 @@ class EventServiceProvider extends ServiceProvider
             'Webkul\Admin\Listeners\Person@linkToEmail',
         ],
 
+        'contacts.person.update.after' => [
+            'Webkul\Admin\Listeners\EntitySync@syncPersonToLeads',
+        ],
+
         'lead.create.after' => [
             'Webkul\Admin\Listeners\Lead@linkToEmail',
+            'Webkul\Admin\Listeners\EntitySync@syncLeadToPerson',
+        ],
+
+        'lead.update.after' => [
+            'Webkul\Admin\Listeners\EntitySync@syncLeadToPerson',
         ],
 
         'activity.create.after' => [

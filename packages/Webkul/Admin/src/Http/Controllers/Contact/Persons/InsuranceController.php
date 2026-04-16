@@ -83,13 +83,15 @@ class InsuranceController extends Controller
             return response()->json(['message' => 'Paciente no encontrado.'], 404);
         }
 
-        // Guardar los atributos usando el repositorio
-        app(\Webkul\Attribute\Repositories\AttributeValueRepository::class)->save([
-            'entity_id'   => $id,
-            'entity_type' => 'persons',
-            'ci_paciente' => $data['ci_paciente'],
+        // Actualizar los atributos usando el repositorio de personas para disparar eventos
+        $this->personRepository->update([
+            'entity_type'     => 'persons',
+            'ci_paciente'     => $data['ci_paciente'],
             'seguro_paciente' => $data['seguro_paciente'],
-        ]);
+        ], $id);
+
+        // Disparar el evento manualmente por si el repositorio no lo hace (aunque debería)
+        Event::dispatch('contacts.person.update.after', $person);
 
         // Limpiar cache previa si existe para forzar nueva verificación
         $this->clearCache($id);
