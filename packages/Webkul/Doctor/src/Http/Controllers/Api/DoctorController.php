@@ -55,7 +55,30 @@ class DoctorController extends Controller
 
             // Attach availability to each doctor
             $doctors->getCollection()->transform(function ($doctor) use ($shifts) {
-                $doctor->availability = $shifts->get($doctor->id, collect());
+                $doctorAvailability = $shifts->get($doctor->id, collect());
+                
+                // Transformar bloques en slots de 30 minutos
+                $slots = collect();
+                $slotDuration = 30;
+
+                foreach ($doctorAvailability as $block) {
+                    $current = Carbon::parse($block->date . ' ' . $block->start_time);
+                    $end = Carbon::parse($block->date . ' ' . $block->end_time);
+
+                    while ($current->copy()->addMinutes($slotDuration)->lte($end)) {
+                        $slots->push([
+                            'id'         => $block->id,
+                            'doctor_id'  => $block->doctor_id,
+                            'date'       => $block->date,
+                            'start_time' => $current->format('H:i:s'),
+                            'end_time'   => $current->copy()->addMinutes($slotDuration)->format('H:i:s'),
+                        ]);
+
+                        $current->addMinutes($slotDuration);
+                    }
+                }
+
+                $doctor->availability = $slots;
                 return $doctor;
             });
 
