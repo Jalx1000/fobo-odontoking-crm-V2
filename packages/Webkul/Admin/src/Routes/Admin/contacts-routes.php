@@ -6,6 +6,8 @@ use Webkul\Admin\Http\Controllers\Contact\Persons\ActivityController;
 use Webkul\Admin\Http\Controllers\Contact\Persons\PersonController;
 use Webkul\Admin\Http\Controllers\Contact\Persons\TagController;
 
+use Webkul\Admin\Http\Controllers\Contact\Persons\InsuranceController;
+
 Route::prefix('contacts')->group(function () {
     /**
      * Persons routes.
@@ -18,6 +20,9 @@ Route::prefix('contacts')->group(function () {
         Route::post('create', 'store')->name('admin.contacts.persons.store');
 
         Route::get('view/{id}', 'show')->name('admin.contacts.persons.view');
+
+        Route::post('{id}/verify-insurance', [InsuranceController::class, 'verify'])->name('admin.contacts.persons.verify_insurance');
+        Route::post('{id}/update-insurance', [InsuranceController::class, 'updateAndVerify'])->name('admin.contacts.persons.update_insurance');
 
         Route::get('edit/{id}', 'edit')->name('admin.contacts.persons.edit');
 

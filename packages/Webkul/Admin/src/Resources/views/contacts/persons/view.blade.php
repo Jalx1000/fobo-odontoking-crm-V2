@@ -1,4 +1,4 @@
-1<x-admin::layouts>
+<x-admin::layouts>
     <x-slot:title>
         @lang('admin::app.contacts.persons.view.title', ['name' => $person->name])
     </x-slot>
@@ -45,7 +45,7 @@
 
                     {!! view_render_event('admin.contact.persons.view.title.after', ['person' => $person]) !!}
                 </div>
-                
+
                 <!-- Activity Actions -->
                 <div class="flex flex-wrap gap-2">
                     {!! view_render_event('admin.contact.persons.view.actions.before', ['person' => $person]) !!}
@@ -73,7 +73,14 @@
                         :entity="$person"
                         entity-control-name="person_id"
                     />
-                    
+
+                    <!-- Insurance Verification -->
+                    @php
+                        $seguroAttr = app(\Webkul\Attribute\Repositories\AttributeRepository::class)->findOneByField('code', 'seguro_paciente');
+                        $seguroId = $person->getCustomAttributeValue($seguroAttr);
+                        $seguroLabel = app(\Webkul\Attribute\Repositories\AttributeValueRepository::class)->getAttributeLabel($seguroId, $seguroAttr);
+                    @endphp
+                    @include ('admin::contacts.persons.view.insurance-verify', ['currentInsurance' => $seguroLabel])
 
                     {!! view_render_event('admin.contact.persons.view.actions.after', ['person' => $person]) !!}
                 </div>

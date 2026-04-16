@@ -235,6 +235,12 @@
                             })
                             .then((response) => {
                                 this.$emitter.emit('add-flash', { type: 'success', message: response.data.message });
+
+                                this.$emitter.emit('attribute-updated', {
+                                    name: this.name,
+                                    value: this.inputValue,
+                                    label: this.options.find(opt => opt.id == this.inputValue)?.name
+                                });
                             })
                             .catch((error) => {
                                 this.inputValue = this.value;
