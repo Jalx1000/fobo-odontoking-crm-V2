@@ -1,13 +1,8 @@
 <div class="p-4">
     <v-historial-ia
-        :lead='@json([
-            "person" => [
-                "email" => ($lead->person?->emails[0]["value"] ?? ($lead->person?->email ?? null))
-            ],
-            "title" => $lead->title,
-        ])'
+        :entity-email="'{{ $entityEmail ?? ($lead->person?->emails[0]['value'] ?? ($lead->person?->email ?? null)) }}'"
+        :entity-name="'{{ $entityName ?? ($lead->title ?? 'Lead') }}'"
     />
-
 </div>
 
 @pushOnce('scripts')
@@ -15,7 +10,7 @@
         <div class="flex items-center justify-between border-b border-gray-200 mb-2 pb-4 dark:border-gray-800">
             <div class="flex flex-col">
                 <div class="text-base font-semibold text-gray-800 dark:text-gray-200">Historial IA</div>
-                <div class="text-xs text-gray-500 dark:text-gray-400">@{{ leadName }} · @{{ leadEmail ?? '—' }} </div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">@{{ entityName }} · @{{ entityEmail ?? '—' }} </div>
             </div>
         </div>
 
@@ -50,18 +45,12 @@
                 </template>
             </div>
         </div>
-
-</script>
+    </script>
 
     <script type="module">
         app.component('v-historial-ia', {
             template: '#v-historial-ia-template',
-            props: {
-                lead: {
-                    type: Object,
-                    required: true
-                }
-            },
+            props: ['entityEmail', 'entityName'],
             data() {
                 return {
                     messages: [],
@@ -70,21 +59,6 @@
                 };
             },
             computed: {
-                leadName() {
-                    return this.lead?.person?.name ?? this.lead?.title ?? 'Lead';
-                },
-                leadEmail() {
-                    const p = this.lead?.person;
-                    if (!p) return null;
-                    if (Array.isArray(p.emails) && p.emails.length) {
-                        const first = p.emails[0];
-                        if (typeof first === 'string') return first;
-                        if (typeof first?.value === 'string') return first.value;
-                        if (typeof first?.email === 'string') return first.email;
-                    }
-                    if (typeof p.email === 'string') return p.email;
-                    return null;
-                },
                 endpoint() {
                     return "{{ url('api/public/chat-history') }}";
                 },
@@ -142,15 +116,15 @@
             },
             methods: {
                 fetchHistory() {
-                    if (!this.leadEmail) {
-                        this.error = 'No se encontró email del lead.';
+                    if (!this.entityEmail || this.entityEmail === 'null' || this.entityEmail === '') {
+                        this.error = 'No se encontró email para la consulta.';
                         return;
                     }
                     this.isLoading = true;
                     this.error = null;
                     this.$axios.get(this.endpoint, {
                             params: {
-                                email: this.leadEmail
+                                email: this.entityEmail
                             }
                         })
                         .then(res => {
@@ -185,10 +159,7 @@
                         try {
                             const j = JSON.parse(raw);
                             if (j && typeof j === 'object') {
-                                // Extraer contenido inicial (puede ser el JSON anidado en AI)
                                 let extracted = j.content ?? j.text ?? j.message ?? raw;
-                                
-                                // Si es AI y el contenido parece un JSON anidado, intentar parsearlo
                                 if (type === 'ai' && typeof extracted === 'string' && extracted.trim().startsWith('{')) {
                                     try {
                                         const inner = JSON.parse(extracted);
@@ -202,7 +173,6 @@
                             }
                         } catch (e) {}
 
-                        // Normalizar saltos de línea para que se respeten en la vista
                         if (typeof content === 'string') {
                             content = content
                                 .replace(/\r\n/g, '\n')

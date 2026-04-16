@@ -1,4 +1,4 @@
-<x-admin::layouts>
+1<x-admin::layouts>
     <x-slot:title>
         @lang('admin::app.contacts.persons.view.title', ['name' => $person->name])
     </x-slot>
@@ -73,6 +73,7 @@
                         :entity="$person"
                         entity-control-name="person_id"
                     />
+                    
 
                     {!! view_render_event('admin.contact.persons.view.actions.after', ['person' => $person]) !!}
                 </div>
@@ -92,7 +93,17 @@
             {!! view_render_event('admin.contact.persons.view.right.before', ['person' => $person]) !!}
 
             <!-- Stages Navigation -->
-            <x-admin::activities :endpoint="route('admin.contacts.persons.activities.index', $person->id)" />
+            <x-admin::activities :endpoint="route('admin.contacts.persons.activities.index', $person->id)" :extra-types="[
+                ['name' => 'historial', 'label' => 'Historial IA'],
+            ]">
+                {{-- Historial IA --}}
+                <x-slot:historial>
+                    @include('admin::leads.view.historial-ia', [
+                        'entityEmail' => ($person->emails[0]['value'] ?? ($person->email ?? null)),
+                        'entityName'  => $person->name
+                    ])
+                </x-slot>
+            </x-admin::activities>
 
             {!! view_render_event('admin.contact.persons.view.right.after', ['person' => $person]) !!}
         </div>
