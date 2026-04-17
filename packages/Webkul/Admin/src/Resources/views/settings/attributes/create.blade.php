@@ -559,7 +559,7 @@
 
                         inputValidation: false,
 
-                        optionType: '',
+                        optionType: 'lookup',
 
                         swatchAttribute: false,
 

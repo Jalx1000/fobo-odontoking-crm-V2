@@ -51,4 +51,9 @@ return [
         'name'         => 'Locations',
         'repository'   => 'Webkul\Warehouse\Repositories\LocationRepository',
     ],
+
+    'products' => [
+        'name'         => 'Products',
+        'repository'   => 'Webkul\Product\Repositories\ProductRepository',
+    ],
 ];
