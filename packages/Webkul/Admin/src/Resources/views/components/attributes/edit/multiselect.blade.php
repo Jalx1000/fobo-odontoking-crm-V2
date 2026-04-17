@@ -7,26 +7,23 @@
 @endphp
 
 <v-field
-    type="select"
-    id="{{ $attribute->code }}"
     name="{{ $attribute->code }}[]"
     rules="{{ $validations }}"
     label="{{ $attribute->name }}"
-    placeholder="{{ $attribute->name }}"
-    multiple
+    v-slot="{ field, errors, setValue }"
 >
-    <select
+    <v-multiselect
+        :items="{{ json_encode($options) }}"
+        :model-value="field.value || {{ json_encode(is_array($selectedOption) ? $selectedOption : explode(',', $selectedOption)) }}"
+        @update:model-value="setValue($event)"
+        placeholder="{{ $attribute->name }}"
         name="{{ $attribute->code }}[]"
-        class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
-        multiple
+    ></v-multiselect>
+
+    <p
+        class="mt-1 text-xs text-red-600"
+        v-if="errors.length"
     >
-        @foreach ($options as $option)
-            <option
-                value="{{ $option->id }}"
-                {{ in_array($option->id, is_array($selectedOption) ? $selectedOption : explode(',', $selectedOption)) ? 'selected' : ''}}
-            >
-                {{ $option->name }}
-            </option>
-        @endforeach
-    </select>
+        @{{ errors[0] }}
+    </p>
 </v-field>
