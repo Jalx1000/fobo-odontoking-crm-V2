@@ -65,10 +65,10 @@
                     />
 
                     <!-- Activity Action -->
-                    <x-admin::activities.actions.activity
+                    {{-- <x-admin::activities.actions.activity
                         :entity="$person"
                         entity-control-name="person_id"
-                    />
+                    /> --}}
 
                     {!! view_render_event('admin.contact.persons.view.actions.after', ['person' => $person]) !!}
                 </div>
@@ -88,7 +88,7 @@
             {!! view_render_event('admin.contact.persons.view.right.before', ['person' => $person]) !!}
 
             <!-- Stages Navigation -->
-            <x-admin::activities :endpoint="route('admin.contacts.persons.activities.index', $person->id)" />
+            {{-- <x-admin::activities :endpoint="route('admin.contacts.persons.activities.index', $person->id)" /> --}}
 
             {!! view_render_event('admin.contact.persons.view.right.after', ['person' => $person]) !!}
         </div>
