@@ -1305,8 +1305,8 @@ return [
                 'delete-failed'  => 'No se puede eliminar el almacén.',
                 'datagrid'       => [
                     'id'              => 'ID',
-                    'name'            => 'Nombre',
-                    'contact-name'    => 'Nombre del Contacto',
+                    'name'            => 'Ciudad',
+                    'contact-name'    => 'Encargado',
                     'delete'          => 'Eliminar',
                     'edit'            => 'Editar',
                     'view'            => 'Ver',

@@ -119,7 +119,7 @@
                                 <div class="w-full">
                                     <x-admin::attributes
                                         :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
-                                            ['code', 'IN', ['lead_value', 'lead_type_id', 'lead_source_id']],
+                                            ['code', 'IN', ['lead_type_id', 'lead_source_id']],
                                             'entity_type' => 'leads',
                                             'quick_add'   => 1
                                         ])"
@@ -130,7 +130,7 @@
                                 <div class="w-full">
                                     <x-admin::attributes
                                         :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
-                                            ['code', 'IN', ['user_id']],
+                                            ['code', 'IN', ['user_id', 'lead_value']],
                                             'entity_type' => 'leads',
                                             'quick_add'   => 1
                                         ])"
@@ -212,11 +212,6 @@
                 },
 
                 mounted() {
-                    const leadValueInput = document.getElementById('lead_value');
-                    if (leadValueInput) {
-                        leadValueInput.readOnly = true;
-                        leadValueInput.style.backgroundColor = '#f3f4f6'; // Light gray to indicate read-only
-                    }
                 },
 
                 methods: {
