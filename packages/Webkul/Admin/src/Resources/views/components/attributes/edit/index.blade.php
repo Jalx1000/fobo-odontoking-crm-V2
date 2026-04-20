@@ -71,15 +71,11 @@
         @break
     
     @case('multiselect')
-        @if ($attribute->code == 'combos_productos')
-            {{-- Oculto para centralizar en combos_productos_cantidad --}}
-        @else
-            <x-admin::attributes.edit.multiselect
-                :attribute="$attribute"
-                :value="$value"
-                :validations="$validations"
-            />
-        @endif
+        <x-admin::attributes.edit.multiselect
+            :attribute="$attribute"
+            :value="$value"
+            :validations="$validations"
+        />
         
         @break
 

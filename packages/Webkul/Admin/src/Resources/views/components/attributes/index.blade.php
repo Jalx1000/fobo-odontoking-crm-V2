@@ -1,4 +1,7 @@
 @foreach ($customAttributes as $attribute)
+    @if ($attribute->code == 'combos_productos')
+        @continue
+    @endif
 
     @php
         $validations = [];
