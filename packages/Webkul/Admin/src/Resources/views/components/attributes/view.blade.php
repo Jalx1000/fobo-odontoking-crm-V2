@@ -7,6 +7,10 @@
 
 <div class="flex flex-col gap-1">
     @foreach ($customAttributes as $attribute)
+        @if ($attribute->code == 'combos_productos')
+            @continue
+        @endif
+
         @if (view()->exists($typeView = 'admin::components.attributes.view.' . $attribute->type))
             <div class="grid grid-cols-[1fr_2fr] items-center gap-1">
                 <div class="label dark:text-white">{{ $attribute->name }}</div>
@@ -17,6 +21,19 @@
 
                         if (in_array($attribute->code, ['lead_value', 'price']) && is_numeric($value)) {
                             $value = number_format((float) $value, 2, '.', '');
+                        }
+
+                        if ($attribute->code == 'combos_productos_cantidad' && !empty($value)) {
+                            try {
+                                $combos = json_decode($value, true);
+                                if (is_array($combos)) {
+                                    $value = collect($combos)->map(function($item) {
+                                        return $item['name'] . ' (' . $item['qty'] . ')';
+                                    })->implode(', ');
+                                }
+                            } catch (\Exception $e) {
+                                // Keep original value if error
+                            }
                         }
                     @endphp
 

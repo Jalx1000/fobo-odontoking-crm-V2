@@ -276,6 +276,61 @@
         </div>
     </script>
 
+    <script type="text/x-template" id="v-combo-manager-template">
+        <div class="grid gap-2.5">
+            <div class="table-responsive">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-200 dark:border-gray-800">
+                            <th class="py-2.5 font-semibold text-gray-800 dark:text-white">@lang('admin::app.leads.view.products.product-name')</th>
+                            <th class="py-2.5 font-semibold text-gray-800 dark:text-white w-[120px]">@lang('admin::app.leads.view.products.quantity')</th>
+                            <th class="py-2.5 w-[50px]"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(item, index) in items" :key="index" class="border-b border-gray-200 dark:border-gray-800 last:border-0">
+                            <td class="py-2.5 pr-4">
+                                 <x-admin::lookup
+                                     ::src="'{{ route('admin.products.search') }}'"
+                                     ::name="`combo_items[${index}][id]`"
+                                     :placeholder="trans('admin::app.leads.view.products.product-name')"
+                                     ::value="{ id: item.id, name: item.name }"
+                                     @on-selected="(product) => onProductSelected(index, product)"
+                                 />
+                             </td>
+                            <td class="py-2.5">
+                                <input 
+                                    type="number" 
+                                    v-model="item.qty" 
+                                    min="1"
+                                    class="w-full border dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 rounded p-2 text-sm focus:outline-none focus:border-brandColor"
+                                    @input="onUpdate"
+                                />
+                            </td>
+                            <td class="py-2.5 pl-4 text-right">
+                                <i 
+                                    class="icon-delete text-2xl cursor-pointer text-gray-600 hover:text-red-600 transition-all"
+                                    @click="removeItem(index)"
+                                ></i>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <button
+                type="button"
+                class="flex max-w-max items-center gap-2 text-brandColor mt-2"
+                @click="addItem"
+            >
+                <i class="icon-add text-md !text-brandColor"></i>
+                @lang('admin::app.leads.view.products.add-more')
+            </button>
+
+            <input type="hidden" :name="name" :value="JSON.stringify(filteredItems)" />
+        </div>
+    </script>
+
     @stack('scripts')
 
     {!! view_render_event('admin.layout.vue-app-mount.before') !!}
@@ -354,6 +409,60 @@
                 },
                 beforeUnmount() {
                     document.removeEventListener('click', this.closeDropdown);
+                }
+            });
+
+            app.component('v-combo-manager', {
+                template: '#v-combo-manager-template',
+                props: ['modelValue', 'name'],
+                data() {
+                    let initialItems = [];
+                    try {
+                        initialItems = JSON.parse(this.modelValue || '[]');
+                    } catch (e) {
+                        initialItems = [];
+                    }
+                    if (initialItems.length === 0) {
+                        initialItems.push({ id: '', name: '', qty: 1 });
+                    }
+                    return {
+                        items: initialItems
+                    };
+                },
+                computed: {
+                    filteredItems() {
+                        return this.items.filter(item => item.id && item.qty > 0);
+                    }
+                },
+                watch: {
+                    modelValue(newVal) {
+                        try {
+                            const parsed = JSON.parse(newVal || '[]');
+                            if (JSON.stringify(parsed) !== JSON.stringify(this.filteredItems)) {
+                                this.items = parsed.length > 0 ? parsed : [{ id: '', name: '', qty: 1 }];
+                            }
+                        } catch (e) {}
+                    }
+                },
+                methods: {
+                    addItem() {
+                        this.items.push({ id: '', name: '', qty: 1 });
+                    },
+                    removeItem(index) {
+                        this.items.splice(index, 1);
+                        if (this.items.length === 0) {
+                            this.addItem();
+                        }
+                        this.onUpdate();
+                    },
+                    onProductSelected(index, product) {
+                        this.items[index].id = product.id;
+                        this.items[index].name = product.name;
+                        this.onUpdate();
+                    },
+                    onUpdate() {
+                        this.$emit('update:modelValue', JSON.stringify(this.filteredItems));
+                    }
                 }
             });
 

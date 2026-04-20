@@ -6,11 +6,30 @@
 
 @switch($attribute->type)
     @case('text')
-        <x-admin::attributes.edit.text
-            :attribute="$attribute"
-            :value="$value"
-            :validations="$validations"
-        />
+        @if ($attribute->code == 'combos_productos_cantidad')
+            <v-field
+                name="{{ $attribute->code }}"
+                :rules="'{{ $validations }}'"
+                label="{{ $attribute->name }}"
+                v-slot="{ field, errors, setValue }"
+            >
+                <v-combo-manager
+                    :model-value="field.value !== undefined ? field.value : {{ json_encode(old($attribute->code) ?: ($value ?: '[]')) }}"
+                    @update:model-value="setValue($event)"
+                    name="{{ $attribute->code }}"
+                ></v-combo-manager>
+
+                <p class="mt-1 text-xs text-red-600" v-if="errors.length">
+                    @{{ errors[0] }}
+                </p>
+            </v-field>
+        @else
+            <x-admin::attributes.edit.text
+                :attribute="$attribute"
+                :value="$value"
+                :validations="$validations"
+            />
+        @endif
 
         @break
 
@@ -52,11 +71,15 @@
         @break
     
     @case('multiselect')
-        <x-admin::attributes.edit.multiselect
-            :attribute="$attribute"
-            :value="$value"
-            :validations="$validations"
-        />
+        @if ($attribute->code == 'combos_productos')
+            {{-- Oculto para centralizar en combos_productos_cantidad --}}
+        @else
+            <x-admin::attributes.edit.multiselect
+                :attribute="$attribute"
+                :value="$value"
+                :validations="$validations"
+            />
+        @endif
         
         @break
 
