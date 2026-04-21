@@ -78,7 +78,7 @@
             @include ('admin::contacts.persons.view.attributes')
 
             <!-- Contact Organization -->
-            {{-- @include ('admin::contacts.persons.view.organization') --}}
+            @include ('admin::contacts.persons.view.organization')
         </div>
 
         {!! view_render_event('admin.contact.persons.view.left.after', ['person' => $person]) !!}
@@ -87,8 +87,8 @@
         <div class="flex w-full flex-col gap-4 rounded-lg">
             {!! view_render_event('admin.contact.persons.view.right.before', ['person' => $person]) !!}
 
-            <!-- Stages Navigation -->
-            {{-- <x-admin::activities :endpoint="route('admin.contacts.persons.activities.index', $person->id)" /> --}}
+            <!-- Activities -->
+            <x-admin::activities :endpoint="route('admin.contacts.persons.activities.index', $person->id)" />
 
             {!! view_render_event('admin.contact.persons.view.right.after', ['person' => $person]) !!}
         </div>
