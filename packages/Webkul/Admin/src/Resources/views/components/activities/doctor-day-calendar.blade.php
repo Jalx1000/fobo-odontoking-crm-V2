@@ -363,19 +363,16 @@
         <x-admin::modal ref="appointmentModal">
             <x-slot:header>
                 <div class="text-lg font-semibold dark:text-white">
-                    Añadir cita
-                </div>
-
-                <div class="text-sm text-gray-500 dark:text-gray-300">
+                    Añadir cita <div class="text-sm text-gray-500 dark:text-gray-300">
                     @{{ modalContext.dayLabel }} · @{{ modalContext.timeText }}
                 </div>
+                </div>
+
+                
             </x-slot>
 
             <x-slot:content>
                 <div class="flex flex-col gap-3">
-                    <div class="text-sm text-gray-600 dark:text-gray-300">
-                        @{{ modalContext.dayLabel }} · @{{ modalContext.timeText }}
-                    </div>
 
                     <div class="grid grid-cols-2 gap-3">
                         <div class="col-span-2">
@@ -448,7 +445,7 @@
                                 :disabled="true"
                             ></v-time-picker>
                         </div>
-
+<!-- aaaaaaaaaaaaaaaaaaaaaaaa -->
                         <div class="col-span-2">
                             <div class="flex flex-col gap-1">
                                 <div class="text-xs text-gray-600 dark:text-gray-300">Estado</div>
@@ -741,18 +738,15 @@
             <x-slot:header>
                 <div class="text-lg font-semibold dark:text-white">
                     Añadir cita de grupo
+                    <div class="text-sm text-gray-500 dark:text-gray-300">
+                        @{{ modalContext.dayLabel }} · @{{ modalContext.timeText }}
+                    </div>
                 </div>
 
-                <div class="text-sm text-gray-500 dark:text-gray-300">
-                    @{{ modalContext.dayLabel }} · @{{ modalContext.timeText }}
-                </div>
             </x-slot>
 
             <x-slot:content>
                 <div class="flex flex-col gap-3">
-                    <div class="text-sm text-gray-600 dark:text-gray-300">
-                        @{{ modalContext.dayLabel }} · @{{ modalContext.timeText }}
-                    </div>
 
                     <div class="grid grid-cols-2 gap-3">
                         <div class="flex flex-col gap-1">
@@ -773,7 +767,6 @@
                             >
                                 <option value="meeting">Consulta</option>
                                 <option value="call">Llamada</option>
-                                <option value="lunch">Almuerzo</option>
                             </select>
                         </div>
                         
