@@ -252,7 +252,7 @@
 
                     this.product.price = result.price;
 
-                    this.product.quantity = result.quantity ?? 1;
+                    this.product.quantity = 1;
                 },
 
                 /**

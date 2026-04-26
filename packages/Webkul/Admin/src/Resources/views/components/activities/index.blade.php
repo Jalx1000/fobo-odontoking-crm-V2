@@ -399,13 +399,13 @@
             <div class="ms-container" ref="root">
                 <div class="ms-input" @click="open=!open">
                     <div class="ms-chips">
-                        <span class="ms-chip" v-for="sid in model" :key="'chip-'+sid">
-                            @{{ nameById(sid) }}
-                            <i class="icon-cross-large ms-chip-x" @click.stop="remove(sid)"></i>
+                        <span class="ms-chip" v-for="item in selectedItems" :key="'chip-'+item.id">
+                            @{{ item.name }}
+                            <i class="icon-cross-large ms-chip-x" @click.stop="toggle(String(item.id))"></i>
                         </span>
                     </div>
                     <div class="ms-actions">
-                        <span class="ms-count">@{{ model.length }}</span>
+                        <span class="ms-count">@{{ selectedItems.length }}</span>
                         <i :class="open?'icon-up-arrow':'icon-down-arrow'" class="text-xl"></i>
                     </div>
                 </div>
@@ -413,7 +413,7 @@
                     <input type="text" v-model="q" class="ms-search" placeholder="Buscar" />
                     <ul class="ms-list">
                         <li v-for="d in filtered" :key="'li-'+d.id" class="ms-item" @click="toggle(String(d.id))">
-                            <input type="checkbox" :checked="set.has(String(d.id))" />
+                            <input type="checkbox" :checked="isSelected(String(d.id))" />
                             <span>@{{ d.name }}</span>
                         </li>
                         <li v-if="!filtered.length" class="ms-empty">Sin resultados</li>
@@ -432,30 +432,34 @@
                 emits: ['update:modelValue'],
                 data(){return{open:false,q:''}},
                 computed:{
-                    model(){return this.modelValue},
-                    set(){return new Set(this.model)},
+                    selectedIds() {
+                        return new Set((this.modelValue || []).map(id => String(id)));
+                    },
+                    selectedItems() {
+                        return (this.items || []).filter(item => item && this.selectedIds.has(String(item.id)));
+                    },
                     filtered(){
                         const q=this.q.trim().toLowerCase();
+                        const items = this.items || [];
 
                         return q
-                            ? this.items.filter(d => d && String(d.name).toLowerCase().includes(q))
-                            : this.items.filter(d => d);
+                            ? items.filter(d => d && String(d.name).toLowerCase().includes(q))
+                            : items.filter(d => d);
                     }
                 },
                 methods:{
-                    nameById(id){
-                        const d=this.items.find(x => x && String(x.id) === String(id));
-
-                        return d && d.name ? d.name : '';
+                    isSelected(id) {
+                        return this.selectedIds.has(String(id));
                     },
                     toggle(id){
-                        const next=new Set(this.model);
-                        if(next.has(id)){next.delete(id)}else{next.add(id)}
+                        const next = new Set(this.selectedIds);
+                        const strId = String(id);
+                        if(next.has(strId)){
+                            next.delete(strId);
+                        } else {
+                            next.add(strId);
+                        }
                         this.$emit('update:modelValue', Array.from(next));
-                    },
-                    remove(id){
-                        const next=this.model.filter(x=>String(x)!==String(id));
-                        this.$emit('update:modelValue', next);
                     },
                     onClickOutside(e){
                         const root=this.$refs.root;
@@ -897,11 +901,8 @@ app.component('v-doctor-week-calendar', {
             return `${this.formatDate(s)} — ${this.formatDate(e)}`;
         },
         columns() {
-            const ids = new Set(this.selectedDoctorIds.map(id => Number(id)));
-            const selected = this.selectedDoctorIds.length
-                ? this.doctors.filter(d => ids.has(Number(d.id)))
-                : this.doctors;
-            return selected;
+            const ids = new Set(this.selectedDoctorIds.map(id => String(id)));
+            return this.doctors.filter(d => ids.has(String(d.id)));
         },
     },
     mounted() {
@@ -932,7 +933,7 @@ app.component('v-doctor-week-calendar', {
             return this.appointments.filter(a=>{
                 const d=a.start.split(' ')[0];
                 const matchDay=d===dateStr;
-                const matchDoctor=a.doctor_id===doctorId;
+                const matchDoctor=String(a.doctor_id)===String(doctorId);
                 return matchDay&&matchDoctor;
             }).map(a=>{
                 const dtStart=new Date(a.start),dtEnd=new Date(a.end);
@@ -943,7 +944,7 @@ app.component('v-doctor-week-calendar', {
                 return {...a,top,height};
             });
         },
-        totalCount(doctorId){return this.appointments.filter(a=>a.doctor_id===doctorId).length},
+        totalCount(doctorId){return this.appointments.filter(a=>String(a.doctor_id)===String(doctorId)).length},
         onColumnClick(e,doctorId){
             const container=e.currentTarget,rect=container.getBoundingClientRect();
             const x=e.clientX-rect.left,y=e.clientY-rect.top;
