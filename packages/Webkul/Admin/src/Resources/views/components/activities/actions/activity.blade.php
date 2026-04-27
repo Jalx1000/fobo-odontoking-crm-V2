@@ -13,7 +13,8 @@
     >
         <span class="icon-activity text-2xl dark:!text-blue-800"></span>
 
-        @lang('admin::app.components.activities.actions.activity.btn')
+        <!-- @lang('admin::app.components.activities.actions.activity.btn')  -->
+        Consulta
     </button>
 
     {!! view_render_event('admin.components.activities.actions.activity.create_btn.after') !!}
@@ -51,29 +52,9 @@
                         <x-slot:header>
                             {!! view_render_event('admin.components.activities.actions.activity.form_controls.modal.header.dropdown.before') !!}
 
-                            <x-admin::dropdown>
-                                <x-slot:toggle>
-                                    <h3 class="flex cursor-pointer items-center gap-1 text-base font-semibold dark:text-white">
-                                        @lang('admin::app.components.activities.actions.activity.title') - @{{ selectedType.label }}
-
-                                        <span class="icon-down-arrow text-2xl"></span>
-                                    </h3>
-                                </x-slot>
-
-                                <x-slot:menu>
-                                    {!! view_render_event('admin.components.activities.actions.activity.form_controls.modal.header.dropdown.menu_item.before') !!}
-
-                                    <x-admin::dropdown.menu.item
-                                        ::class="{ 'bg-gray-100 dark:bg-gray-950': selectedType.value === type.value }"
-                                        v-for="type in availableTypes"
-                                        @click="selectedType = type"
-                                    >
-                                        @{{ type.label }}
-                                    </x-admin::dropdown.menu.item>
-
-                                    {!! view_render_event('admin.components.activities.actions.activity.form_controls.modal.header.dropdown.menu_item.after') !!}
-                                </x-slot>
-                            </x-admin::dropdown>
+                            <h3 class="flex items-center gap-1 text-base font-semibold dark:text-white">
+                                Consulta
+                            </h3>
 
                             {!! view_render_event('admin.components.activities.actions.activity.form_controls.modal.header.dropdown.after') !!}
                         </x-slot>
@@ -95,23 +76,12 @@
                                 ::value="entity.id"
                             />
 
-                            <!-- Title -->
-                            <x-admin::form.control-group>
-                                <x-admin::form.control-group.label class="required">
-                                    <template v-if="selectedType.value === 'meeting'">Motivo de la Consulta</template>
-                                    <template v-else>@lang('admin::app.components.activities.actions.activity.title-control')</template>
-                                </x-admin::form.control-group.label>
-                                
-                                <x-admin::form.control-group.control
-                                    type="text"
-                                    name="title"
-                                    rules="required|max:80"
-                                    ::label="selectedType.value === 'meeting' ? 'Motivo de la Consulta' : translations.title"
-                                    placeholder="Motivo de la Consulta"
-                                />
-
-                                <x-admin::form.control-group.error control-name="title" />
-                            </x-admin::form.control-group>
+                            <!-- Title (Hidden) -->
+                            <x-admin::form.control-group.control
+                                type="hidden"
+                                name="title"
+                                value="Consulta"
+                            />
 
                             <!-- Product (Servicio) - Only for Meeting -->
                             <x-admin::form.control-group v-if="selectedType.value === 'meeting'">
@@ -271,8 +241,8 @@
                     isStoring: false,
                     
                     selectedType: {
-                        label: {!! json_encode(trans('admin::app.components.activities.actions.activity.call')) !!},
-                        value: 'call'
+                        label: {!! json_encode(trans('admin::app.components.activities.actions.activity.meeting')) !!},
+                        value: 'meeting'
                     },
 
                     translations: {
@@ -290,14 +260,21 @@
 
                     availableTypes: [
                         {
-                            label: {!! json_encode(trans('admin::app.components.activities.actions.activity.call')) !!},
-                            value: 'call'
-                        }, {
                             label: {!! json_encode(trans('admin::app.components.activities.actions.activity.meeting')) !!},
                             value: 'meeting'
                         },
                     ]
                 }
+            },
+
+            mounted() {
+                window.addEventListener('mousedown', this.handleClickOutside);
+                window.addEventListener('blur', this.handleWindowBlur);
+            },
+
+            beforeUnmount() {
+                window.removeEventListener('mousedown', this.handleClickOutside);
+                window.removeEventListener('blur', this.handleWindowBlur);
             },
 
             watch: {
@@ -307,6 +284,21 @@
             },
 
             methods: {
+                handleClickOutside(event) {
+                    if (this.$refs.activityModal && this.$refs.activityModal.isOpen) {
+                        const modalElement = document.querySelector('.box-shadow.z-\[999\]');
+                        if (modalElement && !modalElement.contains(event.target)) {
+                            this.$refs.activityModal.close();
+                        }
+                    }
+                },
+
+                handleWindowBlur() {
+                    if (this.$refs.activityModal && this.$refs.activityModal.isOpen) {
+                        this.$refs.activityModal.close();
+                    }
+                },
+
                 openModal(type) {
                     this.selectedProduct = null;
                     this.productSearchTerm = '';
