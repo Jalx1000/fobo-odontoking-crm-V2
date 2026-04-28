@@ -111,6 +111,14 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 /**
+ * Override del endpoint REST de actividades con validación médica (turno local + ShareMeData).
+ * Debe estar registrado ANTES de que el vendor krayin/rest-api cargue sus rutas.
+ */
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('v1/activities', [\App\Http\Controllers\Api\V1\ActivityController::class, 'store']);
+});
+
+/**
  * Webhook para ShareMeData
  */
 Route::post('/webhooks/sharemedata', [\Webkul\Admin\Http\Controllers\ShareMeDataWebhookController::class, 'receive']);

@@ -83,13 +83,7 @@ class AvailabilityController extends Controller
                 $daySlots = [];
 
                 foreach ($dayShifts as $shift) {
-                    // Break shift into slots (e.g. 30 mins)
-                    // Requirement doesn't specify slot duration, but example implies 30 mins.
-                    // Or we can return the shift ranges minus bookings.
-                    // The example: 09:00-09:30, 09:30-10:00.
-                    // I'll assume 30 minutes for now.
-                    
-                    $slotDuration = 30; // minutes
+                    $slotDuration = 60; // minutes
                     
                     $shiftStart = Carbon::parse($dateStr . ' ' . $shift->start_time);
                     $shiftEnd = Carbon::parse($dateStr . ' ' . $shift->end_time);

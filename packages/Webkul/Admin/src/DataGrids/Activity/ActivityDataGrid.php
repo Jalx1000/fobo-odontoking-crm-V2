@@ -19,9 +19,17 @@ class ActivityDataGrid extends DataGrid
     public function prepareQueryBuilder(): Builder
     {
         $queryBuilder = DB::table('activities')
-            ->distinct()
             ->select(
-                'activities.*',
+                'activities.id',
+                'activities.title',
+                'activities.type',
+                'activities.comment',
+                'activities.is_done',
+                'activities.schedule_from',
+                'activities.schedule_to',
+                'activities.user_id',
+                'activities.created_at',
+                'activities.updated_at',
                 'leads.id as lead_id',
                 'leads.title as lead_title',
                 'leads.lead_pipeline_id',
@@ -32,21 +40,20 @@ class ActivityDataGrid extends DataGrid
             ->leftJoin('lead_activities', 'activities.id', '=', 'lead_activities.activity_id')
             ->leftJoin('leads', 'lead_activities.lead_id', '=', 'leads.id')
             ->leftJoin('users', 'activities.user_id', '=', 'users.id')
-            ->whereIn('type', ['call', 'meeting', 'lunch'])
+            ->whereIn('activities.type', ['call', 'meeting', 'lunch'])
             ->where(function ($query) {
                 if ($userIds = bouncer()->getAuthorizedUserIds()) {
                     $query->whereIn('activities.user_id', $userIds)
                         ->orWhereIn('activity_participants.user_id', $userIds);
                 }
-            })->groupBy('activities.id', 'leads.id', 'users.id');
-
-        $this->addFilter('id', 'activities.id');
-        $this->addFilter('title', 'activities.title');
-        $this->addFilter('schedule_from', 'activities.schedule_from');
-        $this->addFilter('created_by', 'users.name');
-        $this->addFilter('created_by_id', 'users.name');
-        $this->addFilter('created_at', 'activities.created_at');
-        $this->addFilter('lead_title', 'leads.title');
+            })
+            ->groupBy(
+                'activities.id', 'activities.title', 'activities.type', 'activities.comment',
+                'activities.is_done', 'activities.schedule_from', 'activities.schedule_to',
+                'activities.user_id', 'activities.created_at', 'activities.updated_at',
+                'leads.id', 'leads.title', 'leads.lead_pipeline_id',
+                'users.id', 'users.name'
+            );
 
         return $queryBuilder;
     }
@@ -176,6 +183,33 @@ class ActivityDataGrid extends DataGrid
             'filterable' => true,
             'closure'    => fn ($row) => core()->formatDate($row->created_at),
         ]);
+
+        $this->addFilter('id', 'activities.id');
+        $this->addFilter('title', 'activities.title');
+        $this->addFilter('schedule_from', 'activities.schedule_from');
+        $this->addFilter('schedule_to', 'activities.schedule_to');
+        $this->addFilter('created_by', 'users.name');
+        $this->addFilter('created_by_id', 'users.name');
+        $this->addFilter('created_at', 'activities.created_at');
+        $this->addFilter('lead_title', 'leads.title');
+    }
+
+    /**
+     * Override de sorting para usar el nombre calificado (activities.id, etc.)
+     * y evitar "Column 'id' is ambiguous" con los JOINs activos.
+     */
+    protected function processRequestedSorting($requestedSort)
+    {
+        $requestedColumn = $requestedSort['column'] ?? $this->sortColumn ?? 'activities.id';
+
+        $qualifiedColumn = collect($this->columns)
+            ->first(fn ($col) => $col->getIndex() === $requestedColumn)
+            ?->getColumnName() ?? $requestedColumn;
+
+        return $this->queryBuilder->orderBy(
+            $qualifiedColumn,
+            $requestedSort['order'] ?? $this->sortOrder
+        );
     }
 
     /**

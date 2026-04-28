@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
 
 class DoctorDataGrid extends DataGrid
 {
-    protected $sortColumn = 'id';
+    protected $sortColumn = 'doctors.id';
 
 
     protected $itemsPerPage = 20;
@@ -102,8 +102,8 @@ class DoctorDataGrid extends DataGrid
             'label'      => 'Especialidad',
             'type'       => 'string',
             'filterable' => false,
-            'sortable'   => $hasSpecialtyTables,
-            'searchable' => $hasSpecialtyTables,
+            'sortable'   => false,
+            'searchable' => false,
         ]);
 
         $this->addColumn([
@@ -138,6 +138,32 @@ class DoctorDataGrid extends DataGrid
                 return "<span class=\"{$class}\">{$label}</span>";
             },
         ]);
+
+        $this->addFilter('id', 'doctors.id');
+        $this->addFilter('name', 'doctors.name');
+        $this->addFilter('email', 'doctors.email');
+        $this->addFilter('unique_id', 'doctors.unique_id');
+        $this->addFilter('created_at', 'doctors.created_at');
+        $this->addFilter('is_active', 'doctors.is_active');
+    }
+
+    /**
+     * Override de sorting para que use el nombre calificado (doctors.id, etc.)
+     * y no el index sin tabla que envía el frontend. Sin esto, MySQL lanza
+     * "Column 'id' is ambiguous" al ordenar en queries con JOINs.
+     */
+    protected function processRequestedSorting($requestedSort)
+    {
+        $requestedColumn = $requestedSort['column'] ?? $this->sortColumn ?? $this->primaryColumn;
+
+        $qualifiedColumn = collect($this->columns)
+            ->first(fn ($col) => $col->getIndex() === $requestedColumn)
+            ?->getColumnName() ?? $requestedColumn;
+
+        return $this->queryBuilder->orderBy(
+            $qualifiedColumn,
+            $requestedSort['order'] ?? $this->sortOrder
+        );
     }
 
     /**

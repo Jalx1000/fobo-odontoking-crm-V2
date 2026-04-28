@@ -21,10 +21,10 @@ use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\Contact\Repositories\PersonRepository;
 use Webkul\Lead\Repositories\LeadRepository;
 use Webkul\Lead\Repositories\PipelineRepository;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
-
-use Webkul\Admin\Services\ShareMeDataService;
+use Illuminate\Support\Facades\Schema;
+use Webkul\Admin\Exceptions\AppointmentException;
+use Webkul\Admin\Services\AppointmentService;
 
 class ActivityController extends Controller
 {
@@ -34,13 +34,13 @@ class ActivityController extends Controller
      * @return void
      */
     public function __construct(
-        protected ActivityRepository $activityRepository,
-        protected FileRepository $fileRepository,
+        protected ActivityRepository  $activityRepository,
+        protected FileRepository      $fileRepository,
         protected AttributeRepository $attributeRepository,
-        protected LeadRepository $leadRepository,
-        protected PipelineRepository $pipelineRepository,
-        protected ShareMeDataService $shareMeDataService,
-        protected PersonRepository $personRepository,
+        protected LeadRepository      $leadRepository,
+        protected PipelineRepository  $pipelineRepository,
+        protected PersonRepository    $personRepository,
+        protected AppointmentService  $appointmentService,
     ) {}
 
     /**
@@ -148,7 +148,7 @@ class ActivityController extends Controller
                     'leads.lead_pipeline_stage_id',
                     'products.id as product_id',
                     'products.name as product_name',
-                    DB::raw('COALESCE(' . $prefix . 'p.name, "") as person_name'),
+                    DB::raw('MAX(' . $prefix . 'p.name) as person_name'),
                 ])
                 ->whereBetween('activities.schedule_from', [$startDate, $endDate])
                 ->whereIn('activities.type', (function () {
@@ -160,6 +160,21 @@ class ActivityController extends Controller
                     }
                     return $allowed;
                 })())
+                ->groupBy([
+                    'activities.id',
+                    'activities.title',
+                    'activities.type',
+                    'activities.comment',
+                    'activities.is_done',
+                    'activities.schedule_from',
+                    'activities.schedule_to',
+                    'doctor_activities.doctor_id',
+                    'doctors.name',
+                    'leads.id',
+                    'leads.lead_pipeline_stage_id',
+                    'products.id',
+                    'products.name',
+                ])
                 ->orderBy('activities.schedule_from')
                 ->get();
 
@@ -327,236 +342,42 @@ class ActivityController extends Controller
     }
 
     /**
-     * Procesador Unificado de Consultas Médicas (Cerebro Compartido)
+     * Procesador unificado de consultas médicas. Delega en AppointmentService.
      */
     private function processMedicalAppointment(array $data): JsonResponse|RedirectResponse
     {
-        $scheduleFrom = Carbon::parse($data['schedule_from']);
-        $scheduleTo = Carbon::parse($data['schedule_to']);
-        $doctorId = $data['doctor_id'];
-        $personData = $data['person'];
-        $productId = $data['product_id'];
-        
-        $doctor = DB::table('doctors')->where('id', $doctorId)->first();
-        $doctorExternalId = $doctor?->unique_id;
-        $doctorEmail = $doctor?->email;
+        try {
+            $result = $this->appointmentService->process($data);
 
-        // 1. Validar Conflictos Locales (Actividades existentes)
-        $localConflict = DB::table('activities')
-            ->join('doctor_activities', 'activities.id', '=', 'doctor_activities.activity_id')
-            ->where('doctor_activities.doctor_id', $doctorId)
-            ->where(function ($query) use ($scheduleFrom, $scheduleTo) {
-                $query->where(function ($q) use ($scheduleFrom, $scheduleTo) {
-                    $q->where('schedule_from', '>=', $scheduleFrom)
-                      ->where('schedule_from', '<', $scheduleTo);
-                })->orWhere(function ($q) use ($scheduleFrom, $scheduleTo) {
-                    $q->where('schedule_to', '>', $scheduleFrom)
-                      ->where('schedule_to', '<=', $scheduleTo);
-                })->orWhere(function ($q) use ($scheduleFrom, $scheduleTo) {
-                    $q->where('schedule_from', '<=', $scheduleFrom)
-                      ->where('schedule_to', '>=', $scheduleTo);
-                });
-            })
-            ->exists();
+            if (request()->ajax()) {
+                return response()->json($result);
+            }
 
-        if ($localConflict) {
-            $msg = "El doctor ya tiene una cita programada en este horario en el sistema local.";
-            if (request()->ajax()) return response()->json(['message' => $msg], 422);
-            session()->flash('error', $msg);
+            session()->flash('success', $result['message']);
+
             return redirect()->back();
-        }
-
-        // 2. Validar Jornada Laboral (Turnos/Shifts)
-        $hasValidShift = DB::table('doctor_shifts')
-            ->where('doctor_id', $doctorId)
-            ->where('date', $scheduleFrom->toDateString())
-            ->where('start_time', '<=', $scheduleFrom->format('H:i'))
-            ->where('end_time', '>=', $scheduleTo->format('H:i'))
-            ->exists();
-
-        if (!$hasValidShift) {
-            $msg = "El horario seleccionado está fuera de la jornada laboral del doctor para este día. Por favor, revisa los turnos disponibles.";
-            if (request()->ajax()) return response()->json(['message' => $msg], 422);
-            session()->flash('error', $msg);
-            return redirect()->back();
-        }
-
-        // 3. Descubrimiento Automático de Doctor en SMD (Si falta ID o Email)
-        if (empty($doctorExternalId) || empty($doctorEmail)) {
-            $doctorRepo = app(\Webkul\Doctor\Repositories\DoctorRepository::class);
-            $doctorModel = $doctorRepo->with('specialties')->find($doctorId);
-            $discoverySpecialties = $doctorModel->specialties->pluck('name')->toArray();
-            
-            // Si el doctor no tiene especialidades en el CRM, intentamos con todas las del sistema
-            if (empty($discoverySpecialties)) {
-                $discoverySpecialties = app(\Webkul\Doctor\Repositories\SpecialtyRepository::class)->pluck('name')->toArray();
-            }
-
-            if (empty($discoverySpecialties)) {
-                $discoverySpecialties = ['General'];
-            }
-            
-            $found = false;
-            foreach ($discoverySpecialties as $spec) {
-                $this->shareMeDataService->checkAvailability(null, $spec, "Santa Cruz", $scheduleFrom->format('Y-m-d H:i:s'), $scheduleTo->format('Y-m-d H:i:s'));
-                $raw = $this->shareMeDataService->getLastResponse();
-                if ($raw && isset($raw['body']) && is_array($raw['body'])) {
-                    foreach ($raw['body'] as $item) {
-                        $smdName = trim(strtolower(($item['physician']['name'] ?? '') . ' ' . ($item['physician']['lastName'] ?? '')));
-                        if ($smdName === trim(strtolower($doctor->name))) {
-                            $doctorExternalId = $item['physician']['_id'] ?? null;
-                            $doctorEmail = $item['physician']['email'] ?? null;
-                            if ($doctorExternalId) {
-                                $doctorRepo->update(['unique_id' => $doctorExternalId, 'email' => $doctorEmail], $doctor->id);
-                                $found = true; break 2;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (!$found) {
-                $msg = "No se pudo vincular al doctor {$doctor->name} con ShareMeData. Verifica que el nombre coincida exactamente.";
-                if (request()->ajax()) return response()->json(['message' => $msg], 422);
-                session()->flash('error', $msg);
-                return redirect()->back();
-            }
-        }
-
-        // 4. Validar Disponibilidad en SMD (Búsqueda Inteligente por Nombre/Especialidad)
-        $doctorRepo = app(\Webkul\Doctor\Repositories\DoctorRepository::class);
-        $doctorModel = $doctorRepo->with('specialties')->find($doctorId);
-        $doctorSpecialties = $doctorModel->specialties->pluck('name')->toArray();
-        
-        // Si el doctor no tiene especialidades en el CRM, intentamos con todas las disponibles en el sistema
-        if (empty($doctorSpecialties)) {
-            $doctorSpecialties = app(\Webkul\Doctor\Repositories\SpecialtyRepository::class)->pluck('name')->toArray();
-        }
-
-        // Si aún así no hay nada, usamos 'General' como último recurso
-        if (empty($doctorSpecialties)) {
-            $doctorSpecialties = ['General'];
-        }
-
-        $isAvailableExternally = false;
-        $smdErrors = [];
-        $smdLastResponses = [];
-
-        foreach ($doctorSpecialties as $specialty) {
-            $slots = $this->shareMeDataService->checkAvailability($doctorExternalId, $specialty, "Santa Cruz", $scheduleFrom->format('Y-m-d H:i:s'), $scheduleTo->format('Y-m-d H:i:s'));
-            $lastResponse = $this->shareMeDataService->getLastResponse();
-            $smdLastResponses[$specialty] = $lastResponse;
-            
-            if (!empty($slots)) {
-                $requiredIntervals = [];
-                $current = $scheduleFrom->copy();
-                while ($current->lessThan($scheduleTo)) {
-                    $requiredIntervals[] = ['start' => $current->timestamp, 'end' => $current->addMinutes(15)->timestamp];
-                }
-
-                $foundCount = 0;
-                foreach ($requiredIntervals as $required) {
-                    foreach ($slots as $daySlots) {
-                        foreach ($daySlots as $date => $intervals) {
-                            foreach ($intervals as $interval) {
-                                if (Carbon::parse($interval['start'])->timestamp === $required['start'] && Carbon::parse($interval['end'])->timestamp === $required['end']) {
-                                    $foundCount++; continue 3;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if ($foundCount === count($requiredIntervals)) {
-                    $isAvailableExternally = true; break;
-                } else {
-                    $smdErrors[$specialty] = "Solo se encontraron $foundCount de " . count($requiredIntervals) . " bloques de 15m libres.";
-                }
-            } else {
-                $smdErrors[$specialty] = $lastResponse['body']['message'] ?? 'Sin disponibilidad devuelta por SMD';
-            }
-        }
-
-        if (!$isAvailableExternally) {
-            $msg = "El doctor no tiene disponibilidad en SHAREMEDATA para el horario solicitado.";
+        } catch (AppointmentException $e) {
             if (request()->ajax()) {
                 return response()->json([
-                    'message' => $msg,
-                    'smd_errors' => $smdErrors,
-                    'smd_responses' => $smdLastResponses,
-                    'doctor_id_used' => $doctorExternalId
+                    'message' => $e->getMessage(),
+                    'details' => $e->getDetails(),
                 ], 422);
             }
-            session()->flash('error', $msg . " Detalle: " . json_encode($smdErrors));
+
+            session()->flash('error', $e->getMessage());
+
             return redirect()->back();
-        }
-
-        $product = DB::table('products')->where('id', $productId)->first();
-
-        // 5. Creación Local y Sincronización SMD
-        try {
-            return DB::transaction(function () use ($data, $scheduleFrom, $scheduleTo, $doctor, $doctorExternalId, $doctorEmail, $personData, $productId, $product) {
-                // Gestión de Paciente
-                $personId = $personData['id'] ?? null;
-                $person = $this->personRepository->find($personId);
-                
-                // Obtener teléfono real del paciente (Validación de Kommo Email)
-                $personPhone = '77788990'; 
-                if ($person && !empty($person->contact_numbers)) {
-                    $contactNumbers = is_array($person->contact_numbers) ? $person->contact_numbers : json_decode($person->contact_numbers, true);
-                    if (is_array($contactNumbers) && count($contactNumbers) > 0 && isset($contactNumbers[0]['value'])) {
-                        $personPhone = (string) $contactNumbers[0]['value'];
-                    }
-                }
-
-                // Creación de Lead
-                $leadTitle = ($person->name ?? 'Paciente') . " - " . ($product->name ?? 'Consulta');
-                $leadData = [
-                    'title'       => $leadTitle, 
-                    'description' => $data['reason'] ?? '', 
-                    'entity_type' => 'leads', 
-                    'person'      => ['id' => $person->id]
-                ];
-                if (\Illuminate\Support\Facades\Schema::hasColumn('leads', 'doctor_id')) $leadData['doctor_id'] = $doctor->id;
-                $lead = $this->leadRepository->create($leadData);
-
-                // Creación de Actividad
-                $activity = $this->activityRepository->create([
-                    'type'          => 'meeting', 
-                    'title'         => $leadTitle, 
-                    'comment'       => $data['reason'] ?? '',
-                    'schedule_from' => $scheduleFrom->format('Y-m-d H:i:s'), 
-                    'schedule_to'   => $scheduleTo->format('Y-m-d H:i:s'),
-                    'user_id'       => auth()->guard('user')->user()->id ?? 1,
-                    'participants'  => ['doctors' => [$doctor->id], 'persons' => [$person->id]],
-                ]);
-                $activity->leads()->sync([$lead->id]);
-                if ($productId) $activity->products()->sync([$productId]);
-
-                // Sincronización SMD Outbound
-                $nameParts = explode(' ', trim($person->name ?? 'Paciente'));
-                $firstName = $nameParts[0] ?: 'Paciente';
-                $lastName = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : 'Externo';
-
-                $shareMeData = [
-                    'summary'   => "CONSULTA: " . $leadTitle,
-                    'physician' => ['_id' => $doctorExternalId, 'email' => $doctorEmail ?: ''],
-                    'patient'   => ['name' => (string) $firstName, 'lastName' => (string) $lastName, 'phone' => (string) $personPhone, 'personID' => '', 'birthday' => ''],
-                    'slot'      => ['start' => $scheduleFrom->format('Y-m-d\TH:i:s-04:00'), 'end' => $scheduleTo->format('Y-m-d\TH:i:s-04:00')]
-                ];
-                $this->shareMeDataService->createEvent($shareMeData);
-
-                if (request()->ajax()) {
-                    return response()->json(['lead_id' => $lead->id, 'activity_id' => $activity->id, 'message' => 'Cita creada y sincronizada correctamente.']);
-                }
-                session()->flash('success', 'Cita creada y sincronizada correctamente.');
-                return redirect()->back();
-            });
         } catch (\Exception $e) {
-            Log::error("SMD Logic Error: " . $e->getMessage());
+            Log::error('AppointmentService error: ' . $e->getMessage());
+
             $msg = "Error interno al crear la cita.";
-            if (request()->ajax()) return response()->json(['message' => $msg], 500);
+
+            if (request()->ajax()) {
+                return response()->json(['message' => $msg], 500);
+            }
+
             session()->flash('error', $msg);
+
             return redirect()->back();
         }
     }

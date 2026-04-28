@@ -48,17 +48,17 @@ it('debe devolver la disponibilidad de doctores en formato de slots discretos', 
     expect($testDoctor)->not->toBeNull();
     expect($testDoctor)->toHaveKey('availability');
     
-    // 4. Validar: El bloque de 2 horas (08:00-10:00) debe haberse convertido en 4 slots de 30 min
+    // 4. Validar: El bloque de 2 horas (08:00-10:00) debe haberse convertido en 2 slots de 60 min
     $availability = $testDoctor['availability'];
-    
-    // 08:00-08:30, 08:30-09:00, 09:00-09:30, 09:30-10:00
-    expect(count($availability))->toBe(4);
-    
+
+    // 08:00-09:00, 09:00-10:00
+    expect(count($availability))->toBe(2);
+
     // Validar el primer slot
     expect($availability[0]['start_time'])->toBe('08:00:00');
-    expect($availability[0]['end_time'])->toBe('08:30:00');
-    
+    expect($availability[0]['end_time'])->toBe('09:00:00');
+
     // Validar el último slot
-    expect($availability[3]['start_time'])->toBe('09:30:00');
-    expect($availability[3]['end_time'])->toBe('10:00:00');
+    expect($availability[1]['start_time'])->toBe('09:00:00');
+    expect($availability[1]['end_time'])->toBe('10:00:00');
 });

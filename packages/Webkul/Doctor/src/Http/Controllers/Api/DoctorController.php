@@ -53,26 +53,53 @@ class DoctorController extends Controller
                 ->get()
                 ->groupBy('doctor_id');
 
+            // Fetch existing bookings for all doctors in this page (to subtract from availability)
+            $bookings = DB::table('activities')
+                ->join('doctor_activities', 'activities.id', '=', 'doctor_activities.activity_id')
+                ->whereIn('doctor_activities.doctor_id', $doctorIds)
+                ->whereBetween('activities.schedule_from', [
+                    $startDate->format('Y-m-d H:i:s'),
+                    $endDate->format('Y-m-d H:i:s'),
+                ])
+                ->select(
+                    'doctor_activities.doctor_id',
+                    'activities.schedule_from',
+                    'activities.schedule_to'
+                )
+                ->get()
+                ->groupBy('doctor_id');
+
             // Attach availability to each doctor
-            $doctors->getCollection()->transform(function ($doctor) use ($shifts) {
+            $doctors->getCollection()->transform(function ($doctor) use ($shifts, $bookings) {
                 $doctorAvailability = $shifts->get($doctor->id, collect());
-                
-                // Transformar bloques en slots de 30 minutos
-                $slots = collect();
-                $slotDuration = 30;
+                $doctorBookings     = $bookings->get($doctor->id, collect());
+
+                $slots        = collect();
+                $slotDuration = 60;
 
                 foreach ($doctorAvailability as $block) {
                     $current = Carbon::parse($block->date . ' ' . $block->start_time);
-                    $end = Carbon::parse($block->date . ' ' . $block->end_time);
+                    $end     = Carbon::parse($block->date . ' ' . $block->end_time);
 
                     while ($current->copy()->addMinutes($slotDuration)->lte($end)) {
-                        $slots->push([
-                            'id'         => $block->id,
-                            'doctor_id'  => $block->doctor_id,
-                            'date'       => $block->date,
-                            'start_time' => $current->format('H:i:s'),
-                            'end_time'   => $current->copy()->addMinutes($slotDuration)->format('H:i:s'),
-                        ]);
+                        $slotEnd = $current->copy()->addMinutes($slotDuration);
+
+                        // Verificar si el slot se solapa con alguna cita existente
+                        $isBooked = $doctorBookings->contains(function ($booking) use ($current, $slotEnd) {
+                            $bStart = Carbon::parse($booking->schedule_from);
+                            $bEnd   = Carbon::parse($booking->schedule_to);
+                            return $current->lt($bEnd) && $slotEnd->gt($bStart);
+                        });
+
+                        if (! $isBooked) {
+                            $slots->push([
+                                'id'         => $block->id,
+                                'doctor_id'  => $block->doctor_id,
+                                'date'       => $block->date,
+                                'start_time' => $current->format('H:i:s'),
+                                'end_time'   => $slotEnd->format('H:i:s'),
+                            ]);
+                        }
 
                         $current->addMinutes($slotDuration);
                     }
@@ -146,8 +173,8 @@ class DoctorController extends Controller
                 $daySlots = [];
 
                 foreach ($dayShifts as $shift) {
-                    $slotDuration = 30; // minutes
-                    
+                    $slotDuration = 60; // minutes
+
                     $shiftStart = Carbon::parse($dateStr . ' ' . $shift->start_time);
                     $shiftEnd = Carbon::parse($dateStr . ' ' . $shift->end_time);
                     
