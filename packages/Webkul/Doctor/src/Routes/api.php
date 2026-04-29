@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Webkul\Doctor\Http\Controllers\Api\AvailabilityController;
 use Webkul\Doctor\Http\Controllers\Api\DoctorController;
+use Webkul\Doctor\Http\Controllers\Api\ProductoController;
 use Webkul\Doctor\Http\Controllers\Api\SpecialtyController;
 
 Route::prefix('api')->group(function () {
@@ -12,4 +13,9 @@ Route::prefix('api')->group(function () {
     Route::get('doctors/{id}', [DoctorController::class, 'show'])->name('api.doctors.show');
     Route::get('doctors/{doctorId}/availability/{year}/{month}', [AvailabilityController::class, 'getForMonth'])
         ->name('api.doctors.availability');
+});
+
+Route::prefix('api')->middleware('auth:sanctum')->group(function () {
+    Route::get('productos/por-ciudad-sucursal', [ProductoController::class, 'porCiudadSucursal'])
+        ->name('api.productos.por-ciudad-sucursal');
 });
