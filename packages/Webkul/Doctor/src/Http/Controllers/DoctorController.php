@@ -161,6 +161,13 @@ class DoctorController extends Controller
      */
     public function search()
     {
+        if ($query = request()->get('query')) {
+            request()->request->add([
+                'search'       => 'name:' . $query,
+                'searchFields' => 'name:like',
+            ]);
+        }
+
         $doctors = $this->doctorRepository
             ->pushCriteria(app(RequestCriteria::class))
             ->all();

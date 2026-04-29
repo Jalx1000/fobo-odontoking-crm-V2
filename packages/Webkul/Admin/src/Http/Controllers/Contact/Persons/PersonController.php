@@ -119,6 +119,13 @@ class PersonController extends Controller
      */
     public function search(): JsonResource
     {
+        if ($query = request()->get('query')) {
+            request()->request->add([
+                'search'       => 'name:' . $query,
+                'searchFields' => 'name:like',
+            ]);
+        }
+
         if ($userIds = bouncer()->getAuthorizedUserIds()) {
             $persons = $this->personRepository
                 ->pushCriteria(app(RequestCriteria::class))

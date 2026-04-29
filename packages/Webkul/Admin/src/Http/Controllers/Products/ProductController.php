@@ -159,6 +159,13 @@ class ProductController extends Controller
     {
         $limit = request()->get('limit') ?? 200;
 
+        if ($query = request()->get('query')) {
+            request()->request->add([
+                'search'       => 'name:' . $query,
+                'searchFields' => 'name:like',
+            ]);
+        }
+
         $products = $this->productRepository
             ->pushCriteria(app(RequestCriteria::class))
             ->orderBy('created_at', 'desc')

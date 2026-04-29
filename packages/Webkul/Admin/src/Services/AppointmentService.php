@@ -50,6 +50,16 @@ class AppointmentService
         $productId      = $data['product_id'] ?? null;
         $existingLeadId = $data['lead_id'] ?? null;
 
+        // Si no viene lead_id, buscar el lead abierto más reciente del paciente (solo para meetings).
+        // Krayin setea closed_at cuando el stage es won/lost, así que whereNull es suficiente.
+        if (! $existingLeadId && ! empty($personData['id'])) {
+            $existingLeadId = DB::table('leads')
+                ->where('person_id', $personData['id'])
+                ->whereNull('closed_at')
+                ->orderBy('created_at', 'desc')
+                ->value('id');
+        }
+
         // Si no viene product_id pero sí lead_id, intentar tomarlo del primer producto del lead
         if (! $productId && $existingLeadId) {
             $leadProduct = DB::table('lead_products')
@@ -221,6 +231,18 @@ class AppointmentService
             }
         }
 
+        Log::debug('[SMD-DEBUG] Resultado check disponibilidad', [
+            'doctor_id'          => $doctorId,
+            'doctor_external_id' => $doctorExternalId,
+            'schedule_from'      => $scheduleFrom->format('Y-m-d H:i:s'),
+            'schedule_to'        => $scheduleTo->format('Y-m-d H:i:s'),
+            'schedule_from_tz'   => $scheduleFrom->format('Y-m-d\TH:i:s-04:00'),
+            'schedule_to_tz'     => $scheduleTo->format('Y-m-d\TH:i:s-04:00'),
+            'is_available'       => $isAvailableExternally,
+            'smd_errors'         => $smdErrors,
+            'specialties_tried'  => $doctorSpecialties,
+        ]);
+
         if (! $isAvailableExternally) {
             throw new AppointmentException(
                 "El doctor no tiene disponibilidad en SHAREMEDATA para el horario solicitado.",
@@ -235,6 +257,9 @@ class AppointmentService
             throw new AppointmentException("Paciente con ID {$personData['id']} no encontrado.");
         }
 
+        // Resolver producto antes de armar el título
+        $product = $productId ? DB::table('products')->where('id', $productId)->first() : null;
+
         $personPhone = '77788990';
         if (! empty($person->contact_numbers)) {
             $contactNumbers = is_array($person->contact_numbers)
@@ -245,11 +270,9 @@ class AppointmentService
             }
         }
 
-        $nameParts = explode(' ', trim($person->name ?? 'Paciente'));
-        $firstName = $nameParts[0] ?: 'Paciente';
-        $lastName  = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : 'Externo';
-
-        $product    = $productId ? DB::table('products')->where('id', $productId)->first() : null;
+        $nameParts  = explode(' ', trim($person->name ?? 'Paciente'));
+        $firstName  = $nameParts[0] ?: 'Paciente';
+        $lastName   = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : 'Externo';
         $eventTitle = ($person->name ?? 'Paciente') . ' - ' . ($product->name ?? 'Consulta');
         $title      = $data['title'] ?? $eventTitle;
 
@@ -269,7 +292,15 @@ class AppointmentService
             ],
         ];
 
+        Log::debug('[SMD-DEBUG] Payload enviado a createEvent', [
+            'payload' => $smdPayload,
+        ]);
+
         $smdResult = $this->shareMeDataService->createEvent($smdPayload);
+
+        Log::debug('[SMD-DEBUG] Respuesta de createEvent', [
+            'result' => $smdResult,
+        ]);
 
         if (! ($smdResult['success'] ?? false)) {
             throw new AppointmentException(
@@ -318,6 +349,11 @@ class AppointmentService
 
                 $activity->leads()->sync([$lead->id]);
 
+                // Marcar el lead como "Consulta Confirmada" (stage 7) directo en BD
+                // No se usa leadRepository->update() porque requiere entity_type para
+                // guardar attribute_values, lo cual no aplica en esta actualización puntual.
+                DB::table('leads')->where('id', $lead->id)->update(['lead_pipeline_stage_id' => 7]);
+
                 if ($productId) {
                     $activity->products()->sync([$productId]);
                 }
@@ -329,8 +365,10 @@ class AppointmentService
                 ]);
 
                 return [
-                    'lead_id'     => $lead->id,
-                    'activity_id' => $activity->id,
+                    'lead_id'      => $lead->id,
+                    'activity_id'  => $activity->id,
+                    'product_id'   => $productId,
+                    'product_name' => $product->name ?? null,
                     'message'     => 'Cita creada y sincronizada correctamente.',
                 ];
             });

@@ -89,35 +89,15 @@
                                     Servicio o Tratamiento
                                 </x-admin::form.control-group.label>
                                 
-                                <div class="relative">
-                                    <div v-if="selectedProduct" class="flex items-center justify-between rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
-                                        <span>@{{ selectedProduct.name }}</span>
-                                        <span class="icon-cross-large cursor-pointer text-xl" @click="removeProduct"></span>
-                                    </div>
-                                    <div v-else>
-                                        <input
-                                            type="text"
-                                            class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
-                                            placeholder="Buscar servicio..."
-                                            v-model="productSearchTerm"
-                                        />
-                                        <div v-if="searchedProducts.length" class="absolute z-10 w-full rounded bg-white shadow-lg dark:bg-gray-900 border dark:border-gray-800 mt-1">
-                                            <ul>
-                                                <li 
-                                                    v-for="product in searchedProducts" 
-                                                    @click="selectProduct(product)"
-                                                    class="cursor-pointer px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
-                                                >
-                                                    @{{ product.name }}
-                                                </li>
-                                            </ul>
-                                        </div>
-                                        <div v-if="isSearchingProducts" class="absolute right-3 top-2">
-                                            <x-admin::spinner />
-                                        </div>
-                                    </div>
-                                </div>
-                                <input type="hidden" name="product_id" :value="selectedProduct ? selectedProduct.id : ''">
+                                <x-admin::lookup
+                                    ::key="productLookupKey"
+                                    ::src="productSearchRoute"
+                                    name="product_id"
+                                    :placeholder="'Buscar servicio...'"
+                                    @on-selected="selectProduct"
+                                />
+
+                                <x-admin::form.control-group.error control-name="product_id" />
                             </x-admin::form.control-group>
 
                             <!-- Description -->
@@ -250,13 +230,11 @@
                         description: {!! json_encode(trans('admin::app.components.activities.actions.activity.description')) !!}
                     },
 
-                    isSearchingProducts: false,
-
-                    productSearchTerm: '',
-
-                    searchedProducts: [],
-
                     selectedProduct: null,
+
+                    productLookupKey: 0,
+
+                    productSearchRoute: "{{ route('admin.products.search') }}",
 
                     availableTypes: [
                         {
@@ -277,12 +255,6 @@
                 window.removeEventListener('blur', this.handleWindowBlur);
             },
 
-            watch: {
-                productSearchTerm(newVal) {
-                    this.searchProducts(newVal);
-                },
-            },
-
             methods: {
                 handleClickOutside(event) {
                     if (this.$refs.activityModal && this.$refs.activityModal.isOpen) {
@@ -301,35 +273,12 @@
 
                 openModal(type) {
                     this.selectedProduct = null;
-                    this.productSearchTerm = '';
-                    this.searchedProducts = [];
+                    this.productLookupKey++;
                     this.$refs.activityModal.open();
-                },
-
-                searchProducts(term) {
-                    if (term.length < 2) {
-                        this.searchedProducts = [];
-                        return;
-                    }
-
-                    this.isSearchingProducts = true;
-
-                    this.$axios.get("{{ route('admin.products.search') }}", {
-                            params: { query: term }
-                        })
-                        .then(response => {
-                            this.searchedProducts = response.data.data;
-                            this.isSearchingProducts = false;
-                        })
-                        .catch(error => {
-                            this.isSearchingProducts = false;
-                        });
                 },
 
                 selectProduct(product) {
                     this.selectedProduct = product;
-                    this.productSearchTerm = '';
-                    this.searchedProducts = [];
                 },
 
                 removeProduct() {

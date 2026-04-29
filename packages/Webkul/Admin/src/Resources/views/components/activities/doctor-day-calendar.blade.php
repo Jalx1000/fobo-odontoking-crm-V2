@@ -1067,6 +1067,7 @@
                 },
                 appointmentForm: {
                     id: null,
+                    lead_id: null,
                     person: {
                         id: '',
                         name: '',
@@ -1567,6 +1568,7 @@
                     timeText: this.quickMenu.timeText,
                 };
                 this.appointmentForm.id = null;
+                this.appointmentForm.lead_id = null;
                 this.appointmentForm.doctor_id = this.quickMenu.doctorId;
                 this.appointmentForm.startTime = this.quickMenu.startTime;
                 this.appointmentForm.duration = this.appointmentForm.duration || 60;
@@ -1611,11 +1613,11 @@
                 this.syncAppointmentDurationFromTimes();
 
                 this.appointmentForm.reason = ev.comment || '';
+                this.appointmentForm.lead_id = ev.lead_id || null;
                 this.appointmentForm.lead_pipeline_stage_id = ev.lead_pipeline_stage_id;
                 this.appointmentForm.person = {
-                    id: ev
-                    .lead_id, // Note: using lead_id might be tricky if we need person_id directly, but let's assume we fetch person from lead or event
-                    name: ev.person_name
+                    id: ev.person_id || null,
+                    name: ev.person_name || '',
                 };
 
                 // Set product info from event
@@ -1691,6 +1693,7 @@
                     },
                     doctor_id: this.appointmentForm.doctor_id,
                     product_id: this.appointmentForm.product_id,
+                    lead_id: this.appointmentForm.lead_id || null,
                     date: this.modalContext.dayISO,
                     start_time: this.appointmentForm.startTime,
                     end_time: this.appointmentForm.endTime,
@@ -1712,7 +1715,7 @@
                         comment: this.appointmentForm.reason,
                         product_id: this.appointmentForm.product_id,
                         doctor_id: this.appointmentForm.doctor_id,
-                        lead_id: this.appointmentForm.person.id,
+                        lead_id: this.appointmentForm.lead_id || null,
                         lead_pipeline_stage_id: this.appointmentForm.lead_pipeline_stage_id,
                     };
                     promise = this.$axios.put(url, updatePayload);

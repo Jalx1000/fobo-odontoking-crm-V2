@@ -49,6 +49,11 @@ class ActivityController extends BaseActivityController
             ], 422);
         }
 
+        // Validaciones exclusivas de meeting (product_id opcional pero debe existir si se envía)
+        $this->validate(request(), [
+            'product_id' => 'nullable|integer|exists:products,id',
+        ]);
+
         try {
             $result = $this->appointmentService->process([
                 'doctor_id'     => $doctorId,

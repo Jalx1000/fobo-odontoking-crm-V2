@@ -148,6 +148,7 @@ class ActivityController extends Controller
                     'leads.lead_pipeline_stage_id',
                     'products.id as product_id',
                     'products.name as product_name',
+                    DB::raw('MAX(' . $prefix . 'p.id) as person_id'),
                     DB::raw('MAX(' . $prefix . 'p.name) as person_name'),
                 ])
                 ->whereBetween('activities.schedule_from', [$startDate, $endDate])
@@ -270,11 +271,12 @@ class ActivityController extends Controller
 
             // Adaptamos los datos para el procesador unificado
             $appointmentData = [
-                'person'     => ['id' => $personId],
-                'doctor_id'  => $doctorId,
-                'product_id' => request('product_id'),
-                'title'      => request('title'),
-                'reason'     => request('comment'),
+                'person'        => ['id' => $personId],
+                'doctor_id'     => $doctorId,
+                'product_id'    => request('product_id'),
+                'lead_id'       => request('lead_id') ?: null,
+                'title'         => request('title'),
+                'reason'        => request('comment'),
                 'schedule_from' => request('schedule_from'),
                 'schedule_to'   => request('schedule_to'),
             ];
@@ -333,6 +335,7 @@ class ActivityController extends Controller
             'person'        => request('person'),
             'doctor_id'     => request('doctor_id'),
             'product_id'    => request('product_id'),
+            'lead_id'       => request('lead_id') ?: null,
             'reason'        => request('reason'),
             'schedule_from' => $scheduleFrom->format('Y-m-d H:i:s'),
             'schedule_to'   => $scheduleTo->format('Y-m-d H:i:s'),
@@ -350,7 +353,16 @@ class ActivityController extends Controller
             $result = $this->appointmentService->process($data);
 
             if (request()->ajax()) {
-                return response()->json($result);
+                // Devolver ActivityResource para que el evento on-activity-added
+                // reciba el formato correcto y pueda renderizar en el panel de actividades.
+                $activity = $this->activityRepository
+                    ->with(['participants', 'doctors', 'leads'])
+                    ->find($result['activity_id']);
+
+                return response()->json([
+                    'data'    => new ActivityResource($activity),
+                    'message' => $result['message'],
+                ]);
             }
 
             session()->flash('success', $result['message']);

@@ -107,8 +107,25 @@ class ShareMeDataService
 
             if ($response->successful()) {
                 $data = $response->json();
+
+                Log::debug('[SMD-DEBUG] checkAvailability respuesta cruda', [
+                    'doctor_external_id' => $doctorExternalId,
+                    'specialty'          => $specialty,
+                    'from'               => $fromFormatted,
+                    'to'                 => $toFormatted,
+                    'physicians_found'   => collect($data)->pluck('physician')->map(fn($p) => [
+                        '_id'  => $p['_id'] ?? null,
+                        'name' => ($p['name'] ?? '') . ' ' . ($p['lastName'] ?? ''),
+                    ])->toArray(),
+                ]);
+
                 foreach ($data as $item) {
                     if (isset($item['physician']['_id']) && $item['physician']['_id'] == $doctorExternalId) {
+                        Log::debug('[SMD-DEBUG] Physician encontrado, slots devueltos', [
+                            'doctor_external_id' => $doctorExternalId,
+                            'slots_count'        => count($item['slots'] ?? []),
+                            'slots_sample'       => array_slice((array) ($item['slots'] ?? []), 0, 2),
+                        ]);
                         return $item['slots'] ?? [];
                     }
                 }
