@@ -30,6 +30,24 @@ return [
             ],
         ],
     ], [
+        'key'    => 'leads.notifications',
+        'name'   => 'Notificaciones de Pedidos',
+        'info'   => 'Configuración de notificaciones automáticas para pedidos.',
+        'sort'   => 5,
+    ], [
+        'key'    => 'leads.notifications.confirmed_order',
+        'name'   => 'Pedido Confirmado',
+        'info'   => 'Enviar email al encargado del warehouse cuando el pedido se confirma.',
+        'sort'   => 1,
+        'fields' => [
+            [
+                'name'          => 'enabled',
+                'title'         => 'Activar Notificación',
+                'type'          => 'boolean',
+                'default'       => false,
+            ],
+        ],
+    ], [
         'key'    => 'general.general.admin_logo',
         'name'   => 'admin::app.configuration.index.general.general.admin-logo.title',
         'info'   => 'admin::app.configuration.index.general.general.admin-logo.title-info',

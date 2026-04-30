@@ -2249,5 +2249,11 @@ return [
         'xls'        => 'XLS',
         'xlsx'       => 'XLSX',
     ],
-
+    'emails' => [
+        'leads' => [
+            'confirmed' => [
+                'subject' => 'Nuevo Pedido Confirmado - #:id',
+            ],
+        ],
+    ],
 ];
