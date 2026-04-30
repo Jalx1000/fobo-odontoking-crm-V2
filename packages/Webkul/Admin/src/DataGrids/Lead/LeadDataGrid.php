@@ -334,7 +334,31 @@ class LeadDataGrid extends DataGrid
                         return '';
                     }
 
-                    return $lead->getCustomAttributeValue($attribute);
+                    $value = $lead->getCustomAttributeValue($attribute);
+
+                    if (is_null($value) || $value === '') {
+                        return '';
+                    }
+
+                    if ($attribute->type == 'select') {
+                        return $attribute->options->where('id', $value)->first()->name ?? $value;
+                    }
+
+                    if ($attribute->type == 'lookup') {
+                        $lookUpEntity = config('attribute_lookups.' . $attribute->lookup_type);
+
+                        if (! $lookUpEntity) {
+                            return $value;
+                        }
+
+                        $repository = app($lookUpEntity['repository']);
+
+                        $record = $repository->find($value);
+
+                        return $record->{$lookUpEntity['label_column'] ?? 'name'} ?? $value;
+                    }
+
+                    return $value;
                 },
             ]);
         }

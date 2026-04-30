@@ -1776,6 +1776,7 @@ return [
                 'tag-name'       => 'Nombre de la etiqueta',
                 'contact-person' => 'Contacto del Cliente',
                 'stage'          => 'Etapa',
+                'description'    => 'Descripción',
                 'rotten-lead'    => 'Paciente Podrido',
                 'date-to'        => 'Fecha Hasta',
                 'created-at'     => 'Creado En',
