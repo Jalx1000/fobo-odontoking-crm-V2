@@ -4,6 +4,10 @@
     <!-- DataGrid Shimmer -->
     <x-admin::shimmer.datagrid />
 
+    <x-slot:toolbar-left-after>
+        @include('admin::leads.index.date-filters')
+    </x-slot:toolbar-left-after>
+
     <x-slot:toolbar-right-after>
         @include('admin::leads.index.view-switcher')
     </x-slot>

@@ -9,6 +9,9 @@
 
         {!! view_render_event('admin.leads.index.kanban.toolbar.search.after') !!}
 
+        <!-- Date Filters -->
+        @include('admin::leads.index.date-filters')
+
         {!! view_render_event('admin.leads.index.kanban.toolbar.filter.before') !!}
 
         <!-- Filter -->
