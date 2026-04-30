@@ -140,7 +140,15 @@ class LeadController extends Controller
                 $to   = request()->query('date_to');
 
                 if ($from && $to) {
-                    $dateRange = [Carbon::parse($from)->startOfDay(), Carbon::parse($to)->endOfDay()];
+                    try {
+                        $dateRange = [Carbon::parse($from)->startOfDay(), Carbon::parse($to)->endOfDay()];
+                        
+                        if ($dateRange[0]->gt($dateRange[1])) {
+                            $dateRange = null;
+                        }
+                    } catch (\Exception $e) {
+                        $dateRange = null;
+                    }
                 }
             }
         }

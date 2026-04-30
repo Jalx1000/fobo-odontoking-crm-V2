@@ -96,6 +96,22 @@ class LeadDataGrid extends DataGrid
                 $queryBuilder->whereBetween('leads.created_at', [now()->startOfWeek(), now()->endOfWeek()]);
             } elseif ($dateFilter === 'month') {
                 $queryBuilder->whereBetween('leads.created_at', [now()->startOfMonth(), now()->endOfMonth()]);
+            } elseif ($dateFilter === 'custom') {
+                $from = request()->query('date_from');
+                $to = request()->query('date_to');
+
+                if ($from && $to) {
+                    try {
+                        $startDate = \Carbon\Carbon::parse($from)->startOfDay();
+                        $endDate = \Carbon\Carbon::parse($to)->endOfDay();
+
+                        if ($startDate->lte($endDate)) {
+                            $queryBuilder->whereBetween('leads.created_at', [$startDate, $endDate]);
+                        }
+                    } catch (\Exception $e) {
+                        // Skip filtering if date is invalid
+                    }
+                }
             }
         }
 
