@@ -88,7 +88,14 @@
             {!! view_render_event('admin.contact.persons.view.right.before', ['person' => $person]) !!}
 
             <!-- Activities -->
-            <x-admin::activities :endpoint="route('admin.contacts.persons.activities.index', $person->id)" />
+            <x-admin::activities
+                :endpoint="route('admin.contacts.persons.activities.index', $person->id)"
+                :extra-types="[['name' => 'historial', 'label' => 'Historial IA']]"
+            >
+                <x-slot:historial>
+                    @include('admin::contacts.persons.view.historial-ia')
+                </x-slot>
+            </x-admin::activities>
 
             {!! view_render_event('admin.contact.persons.view.right.after', ['person' => $person]) !!}
         </div>
