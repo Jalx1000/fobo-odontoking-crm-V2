@@ -4,7 +4,9 @@ namespace Webkul\Admin\DataGrids\Product;
 
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
+use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\DataGrid\DataGrid;
+use Webkul\Product\Repositories\ProductRepository;
 use Webkul\Tag\Repositories\TagRepository;
 
 class ProductDataGrid extends DataGrid
@@ -15,6 +17,14 @@ class ProductDataGrid extends DataGrid
      * @var ?string
      */
     protected $sortColumn = 'id';
+
+    /**
+     * Create data grid instance.
+     */
+    public function __construct(
+        protected AttributeRepository $attributeRepository,
+        protected ProductRepository $productRepository,
+    ) {}
 
     /**
      * Prepare query builder.
@@ -98,6 +108,59 @@ class ProductDataGrid extends DataGrid
             'filterable' => true,
             'closure'    => fn ($row) => $row->precio_promocion ? core()->formatBasePrice($row->precio_promocion, 2) : '--',
         ]);
+
+        $skippedCodes = ['sku', 'name', 'price', 'precio_promocion'];
+
+        $attributes = $this->attributeRepository->findWhere(['entity_type' => 'products']);
+
+        foreach ($attributes as $attribute) {
+            if (in_array($attribute->code, $skippedCodes)) {
+                continue;
+            }
+
+            $this->addColumn([
+                'index'      => $attribute->code,
+                'label'      => $attribute->name,
+                'type'       => 'string',
+                'visibility' => false,
+                'closure'    => function ($row) use ($attribute) {
+                    static $product;
+
+                    if (! $product || $product->id != $row->id) {
+                        $product = $this->productRepository->find($row->id);
+                    }
+
+                    if (! $product) {
+                        return '';
+                    }
+
+                    $value = $product->getCustomAttributeValue($attribute);
+
+                    if (is_null($value) || $value === '') {
+                        return '';
+                    }
+
+                    if ($attribute->type === 'select') {
+                        return $attribute->options->where('id', $value)->first()?->name ?? $value;
+                    }
+
+                    if ($attribute->type === 'lookup') {
+                        $lookUpEntity = config('attribute_lookups.'.$attribute->lookup_type);
+
+                        if (! $lookUpEntity) {
+                            // Fallback: resolve from attribute_options (select-like behavior)
+                            return $attribute->options->where('id', (int) $value)->first()?->name ?? $value;
+                        }
+
+                        $record = app($lookUpEntity['repository'])->find($value);
+
+                        return $record->{$lookUpEntity['label_column'] ?? 'name'} ?? $value;
+                    }
+
+                    return $value;
+                },
+            ]);
+        }
     }
 
     /**

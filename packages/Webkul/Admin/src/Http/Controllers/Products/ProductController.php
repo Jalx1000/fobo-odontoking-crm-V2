@@ -29,7 +29,7 @@ class ProductController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): View|JsonResponse
+    public function index(): View|JsonResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         if (request()->ajax()) {
             return datagrid(ProductDataGrid::class)->process();

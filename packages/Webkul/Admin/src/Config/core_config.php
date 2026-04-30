@@ -30,6 +30,11 @@ return [
             ],
         ],
     ], [
+        'key'  => 'leads',
+        'name' => 'Leads',
+        'info' => 'Configuración relacionada con leads y pedidos.',
+        'sort' => 3,
+    ], [
         'key'    => 'leads.notifications',
         'name'   => 'Notificaciones de Pedidos',
         'info'   => 'Configuración de notificaciones automáticas para pedidos.',

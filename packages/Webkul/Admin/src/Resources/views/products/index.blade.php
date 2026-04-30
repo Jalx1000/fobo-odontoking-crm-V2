@@ -17,6 +17,9 @@
             <div class="flex items-center gap-x-2.5">
                 {!! view_render_event('admin.products.index.create_button.before') !!}
 
+                <!-- Export Button -->
+                <x-admin::datagrid.export :src="route('admin.products.index')" />
+
                 <!-- Create button for Product -->
                 @if (bouncer()->hasPermission('products.create'))
                     <div class="flex items-center gap-x-2.5">
