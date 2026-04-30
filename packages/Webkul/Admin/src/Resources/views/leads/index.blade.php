@@ -23,6 +23,9 @@
         {!! view_render_event('admin.leads.index.header.right.before') !!}
 
         <div class="flex items-center gap-x-2.5">
+            <!-- Date Filters -->
+            @include('admin::leads.index.date-filters')
+
             <!-- Upload File for Lead Creation -->
             @if(core()->getConfigData('general.magic_ai.doc_generation.enabled'))
                 @include('admin::leads.index.upload')

@@ -1,4 +1,4 @@
-{{-- {!! view_render_event('admin.leads.index.kanban.filter.before') !!}
+{!! view_render_event('admin.leads.index.kanban.filter.before') !!}
 
 <v-kanban-filter
     :is-loading="isLoading"
@@ -505,7 +505,7 @@
                                                 <span v-text="column.filterable_options.find((option => option.value == appliedColumnValue)).label"></span>
 
                                                 <span
-                                                    class="icon-cross-large cursor-pointer text-lg text-white ltr:ml-1.5 rtl:mr-1.5"
+                                                    class="icon-cross-large-large cursor-pointer text-lg text-white ltr:ml-1.5 rtl:mr-1.5"
                                                     @click="removeAppliedColumnValue(column.index, appliedColumnValue)"
                                                 >
                                                 </span>
@@ -1000,39 +1000,36 @@
                                 >
                             </li>
 
-                            <ul class="p-2">
-                                <li v-if="!isMinimumCharacters">
-                                    <p
-                                        class="block p-2 text-gray-600 dark:text-gray-300"
-                                        v-text="'@lang('admin::app.components.datagrid.filters.dropdown.searchable.at-least-two-chars')'"
-                                    >
-                                    </p>
-                                </li>
+                            <li
+                                class="p-2"
+                                v-if="! searchedOptions.length"
+                            >
+                                <p
+                                    class="text-sm text-gray-400 dark:text-gray-400"
+                                    v-if="! isMinimumCharacters"
+                                >
+                                    @lang('admin::app.components.datagrid.filters.dropdown.searchable.at-least-two-chars')
+                                </p>
 
-                                <li v-else-if="!searchedOptions.length">
-                                    <p
-                                        class="block p-2 text-gray-600 dark:text-gray-300"
-                                        v-text="'@lang('admin::app.components.datagrid.filters.dropdown.searchable.no-results')'"
-                                    >
-                                    </p>
-                                </li>
-
-                                <li
-                                    v-for="option in searchedOptions"
+                                <p
+                                    class="text-sm text-gray-400 dark:text-gray-400"
                                     v-else
                                 >
-                                    <p
-                                        class="cursor-pointer p-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-950"
-                                        v-text="option.label"
-                                        @click="selectOption(option)"
-                                    >
-                                    </p>
-                                </li>
-                            </ul>
+                                    @lang('admin::app.components.datagrid.filters.dropdown.searchable.no-results')
+                                </p>
+                            </li>
+
+                            <li
+                                class="cursor-pointer px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                                v-for="option in searchedOptions"
+                                v-text="option.label"
+                                @click="selectOption(option)"
+                            >
+                            </li>
                         </ul>
                     </div>
                 </div>
-            </x-slot>
+            </x-slot:menu>
         </x-admin::dropdown>
     </script>
 
@@ -1041,6 +1038,8 @@
             template: '#v-kanban-searchable-dropdown-template',
 
             props: ['column'],
+
+            emits: ['select-option'],
 
             data() {
                 return {
@@ -1090,4 +1089,4 @@
             }
         });
     </script>
-@endpushOnce --}}
+@endpushOnce

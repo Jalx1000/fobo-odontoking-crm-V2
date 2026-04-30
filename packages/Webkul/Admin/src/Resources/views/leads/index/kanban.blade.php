@@ -449,6 +449,12 @@
                         params['searchFields'] += `${column.index}:${column.search_field};`;
                     });
 
+                    const urlParams = new URLSearchParams(window.location.search);
+
+                    urlParams.forEach((value, key) => {
+                        params[key] = value;
+                    });
+
                     return this.$axios
                         .get("{{ route('admin.leads.get') }}", {
                             params: {

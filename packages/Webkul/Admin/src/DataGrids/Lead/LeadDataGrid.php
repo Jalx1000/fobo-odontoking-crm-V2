@@ -89,6 +89,16 @@ class LeadDataGrid extends DataGrid
             $queryBuilder->whereIn('leads.user_id', $userIds);
         }
 
+        if ($dateFilter = request()->query('date_filter')) {
+            if ($dateFilter === 'today') {
+                $queryBuilder->whereBetween('leads.created_at', [now()->today()->startOfDay(), now()->today()->endOfDay()]);
+            } elseif ($dateFilter === 'week') {
+                $queryBuilder->whereBetween('leads.created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+            } elseif ($dateFilter === 'month') {
+                $queryBuilder->whereBetween('leads.created_at', [now()->startOfMonth(), now()->endOfMonth()]);
+            }
+        }
+
         if (! is_null(request()->input('rotten_lead.in'))) {
             $queryBuilder->havingRaw($tablePrefix.'rotten_lead = '.request()->input('rotten_lead.in'));
         }

@@ -94,6 +94,57 @@ class LeadController extends Controller
             $stages = $pipeline->stages;
         }
 
+        $dateRange = null;
+
+        /**
+         * Here, we're checking if the date filter is present in the search string.
+         * If it is, then we'll extract the date filter and create a date range.
+         */
+        if ($search = request()->query('search')) {
+            $searchParts = explode(';', $search);
+
+            foreach ($searchParts as $part) {
+                if (str_contains($part, 'created_at:')) {
+                    $value = str_replace('created_at:', '', $part);
+
+                    if ($value === 'today') {
+                        $dateRange = [Carbon::today()->startOfDay(), Carbon::today()->endOfDay()];
+                    } elseif ($value === 'week') {
+                        $dateRange = [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()];
+                    } elseif ($value === 'month') {
+                        $dateRange = [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()];
+                    }
+
+                    // Remove the created_at from search so RequestCriteria doesn't try to filter it as a literal string
+                    if ($dateRange) {
+                        $search = str_replace($part . ';', '', $search);
+                        $search = str_replace($part, '', $search);
+                        request()->merge(['search' => $search]);
+                    }
+                }
+            }
+        }
+
+        // Keep existing logic for backward compatibility or direct date_filter usage
+        if (! $dateRange) {
+            $dateFilter = request()->query('date_filter');
+
+            if ($dateFilter === 'today') {
+                $dateRange = [Carbon::today()->startOfDay(), Carbon::today()->endOfDay()];
+            } elseif ($dateFilter === 'week') {
+                $dateRange = [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()];
+            } elseif ($dateFilter === 'month') {
+                $dateRange = [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()];
+            } elseif ($dateFilter === 'custom') {
+                $from = request()->query('date_from');
+                $to   = request()->query('date_to');
+
+                if ($from && $to) {
+                    $dateRange = [Carbon::parse($from)->startOfDay(), Carbon::parse($to)->endOfDay()];
+                }
+            }
+        }
+
         foreach ($stages as $stage) {
             /**
              * We have to create a new instance of the lead repository every time, which is
@@ -108,6 +159,10 @@ class LeadController extends Controller
 
             if ($userIds = bouncer()->getAuthorizedUserIds()) {
                 $query->whereIn('leads.user_id', $userIds);
+            }
+
+            if ($dateRange) {
+                $query->whereBetween('leads.created_at', $dateRange);
             }
 
             $stage->lead_value = (clone $query)->sum('lead_value');
@@ -634,6 +689,32 @@ class LeadController extends Controller
                         'value' => 'name',
                     ],
                 ],
+            ],
+            [
+                'index'                 => 'created_at',
+                'label'                 => trans('admin::app.leads.index.kanban.columns.created-at'),
+                'type'                  => 'date',
+                'searchable'            => false,
+                'search_field'          => 'in',
+                'filterable'            => true,
+                'filterable_type'       => 'date_range',
+                'filterable_options'    => [
+                    [
+                        'name'  => 'today',
+                        'label' => trans('admin::app.components.datagrid.filters.date-options.today'),
+                    ],
+                    [
+                        'name'  => 'week',
+                        'label' => trans('admin::app.components.datagrid.filters.date-options.this-week'),
+                    ],
+                    [
+                        'name'  => 'month',
+                        'label' => trans('admin::app.components.datagrid.filters.date-options.this-month'),
+                    ],
+                ],
+                'allow_multiple_values' => false,
+                'sortable'              => true,
+                'visibility'            => true,
             ],
         ];
     }

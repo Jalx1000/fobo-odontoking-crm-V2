@@ -12,7 +12,7 @@
         {!! view_render_event('admin.leads.index.kanban.toolbar.filter.before') !!}
 
         <!-- Filter -->
-        {{-- @include('admin::leads.index.kanban.filter') --}}
+        @include('admin::leads.index.kanban.filter')
 
         {!! view_render_event('admin.leads.index.kanban.toolbar.filter.after') !!}
 
