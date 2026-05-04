@@ -89,8 +89,9 @@ Route::get('/public/chat-history', function (Request $request) {
     foreach ($tables as $table) {
         $rows = DB::connection('external_pgsql')
             ->table($table)
-            ->select('session_id', 'message')
+            ->select('id', 'session_id', 'message')
             ->where('session_id', $email)
+            ->orderBy('id', 'asc')
             ->get();
 
         foreach ($rows as $row) {

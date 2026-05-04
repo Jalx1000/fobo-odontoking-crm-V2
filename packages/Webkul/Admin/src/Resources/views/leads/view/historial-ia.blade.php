@@ -27,12 +27,12 @@
                 <span>Cargando historial…</span>
             </div>
 
-            <div v-else class="flex h-[420px] flex-col gap-3 overflow-y-auto">
+            <div v-else ref="chatContainer" class="flex h-[420px] flex-col gap-3 overflow-y-auto">
                 <div v-if="!pairedRows.length" class="text-sm text-gray-600 dark:text-gray-300">Sin mensajes disponibles.</div>
 
                 <template v-for="(row, idx) in pairedRows" :key="'row-' + idx">
                     <div class="flex gap-3 flex-col">
-                        <div class="w-full flex justify-start user-card-box">
+                        <div v-if="row.user" class="w-full flex justify-start user-card-box">
                             <div class="user-card rounded-md border border-gray-200 p-2 text-sm dark:border-gray-800 bg-gray-50 w-1/2">
                                 <div class="text-xs font-semibold text-gray-700 dark:text-gray-300">Usuario</div>
                                 <div v-if="row.user?.fecha" class="text-[11px] text-gray-500 dark:text-gray-400">@{{ row.user.fecha }}</div>
@@ -40,7 +40,7 @@
                             </div>
                         </div>
 
-                        <div class="w-full flex justify-end ia-card-box">
+                        <div v-if="row.ia" class="w-full flex justify-end ia-card-box">
                             <div class="ia-card rounded-md border border-gray-200 p-2 text-sm dark:border-gray-800 dark:text-white w-1/2">
                                 <div class="text-xs font-semibold text-gray-700 dark:text-white">IA</div>
                                 <div class="mt-1 break-words text-gray-800 dark:text-white" v-html="formatMessage(row.ia?.mensaje ?? row.ia?.raw ?? '')"></div>
@@ -156,6 +156,10 @@
                         .then(res => {
                             const raw = res.data?.messages ?? [];
                             this.messages = this.normalizeMessages(raw);
+                            this.$nextTick(() => {
+                                const c = this.$refs.chatContainer;
+                                if (c) c.scrollTop = c.scrollHeight;
+                            });
                         })
                         .catch(() => {
                             this.error = 'No se pudo obtener el historial.';
