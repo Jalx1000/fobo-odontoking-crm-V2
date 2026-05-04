@@ -161,7 +161,7 @@
                     }
                     
                     this.isLoading = true;
-                    this.$axios.post(`{{ url('admin/contacts/persons') }}/${this.personId}/verify-insurance`)
+                    this.$axios.post("{{ route('admin.contacts.persons.verify_insurance', $person->id) }}")
                         .then(res => {
                             const type = res.data.status === 'SIN_SEGURO' ? 'warning' : 'success';
                             this.$emitter.emit('add-flash', { type: type, message: res.data.message });
@@ -189,7 +189,7 @@
 
                 saveAndUpdate() {
                     this.isSaving = true;
-                    this.$axios.post(`{{ url('admin/contacts/persons') }}/${this.personId}/update-insurance`, this.formData)
+                    this.$axios.post("{{ route('admin.contacts.persons.update_insurance', $person->id) }}", this.formData)
                         .then(res => {
                             this.$emitter.emit('add-flash', { type: 'success', message: 'Datos actualizados y seguro verificado.' });
                             this.$refs.insuranceModal.toggle();
@@ -211,7 +211,7 @@
                         return;
                     }
 
-                    this.$axios.post(`{{ url('admin/contacts/persons') }}/${this.personId}/clear-insurance-cache`)
+                    this.$axios.post("{{ route('admin.contacts.persons.clear_insurance_cache', $person->id) }}")
                         .then(res => {
                             this.$emitter.emit('add-flash', { type: 'success', message: res.data.message });
                             this.$refs.insuranceModal.toggle();

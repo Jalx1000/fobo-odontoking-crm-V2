@@ -1,0 +1,405 @@
+{
+  "info": {
+    "_postman_id": "5aeebcb4-36c5-46f5-aa30-2fd7bd73e81c",
+    "name": "MedinetGo Odontology",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "24513808"
+  },
+  "item": [
+    {
+      "name": "LoginUserProv",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response is JSON\", function () {",
+              "    pm.response.to.be.json;",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "",
+              "pm.test(\"Response has 'success' boolean\", function () {",
+              "    pm.expect(jsonData).to.have.property(\"success\");",
+              "    pm.expect(jsonData.success).to.be.a(\"boolean\");",
+              "});",
+              "",
+              "pm.test(\"Response has 'data' and 'messageError' fields\", function () {",
+              "    pm.expect(jsonData).to.have.property(\"data\");",
+              "    pm.expect(jsonData).to.have.property(\"messageError\");",
+              "});",
+              "",
+              "if (jsonData.success === true) {",
+              "    pm.test(\"When success=true, data is an object\", function () {",
+              "        pm.expect(jsonData.data).to.be.an(\"object\");",
+              "    });",
+              "",
+              "    pm.test(\"data has token fields with expected types\", function () {",
+              "        pm.expect(jsonData.data).to.have.property(\"accessToken\");",
+              "        pm.expect(jsonData.data.accessToken).to.be.a(\"string\");",
+              "",
+              "        pm.expect(jsonData.data).to.have.property(\"refreshToken\");",
+              "        pm.expect(jsonData.data.refreshToken).to.be.a(\"string\");",
+              "",
+              "        pm.expect(jsonData.data).to.have.property(\"expiresAt\");",
+              "        // Typically ISO date-time string",
+              "        pm.expect(jsonData.data.expiresAt).to.be.a(\"string\");",
+              "    });",
+              "",
+              "    pm.test(\"data.webClientVtime is an array\", function () {",
+              "        pm.expect(jsonData.data).to.have.property(\"webClientVtime\");",
+              "        pm.expect(jsonData.data.webClientVtime).to.be.an(\"array\");",
+              "    });",
+              "",
+              "    pm.test(\"webClientVtime items contain expected keys/types (where possible)\", function () {",
+              "        const arr = jsonData.data.webClientVtime;",
+              "        if (!Array.isArray(arr) || arr.length === 0) {",
+              "            pm.expect.fail(\"webClientVtime is empty or not an array\");",
+              "        }",
+              "",
+              "        const item = arr[0];",
+              "        pm.expect(item).to.be.an(\"object\");",
+              "",
+              "        const expectedStringKeys = [",
+              "            \"sClient\",",
+              "            \"scliename\",",
+              "            \"sOffice\",",
+              "            \"sSexClien\",",
+              "            \"sSexDescript\",",
+              "            \"sType\",",
+              "            \"sTypeProv\",",
+              "            \"sEspecialidad\",",
+              "            \"sSche_code\",",
+              "            \"sIndBlockedPass\",",
+              "            \"sExpirdateBlockedPass\",",
+              "            \"sMessage\",",
+              "            \"sExit\"",
+              "        ];",
+              "",
+              "        expectedStringKeys.forEach(k => {",
+              "            pm.expect(item).to.have.property(k);",
+              "            pm.expect(item[k]).to.be.a(\"string\");",
+              "        });",
+              "",
+              "        const expectedNumberKeys = [",
+              "            \"nUsercode\",",
+              "            \"nOffice\",",
+              "            \"nProvider\",",
+              "            \"nClinic\",",
+              "            \"nLed_compan\",",
+              "            \"nIntermed\",",
+              "            \"nTypeProv\"",
+              "        ];",
+              "",
+              "        expectedNumberKeys.forEach(k => {",
+              "            pm.expect(item).to.have.property(k);",
+              "            pm.expect(item[k]).to.be.a(\"number\");",
+              "        });",
+              "",
+              "        const expectedDateStringKeys = [",
+              "            \"dBirthdat\",",
+              "            \"dInpDate\",",
+              "            \"dExpirdateBlockedPass\"",
+              "        ];",
+              "",
+              "        expectedDateStringKeys.forEach(k => {",
+              "            pm.expect(item).to.have.property(k);",
+              "            pm.expect(item[k]).to.be.a(\"string\");",
+              "        });",
+              "    });",
+              "} else {",
+              "    pm.test(\"When success=false, data may be null or object\", function () {",
+              "        pm.expect(jsonData.data === null || typeof jsonData.data === 'object').to.be.true;",
+              "    });",
+              "}",
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user\": \"{{UserKey}}\",\n  \"password\": \"{{UserPass}}\",\n  \"module\": \"string\",\n  \"method\": \"string\",\n  \"nApplication\": 0\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{UrlServiceLog}}/LoginUserProv",
+          "host": [
+            "{{UrlServiceLog}}"
+          ],
+          "path": [
+            "LoginUserProv"
+          ]
+        },
+        "description": "### Body (JSON)\n\n| Campo | Tipo | Requerido | Descripción | Ejemplo |\n| --- | --- | --- | --- | --- |\n| `user` | string | Sí | Usuario/identificador para autenticación. | provTestServ |\n| `password` | string | Sí | Contraseña del usuario. | `{{UserPass}}` |\n| `module` | string | No | Módulo/canal/cliente que consume el servicio (si aplica). | `\"string\"` |\n| `method` | string | No | Método/acción asociada al login (si aplica). | `\"string\"` |\n| `nApplication` | integer | No | Identificador numérico de aplicación. | `0` |\n\n### Response (200)\n\n#### Estructura\n\n| Campo | Tipo | Descripción |\n| --- | --- | --- |\n| `success` | boolean | `true` si el login fue exitoso; `false` si falló. |\n| `data` | object | null |\n| `messageError` | string | null |\n\n#### `data` (cuando `success=true`)\n\n| Campo | Tipo | Descripción |\n| --- | --- | --- |\n| `accessToken` | string | JWT de acceso. Usar como `Authorization: Bearer` . |\n| `refreshToken` | string | Token para refrescar el access token. |\n| `expiresAt` | string (datetime ISO-8601) | Fecha/hora de expiración del token. |\n| `webClientVtime` | array | Lista con datos del usuario/proveedor (usualmente 1 elemento). |\n\n#### `webClientVtime[]` item (campos observados)\n\n| Campo | Tipo | Descripción |\n| --- | --- | --- |\n| `sClient` | string | Código de cliente. |\n| `scliename` | string | Nombre del cliente/proveedor. |\n| `nUsercode` | number | Código de usuario. que se envien en los Microservicios que se requiera. |\n| `nOffice` | number | Código de oficina. |\n| `sOffice` | string | Descripción de oficina. |\n| `sSexClien` | string | Código de sexo. |\n| `sSexDescript` | string | Descripción de sexo. |\n| `sType` | string | Tipo (código). |\n| `dBirthdat` | string (datetime) | Fecha/hora de nacimiento (si aplica). |\n| `nProvider` | number | Id de proveedor. |\n| `dInpDate` | string (datetime) | Fecha/hora de ingreso/alta. |\n| `nTypeProv` | number | Tipo proveedor (código). |\n| `sTypeProv` | string | Tipo proveedor (descripción). |\n| `sEspecialidad` | string | Especialidad. |\n| `nClinic` | number | Clínica (id). |\n| `nLed_compan` | number | Código de compañia. |\n| `nIntermed` | number | Código de Intermediario. |\n| `sSche_code` | string | Código/esquema. |\n| `sIndBlockedPass` | string | Indicador bloqueo password. |\n| `dExpirdateBlockedPass` | string (datetime) | Expiración bloqueo. |\n| `sExpirdateBlockedPass` | string | Expiración bloqueo (texto). |\n| `sMessage` | string | Mensaje informativo. |\n| `sExit` | string | Indicador estado/salida. |"
+      },
+      "response": [
+        {
+          "name": "LoginUserProv",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user\": \"{{UserKey}}\",\n  \"password\": \"{{UserPass}}\",\n  \"module\": \"string\",\n  \"method\": \"string\",\n  \"nApplication\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{UrlServiceLog}}/LoginUserProv",
+              "host": [
+                "{{UrlServiceLog}}"
+              ],
+              "path": [
+                "LoginUserProv"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "Text",
+          "header": [
+            {
+              "key": "Transfer-Encoding",
+              "value": "chunked"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            },
+            {
+              "key": "Server",
+              "value": "Microsoft-IIS/10.0"
+            },
+            {
+              "key": "Date",
+              "value": "Tue, 24 Mar 2026 13:47:42 GMT"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"success\": true,\n    \"data\": {\n        \"webClientVtime\": [\n            {\n                \"sClient\": \"N0000001111111\",\n                \"scliename\": \"PROVEEDORES, TESTING\",\n                \"nUsercode\": 10500,\n                \"nOffice\": 1,\n                \"sOffice\": \"Santa Cruz                    \",\n                \"sSexClien\": \"2\",\n                \"sSexDescript\": \"Masculino                     \",\n                \"sType\": \"1\",\n                \"dBirthdat\": \"0001-01-01T00:00:00\",\n                \"nProvider\": 0,\n                \"dInpDate\": \"0001-01-01T00:00:00\",\n                \"nTypeProv\": 0,\n                \"sTypeProv\": \"\",\n                \"sEspecialidad\": \"\",\n                \"nClinic\": 0,\n                \"nLed_compan\": 2,\n                \"nIntermed\": 0,\n                \"sSche_code\": \"consul\",\n                \"sIndBlockedPass\": \"2\",\n                \"dExpirdateBlockedPass\": \"0001-01-01T00:00:00\",\n                \"sExpirdateBlockedPass\": \"\",\n                \"sMessage\": \"\",\n                \"sExit\": \"1\"\n            }\n        ],\n        \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJBcGlzQ1JNIiwiaXNzIjoiU2VjdXJpdHlBcGkiLCJleHAiOjE3NzQzNjM2NjEsInN1YiI6IjEwNTAwIiwianRpIjoiNGQzNGY4ZGQtNDBjMy00MWE3LWJhZGItYWY2YmI5OTJjMmUzIiwiblVzZXJjb2RlIjoiMTA1MDAiLCJuQXBwbGljYXRpb24iOiIwIiwiaWF0IjoxNzc0MzYwMDYxLCJuYmYiOjE3NzQzNjAwNjF9.M80RNLsiXCC4VUKhaKWKiM_ThH023HkX-rb5r1cJQB4\",\n        \"refreshToken\": \"5XL9f6x2KMiifwdmwaBOCYQRjOdm7s1FUMlS+Cn5cBMtQFucbjut4cw2wBvXTnW8s/amsIc961xDXcX8ZBkmpA==\",\n        \"expiresAt\": \"2026-03-24T14:47:41.9348842Z\"\n    },\n    \"messageError\": null\n}"
+        }
+      ]
+    },
+    {
+      "name": "OdontologyCoverage",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{jwtoken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{UrlMicroService}}/OdontologyCoverage?ci=6253454&nUsercode=8018",
+          "host": [
+            "{{UrlMicroService}}"
+          ],
+          "path": [
+            "OdontologyCoverage"
+          ],
+          "query": [
+            {
+              "key": "ci",
+              "value": "6253454",
+              "description": "Cédula de Identindad"
+            },
+            {
+              "key": "nUsercode",
+              "value": "8018",
+              "description": "Codigo de Usario de Proveedor devuelto al obtener la autorzacion "
+            }
+          ]
+        },
+        "description": "### Response (200)\n\n#### Estructura\n\n| Campo | Tipo | Descripción |\n| --- | --- | --- |\n| `success` | boolean | `true` si el login fue exitoso; `false` si falló. |\n| `data` | object | null |\n| `messageError` | string | null |\n\n#### `data` (cuando `success=true`) el CLiente tiene Cobertura\n\n| Campo | Tipo | Descripción |\n| --- | --- | --- |\n| ci | string | Cédula de identidad del Clenete con conbertura |\n| clientCode | string | Código de Cilente |\n| clientName | string | Nombre completo del Cliente, Apellidos y Nombre |\n| `age` | int | Edad del clente |\n\n#### `data` (cuando `success=false`) el CLiente no tiene Cobertura y/o tiene alguna validación dentro de su póliza\n\nStartFragment\n\n``` javascript\n\"success\": false,\n\"data\": null,\n\"messageError\": \"cliente no encontrado o sin cobertura odontologica\"\n\n ```"
+      },
+      "response": [
+        {
+          "name": "OdontologyCoverage",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{UrlMicroService}}/OdontologyCoverage?ci=6253454&nUsercode=8018",
+              "host": [
+                "{{UrlMicroService}}"
+              ],
+              "path": [
+                "OdontologyCoverage"
+              ],
+              "query": [
+                {
+                  "key": "ci",
+                  "value": "6253454",
+                  "description": "Cédula de Identindad"
+                },
+                {
+                  "key": "nUsercode",
+                  "value": "8018",
+                  "description": "Codigo de Usario de Proveedor devuelto al obtener la autorzacion "
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "Text",
+          "header": [
+            {
+              "key": "Transfer-Encoding",
+              "value": "chunked"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            },
+            {
+              "key": "Server",
+              "value": "Microsoft-IIS/10.0"
+            },
+            {
+              "key": "Date",
+              "value": "Tue, 28 Apr 2026 21:03:14 GMT"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"success\": true,\n    \"data\": {\n        \"ci\": \"6253454\",\n        \"clientCode\": \"N0000000566818\",\n        \"clientName\": \"TOHEI CARDENAS, TOMOYUKI\",\n        \"age\": 40\n    },\n    \"messageError\": \"\"\n}"
+        },
+        {
+          "name": "OdontologyCoverage-Sin Conbertura",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{UrlMicroService}}/OdontologyCoverage?ci=5364469&nUsercode=8018",
+              "host": [
+                "{{UrlMicroService}}"
+              ],
+              "path": [
+                "OdontologyCoverage"
+              ],
+              "query": [
+                {
+                  "key": "ci",
+                  "value": "5364469",
+                  "description": "Cédula de Identindad"
+                },
+                {
+                  "key": "nUsercode",
+                  "value": "8018",
+                  "description": "Codigo de Usario de Proveedor devuelto al obtener la autorzacion "
+                }
+              ]
+            }
+          },
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "Text",
+          "header": [
+            {
+              "key": "Transfer-Encoding",
+              "value": "chunked"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            },
+            {
+              "key": "Server",
+              "value": "Microsoft-IIS/10.0"
+            },
+            {
+              "key": "Date",
+              "value": "Thu, 30 Apr 2026 19:37:44 GMT"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"success\": false,\n    \"data\": null,\n    \"messageError\": \"cliente no encontrado o sin cobertura odontologica\"\n}"
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "UrlServiceLog",
+      "value": ""
+    },
+    {
+      "key": "UrlMicroService",
+      "value": ""
+    },
+    {
+      "key": "UserKey",
+      "value": ""
+    },
+    {
+      "key": "UserPass",
+      "value": ""
+    },
+    {
+      "key": "UserCode",
+      "value": ""
+    },
+    {
+      "key": "jwtoken",
+      "value": ""
+    }
+  ]
+}

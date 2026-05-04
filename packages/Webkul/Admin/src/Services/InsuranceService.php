@@ -2,234 +2,169 @@
 
 namespace Webkul\Admin\Services;
 
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Webkul\Contact\Repositories\PersonRepository;
+use Webkul\Activity\Repositories\ActivityRepository;
+use Webkul\Admin\Services\Insurance\Contracts\InsuranceDriverInterface;
+use Webkul\Admin\Services\Insurance\Drivers\AlianzaDriver;
+use Webkul\Admin\Services\Insurance\Drivers\NacionalVidaDriver;
+use Webkul\Admin\Services\Insurance\Drivers\OdontokingMembershipDriver;
 use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\Attribute\Repositories\AttributeValueRepository;
-
-use Webkul\Activity\Repositories\ActivityRepository;
+use Webkul\Contact\Repositories\PersonRepository;
 
 class InsuranceService
 {
-    /**
-     * Webhook URL for insurance verification.
-     */
-    protected string $webhookUrl = 'https://n8n.sofopolis.com/webhook/seguros-verify';
-
-    /**
-     * Cache TTL in seconds (1 hour).
-     */
     protected int $cacheTtl = 3600;
 
-    /**
-     * Timeout for external request in seconds.
-     */
-    protected int $timeout = 8;
-
-    /**
-     * Create a new service instance.
-     */
     public function __construct(
-        protected PersonRepository $personRepository,
-        protected AttributeRepository $attributeRepository,
+        protected PersonRepository         $personRepository,
+        protected AttributeRepository      $attributeRepository,
         protected AttributeValueRepository $attributeValueRepository,
-        protected ActivityRepository $activityRepository
+        protected ActivityRepository       $activityRepository,
     ) {}
 
     /**
-     * Verify insurance for a specific person.
-     *
-     * @param  int  $personId
-     * @return array
+     * Verifica el seguro del paciente delegando al driver correspondiente.
      */
     public function verify(int $personId): array
     {
         $person = $this->personRepository->find($personId);
 
         if (! $person) {
-            return [
-                'status'  => 'INDETERMINADO',
-                'message' => 'Paciente no encontrado.',
-                'success' => false,
-            ];
+            return $this->indeterminate('Paciente no encontrado.');
         }
 
-        $ci = $person->getCustomAttributeValue($this->attributeRepository->findOneByField('code', 'ci_paciente'));
-        $seguroId = $person->getCustomAttributeValue($this->attributeRepository->findOneByField('code', 'seguro_paciente'));
+        $ciAttribute     = $this->attributeRepository->findOneByField('code', 'ci_paciente');
+        $seguroAttribute = $this->attributeRepository->findOneByField('code', 'seguro_paciente');
 
-        // Generamos una clave de caché única basada en los datos actuales del paciente
-        $cacheKey = "insurance_verify_{$personId}_" . md5($ci . '|' . $seguroId);
+        $ci        = $person->getCustomAttributeValue($ciAttribute);
+        $seguroId  = $person->getCustomAttributeValue($seguroAttribute);
+        $seguroName = $seguroId && $seguroAttribute
+            ? trim($this->attributeValueRepository->getAttributeLabel($seguroId, $seguroAttribute) ?? '')
+            : '';
 
-        return Cache::remember($cacheKey, $this->cacheTtl, function () use ($personId) {
-            return $this->performVerification($personId);
-        });
-    }
-
-    /**
-     * Perform the actual verification call to n8n.
-     *
-     * @param  int  $personId
-     * @return array
-     */
-    protected function performVerification(int $personId): array
-    {
-        $person = $this->personRepository->find($personId);
-
-        if (! $person) {
-            return [
-                'status'  => 'INDETERMINADO',
-                'message' => 'No pudimos encontrar al paciente en el sistema.',
-                'success' => false,
-            ];
-        }
-
-        $ci = $person->getCustomAttributeValue($this->attributeRepository->findOneByField('code', 'ci_paciente'));
-        $seguroId = $person->getCustomAttributeValue($this->attributeRepository->findOneByField('code', 'seguro_paciente'));
-
-        if (empty($ci) || empty($seguroId)) {
-            return [
-                'status'  => 'INDETERMINADO',
-                'message' => 'Por favor, completa el CI y la Empresa de Seguro en el perfil para poder verificar.',
-                'success' => false,
-            ];
-        }
-
-        // Obtener el nombre del seguro (label del select)
-        $attributeSeguro = $this->attributeRepository->findOneByField('code', 'seguro_paciente');
-        $seguroName = $this->attributeValueRepository->getAttributeLabel($seguroId, $attributeSeguro);
-
-        // Caso especial: El paciente no tiene seguro
-        if (trim(strtolower($seguroName)) === 'no tiene') {
+        // Sin seguro registrado
+        if (empty($seguroName) || strtolower($seguroName) === 'no tiene') {
             return [
                 'status'  => 'SIN_SEGURO',
                 'message' => 'El paciente no cuenta con un seguro registrado en su perfil.',
                 'badge'   => 'warning',
                 'success' => true,
+                'data'    => null,
             ];
         }
 
-        try {
-            $response = Http::timeout($this->timeout)
-                ->post($this->webhookUrl, [
-                    'empresa_seguro'   => $seguroName,
-                    'carnet_identidad' => (int) $ci,
-                ]);
+        $driver = $this->resolveDriver($seguroName);
 
-            if ($response->failed()) {
-                return [
-                    'status'  => 'INDETERMINADO',
-                    'message' => 'No hay conexión con la aseguradora en este momento. Inténtalo más tarde.',
-                    'success' => false,
-                ];
-            }
-
-            $data = $response->json();
-
-            if (! is_array($data)) {
-                return [
-                    'status'  => 'INDETERMINADO',
-                    'message' => 'La aseguradora respondió con un formato que no conocemos. Por favor, contacta a soporte.',
-                    'success' => false,
-                ];
-            }
-
-            return $this->mapResponseToState($data);
-
-        } catch (\Exception $e) {
-            Log::error('Insurance Verification Error: ' . $e->getMessage());
-
-            return [
-                'status'  => 'INDETERMINADO',
-                'message' => 'La consulta tardó demasiado. Por favor, revisa tu conexión e inténtalo de nuevo.',
-                'success' => false,
-            ];
+        if (! $driver) {
+            return $this->indeterminate("Seguro '{$seguroName}' no tiene integración configurada.");
         }
+
+        // Todos los drivers externos requieren CI
+        if (empty($ci)) {
+            return $this->indeterminate(
+                'Por favor, completa el CI del paciente en su perfil para verificar el seguro.'
+            );
+        }
+
+        $result = $driver->verify($person, (string) ($ci ?? ''));
+        Log::info('[InsuranceService] Verificación realizada', [
+            'person_id' => $person->id,
+            'status'    => $result['status'],
+        ]);
+        return $result;
     }
 
     /**
-     * Map the n8n response to one of the 4 defined states.
-     *
-     * @param  array  $data
-     * @return array
+     * Resuelve el driver correcto según el nombre del seguro.
+     * El matching es case-insensitive y por contenido parcial.
      */
-    protected function mapResponseToState(array $data): array
+    protected function resolveDriver(string $seguroName): ?InsuranceDriverInterface
     {
-        $success = $data['success'] ?? false;
-        $results = $data['data'] ?? [];
+        $name = strtolower($seguroName);
 
-        // Caso: success false, data vacía, o data es el string "no registrado"
-        if (! $success || empty($results) || (is_string($results) && trim(strtolower($results)) === 'no registrado')) {
-            return [
-                'status'  => 'NO_REGISTRADO',
-                'message' => 'El paciente no figura en la base de datos de esta aseguradora.',
-                'badge'   => 'warning',
-                'data'    => null,
-            ];
-        }
-
-        // Tomamos el primer resultado encontrado
-        $insuranceData = is_array($results) ? $results[0] : null;
-        
-        if (! $insuranceData) {
-            return [
-                'status'  => 'NO_REGISTRADO',
-                'message' => 'El paciente no figura en la base de datos de esta aseguradora.',
-                'badge'   => 'warning',
-                'data'    => null,
-            ];
-        }
-
-        $estado = strtoupper($insuranceData['ESTADO'] ?? '');
-
-        if ($estado === 'VIGENTE') {
-            return [
-                'status'  => 'VIGENTE',
-                'message' => '¡Todo en orden! El seguro está activo y el paciente puede ser atendido.',
-                'badge'   => 'success',
-                'data'    => $insuranceData,
-            ];
-        }
-
-        return [
-            'status'  => 'EN_MORA',
-            'message' => 'Atención: El seguro está suspendido. El paciente podría tener pagos pendientes.',
-            'badge'   => 'danger',
-            'data'    => $insuranceData,
-        ];
+        return match (true) {
+            str_contains($name, 'alianza')    => app(AlianzaDriver::class),
+            str_contains($name, 'nacional')   => app(NacionalVidaDriver::class),
+            str_contains($name, 'membresía')  => app(OdontokingMembershipDriver::class),
+            str_contains($name, 'membresia')  => app(OdontokingMembershipDriver::class),
+            str_contains($name, 'odontoking') => app(OdontokingMembershipDriver::class),
+            str_contains($name, 'membresia odontoking') => app(OdontokingMembershipDriver::class),
+            default                           => null,
+        };
     }
 
     /**
-     * Crea una nota de actividad con los detalles del seguro.
+     * Fuerza una nueva verificación eliminando la caché del paciente.
+     */
+    public function forceVerify(int $personId): array
+    {
+        $person = $this->personRepository->find($personId);
+
+        if ($person) {
+            $ciAttribute     = $this->attributeRepository->findOneByField('code', 'ci_paciente');
+            $seguroAttribute = $this->attributeRepository->findOneByField('code', 'seguro_paciente');
+            $ci              = $person->getCustomAttributeValue($ciAttribute);
+            $seguroId        = $person->getCustomAttributeValue($seguroAttribute);
+            $cacheKey        = "insurance_verify_{$personId}_" . md5($seguroId . '|' . $ci);
+            Cache::forget($cacheKey);
+        }
+
+        return $this->verify($personId);
+    }
+
+    /**
+     * Crea una nota de actividad con el resultado de la verificación.
      */
     public function createNoteActivity(int $personId, array $result): void
     {
-        if (!isset($result['data']) || empty($result['data'])) return;
+        if (empty($result['data'])) {
+            return;
+        }
 
-        $data = $result['data'];
+        $data    = $result['data'];
         $comment = "Verificación de Seguro: {$result['status']}\n";
-        $comment .= "- **Aseguradora:** " . ($data['CONTRATANTE'] ?? 'N/A') . "\n";
-        $comment .= "- **Estado:** " . ($data['ESTADO'] ?? 'N/A') . "\n";
-        $comment .= "- **Coaseguro:** " . ($data['COASEGURO ODONTOLOGICO'] ?? 'N/A') . "\n";
-        $comment .= "- **Clínica:** " . ($data['CLINICA ODONTOLOGICA'] ?? 'N/A') . "\n";
-        $comment .= "- **Cobertura:** " . ($data['COBERTURA ADICIONAL ODONTOLOGICA'] ?? 'N/A') . "\n";
-        
+        $comment .= '- **Aseguradora:** ' . ($data['CONTRATANTE'] ?? 'N/A') . "\n";
+        $comment .= '- **Estado:** '      . ($data['ESTADO']      ?? 'N/A') . "\n";
+
+        if (isset($data['COASEGURO ODONTOLOGICO'])) {
+            $comment .= '- **Coaseguro:** '  . $data['COASEGURO ODONTOLOGICO']           . "\n";
+            $comment .= '- **Clínica:** '    . ($data['CLINICA ODONTOLOGICA']             ?? 'N/A') . "\n";
+            $comment .= '- **Cobertura:** '  . ($data['COBERTURA ADICIONAL ODONTOLOGICA'] ?? 'N/A') . "\n";
+        }
+
+        if (isset($data['EDAD'])) {
+            $comment .= '- **Edad:** ' . $data['EDAD'] . "\n";
+        }
+
+        if (isset($data['CODIGO'])) {
+            $comment .= '- **Código cliente:** ' . $data['CODIGO'] . "\n";
+        }
+
         $activity = $this->activityRepository->create([
-            'type'          => 'note',
-            'title'         => 'Verificación de Seguro: ' . $result['status'],
-            'comment'       => $comment,
-            'is_done'       => 1,
-            'user_id'       => auth()->guard('user')->id() ?? 1,
-            'participants'  => [
-                'persons' => [$personId],
-            ],
+            'type'         => 'note',
+            'title'        => 'Verificación de Seguro: ' . $result['status'],
+            'comment'      => $comment,
+            'is_done'      => 1,
+            'user_id'      => auth()->guard('user')->id() ?? 1,
+            'participants' => ['persons' => [$personId]],
         ]);
 
-        // Vincular con los leads del paciente si existen
         $person = $this->personRepository->find($personId);
         if ($person && $person->leads->count() > 0) {
             $activity->leads()->attach($person->leads->pluck('id')->toArray());
         }
+    }
+
+    protected function indeterminate(string $message): array
+    {
+        return [
+            'status'  => 'INDETERMINADO',
+            'message' => $message,
+            'badge'   => null,
+            'success' => false,
+            'data'    => null,
+        ];
     }
 }

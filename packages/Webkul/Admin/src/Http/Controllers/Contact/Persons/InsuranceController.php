@@ -59,37 +59,6 @@ class InsuranceController extends Controller
 
         $result = $this->insuranceService->verify($id);
 
-        // Actualizar el estado del seguro en el atributo personalizado si se obtuvo respuesta
-        if (isset($result['status'])) {
-            $estadoAttr = app(\Webkul\Attribute\Repositories\AttributeRepository::class)->findOneByField('code', 'estado_seguro_paciente');
-
-            if ($estadoAttr) {
-                // Mapear status a los nombres de las opciones de la base de datos
-                $statusMap = [
-                    'VIGENTE' => 'Vigente',
-                    'EN_MORA' => 'Pagos pendientes',
-                ];
-
-                $targetName = $statusMap[$result['status']] ?? null;
-
-                if ($targetName) {
-                    $option = DB::table('attribute_options')
-                        ->where('attribute_id', $estadoAttr->id)
-                        ->where('name', $targetName)
-                        ->first();
-                    
-                    if ($option) {
-                        app(\Webkul\Attribute\Repositories\AttributeValueRepository::class)->save([
-                            'entity_id'   => $id,
-                            'entity_type' => 'persons',
-                            'estado_seguro_paciente' => $option->id,
-                        ]);
-                    }
-                }
-            }
-        }
-
-        // Si se obtuvo un resultado (Vigente o Mora), creamos la nota automática
         if (in_array($result['status'], ['VIGENTE', 'EN_MORA'])) {
             $this->insuranceService->createNoteActivity($id, $result);
         }
@@ -143,7 +112,7 @@ class InsuranceController extends Controller
         $ci = $person->getCustomAttributeValue(app(\Webkul\Attribute\Repositories\AttributeRepository::class)->findOneByField('code', 'ci_paciente'));
         $seguroId = $person->getCustomAttributeValue(app(\Webkul\Attribute\Repositories\AttributeRepository::class)->findOneByField('code', 'seguro_paciente'));
 
-        $cacheKey = "insurance_verify_{$id}_" . md5($ci . '|' . $seguroId);
+        $cacheKey = "insurance_verify_{$id}_" . md5($seguroId . '|' . $ci);
         
         \Illuminate\Support\Facades\Cache::forget($cacheKey);
 
