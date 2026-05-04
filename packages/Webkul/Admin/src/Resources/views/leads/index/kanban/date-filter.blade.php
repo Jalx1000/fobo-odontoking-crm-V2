@@ -8,7 +8,7 @@
         type="text/x-template"
         id="v-date-period-filter-template"
     >
-        <div class="flex flex-wrap items-center gap-1.5">
+        <div class="flex flex-wrap items-center gap-1">
             <!-- Período rápido -->
             <button
                 v-for="option in periods"
@@ -17,7 +17,7 @@
                 class="rounded px-2.5 py-1.5 text-xs font-medium transition-all"
                 :class="activePeriod === option.value
                     ? 'bg-violet-700 text-white'
-                    : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600'"
+                    : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-800 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600'"
                 @click="selectPeriod(option.value)"
             >
                 @{{ option.label }}
@@ -41,13 +41,13 @@
                 <input
                     type="date"
                     v-model="dateFrom"
-                    class="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                    class="rounded border w-full border-gray-200 bg-white py-1 text-xs text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
                 />
                 <span class="text-xs text-gray-400">—</span>
                 <input
                     type="date"
                     v-model="dateTo"
-                    class="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                    class="rounded border w-full border-gray-200 bg-white py-1 text-xs text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
                 />
                 <button
                     type="button"

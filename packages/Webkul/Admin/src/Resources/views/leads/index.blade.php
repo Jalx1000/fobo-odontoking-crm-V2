@@ -24,23 +24,26 @@
 
         <div class="flex items-center gap-x-2.5">
             <!-- Quick Date Filters -->
+            @php
+                $clearDateUrl = request()->fullUrlWithQuery(['date_filter' => null, 'date_from' => null, 'date_to' => null]);
+            @endphp
             <div class="flex gap-2">
-                <a 
-                    href="{{ request()->fullUrlWithQuery(['date_filter' => 'today', 'date_from' => null, 'date_to' => null]) }}" 
+                <a
+                    href="{{ request('date_filter') == 'today' ? $clearDateUrl : request()->fullUrlWithQuery(['date_filter' => 'today', 'date_from' => null, 'date_to' => null]) }}"
                     class="secondary-button {{ request('date_filter') == 'today' ? 'active' : '' }}"
                     style="{{ request('date_filter') == 'today' ? 'background: #eee;' : '' }}"
                 >
                     @lang('admin::app.components.datagrid.filters.date-options.today')
                 </a>
-                <a 
-                    href="{{ request()->fullUrlWithQuery(['date_filter' => 'week', 'date_from' => null, 'date_to' => null]) }}" 
+                <a
+                    href="{{ request('date_filter') == 'week' ? $clearDateUrl : request()->fullUrlWithQuery(['date_filter' => 'week', 'date_from' => null, 'date_to' => null]) }}"
                     class="secondary-button {{ request('date_filter') == 'week' ? 'active' : '' }}"
                     style="{{ request('date_filter') == 'week' ? 'background: #eee;' : '' }}"
                 >
                     @lang('admin::app.components.datagrid.filters.date-options.this-week')
                 </a>
-                <a 
-                    href="{{ request()->fullUrlWithQuery(['date_filter' => 'month', 'date_from' => null, 'date_to' => null]) }}" 
+                <a
+                    href="{{ request('date_filter') == 'month' ? $clearDateUrl : request()->fullUrlWithQuery(['date_filter' => 'month', 'date_from' => null, 'date_to' => null]) }}"
                     class="secondary-button {{ request('date_filter') == 'month' ? 'active' : '' }}"
                     style="{{ request('date_filter') == 'month' ? 'background: #eee;' : '' }}"
                 >
