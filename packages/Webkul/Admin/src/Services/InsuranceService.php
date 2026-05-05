@@ -69,9 +69,11 @@ class InsuranceService
         }
 
         $result = $driver->verify($person, (string) ($ci ?? ''));
+        $result['seguro_name'] = $seguroName;
         Log::info('[InsuranceService] Verificación realizada', [
-            'person_id' => $person->id,
-            'status'    => $result['status'],
+            'person_id'   => $person->id,
+            'status'      => $result['status'],
+            'seguro_name' => $seguroName,
         ]);
         return $result;
     }
@@ -116,6 +118,8 @@ class InsuranceService
 
     /**
      * Crea una nota de actividad con el resultado de la verificación.
+     * La nota se vincula a la tabla person_activities (visible en perfil del paciente)
+     * y a lead_activities (visible en cada cita/lead relacionado).
      */
     public function createNoteActivity(int $personId, array $result): void
     {
@@ -123,10 +127,24 @@ class InsuranceService
             return;
         }
 
-        $data    = $result['data'];
-        $comment = "Verificación de Seguro: {$result['status']}\n";
-        $comment .= '- **Aseguradora:** ' . ($data['CONTRATANTE'] ?? 'N/A') . "\n";
-        $comment .= '- **Estado:** '      . ($data['ESTADO']      ?? 'N/A') . "\n";
+        $data        = $result['data'];
+        $seguroName  = $result['seguro_name'] ?? ($data['CONTRATANTE'] ?? 'N/A');
+        $status      = $result['status'];
+
+        $comment  = "**Seguro:** {$seguroName}\n";
+        $comment .= "**Estado:** {$status}\n";
+
+        if (! empty($data['NOMBRE'])) {
+            $comment .= '- **Paciente:** '   . $data['NOMBRE'] . "\n";
+        }
+
+        if (! empty($data['ESTADO'])) {
+            $comment .= '- **Detalle:** '    . $data['ESTADO'] . "\n";
+        }
+
+        if (isset($data['VIGENCIA HASTA'])) {
+            $comment .= '- **Vigencia hasta:** ' . $data['VIGENCIA HASTA'] . "\n";
+        }
 
         if (isset($data['COASEGURO ODONTOLOGICO'])) {
             $comment .= '- **Coaseguro:** '  . $data['COASEGURO ODONTOLOGICO']           . "\n";
@@ -134,23 +152,30 @@ class InsuranceService
             $comment .= '- **Cobertura:** '  . ($data['COBERTURA ADICIONAL ODONTOLOGICA'] ?? 'N/A') . "\n";
         }
 
-        if (isset($data['EDAD'])) {
-            $comment .= '- **Edad:** ' . $data['EDAD'] . "\n";
+        if (! empty($data['TELEFONO'])) {
+            $comment .= '- **Teléfono:** '   . $data['TELEFONO'] . "\n";
         }
 
-        if (isset($data['CODIGO'])) {
+        if (isset($data['EDAD'])) {
+            $comment .= '- **Edad:** '        . $data['EDAD'] . "\n";
+        }
+
+        if (! empty($data['CODIGO'])) {
             $comment .= '- **Código cliente:** ' . $data['CODIGO'] . "\n";
         }
 
         $activity = $this->activityRepository->create([
-            'type'         => 'note',
-            'title'        => 'Verificación de Seguro: ' . $result['status'],
-            'comment'      => $comment,
-            'is_done'      => 1,
-            'user_id'      => auth()->guard('user')->id() ?? 1,
-            'participants' => ['persons' => [$personId]],
+            'type'    => 'note',
+            'title'   => "Verificación de Seguro: {$seguroName} — {$status}",
+            'comment' => $comment,
+            'is_done' => 1,
+            'user_id' => auth()->guard('user')->id() ?? 1,
         ]);
 
+        // Vincular al perfil del paciente (person_activities — es la tabla que lee el módulo de personas)
+        $activity->persons()->attach($personId);
+
+        // Vincular a cada lead/cita relacionado con el paciente
         $person = $this->personRepository->find($personId);
         if ($person && $person->leads->count() > 0) {
             $activity->leads()->attach($person->leads->pluck('id')->toArray());
