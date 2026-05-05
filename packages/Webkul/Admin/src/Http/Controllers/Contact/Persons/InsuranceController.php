@@ -4,6 +4,7 @@ namespace Webkul\Admin\Http\Controllers\Contact\Persons;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Admin\Services\InsuranceService;
 use Webkul\Contact\Repositories\PersonRepository;
