@@ -15,6 +15,171 @@
         }
     ],
     "paths": {
+        "/api/insurance/verify": {
+            "post": {
+                "tags": [
+                    "Insurance"
+                ],
+                "summary": "Verificar cobertura de seguro de un paciente",
+                "description": "Realiza la verificación del seguro dental de un paciente usando el CI y el tipo de seguro proporcionados. Equivalente a la verificación interna del CRM. Si el resultado es VIGENTE o EN_MORA, crea automáticamente una nota de actividad en el perfil del paciente y sus leads relacionados.",
+                "operationId": "68cd530d2e2c78614db2da27fdbb2e9a",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "person_id",
+                                    "ci",
+                                    "insurance_type"
+                                ],
+                                "properties": {
+                                    "person_id": {
+                                        "description": "ID del paciente (person) en el CRM",
+                                        "type": "integer",
+                                        "example": 42
+                                    },
+                                    "ci": {
+                                        "description": "Cédula de identidad del paciente",
+                                        "type": "string",
+                                        "example": "12345678"
+                                    },
+                                    "insurance_type": {
+                                        "description": "Nombre del tipo de seguro. Valores soportados: 'Alianza', 'Nacional Seguro', 'Membresía Odontoking'",
+                                        "type": "string",
+                                        "enum": [
+                                            "Alianza",
+                                            "Nacional Seguro",
+                                            "Membresía Odontoking"
+                                        ],
+                                        "example": "Membresía Odontoking"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Verificación completada. El campo 'status' indica el resultado.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "description": "Resultado de la verificación",
+                                            "type": "string",
+                                            "enum": [
+                                                "VIGENTE",
+                                                "EN_MORA",
+                                                "VENCIDO",
+                                                "NO_REGISTRADO",
+                                                "SIN_SEGURO",
+                                                "INDETERMINADO"
+                                            ],
+                                            "example": "VIGENTE"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "¡Membresía activa! El paciente puede ser atendido con los beneficios Odontoking."
+                                        },
+                                        "badge": {
+                                            "type": "string",
+                                            "enum": [
+                                                "success",
+                                                "warning",
+                                                "danger",
+                                                null
+                                            ],
+                                            "example": "success",
+                                            "nullable": true
+                                        },
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "seguro_name": {
+                                            "type": "string",
+                                            "example": "Membresía Odontoking"
+                                        },
+                                        "data": {
+                                            "description": "Datos devueltos por la aseguradora. Los campos varían según el tipo de seguro.",
+                                            "type": "object",
+                                            "example": {
+                                                "CI": "12345678",
+                                                "NOMBRE": "Juan Pérez",
+                                                "CONTRATANTE": "Membresía Odontoking",
+                                                "ESTADO": "VIGENTE",
+                                                "VIGENCIA HASTA": "31/12/2025"
+                                            },
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "No autenticado. Se requiere Bearer token válido.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Paciente no encontrado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paciente no encontrado."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Error de validación en los campos enviados",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The person_id field is required."
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/specialties": {
             "post": {
                 "tags": [
@@ -212,14 +377,6 @@
                                                     "type": "string",
                                                     "example": "1"
                                                 }
-                                            },
-                                            "doctors": {
-                                                "description": "List of doctor IDs",
-                                                "type": "array",
-                                                "items": {
-                                                    "type": "string",
-                                                    "example": "1"
-                                                }
                                             }
                                         },
                                         "type": "object"
@@ -296,14 +453,6 @@
                                     },
                                     "participants[users][]": {
                                         "description": "List of user IDs",
-                                        "type": "array",
-                                        "items": {
-                                            "type": "string",
-                                            "example": "1"
-                                        }
-                                    },
-                                    "participants[doctors][]": {
-                                        "description": "List of doctor IDs",
                                         "type": "array",
                                         "items": {
                                             "type": "string",
@@ -474,14 +623,6 @@
                                             },
                                             "users": {
                                                 "description": "List of user IDs",
-                                                "type": "array",
-                                                "items": {
-                                                    "type": "string",
-                                                    "example": "1"
-                                                }
-                                            },
-                                            "doctors": {
-                                                "description": "List of doctor IDs",
                                                 "type": "array",
                                                 "items": {
                                                     "type": "string",
@@ -14992,6 +15133,12 @@
             }
         },
         "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "description": "Ingresa el token de Sanctum: Bearer {token}",
+                "bearerFormat": "JWT",
+                "scheme": "bearer"
+            },
             "sanctum_admin": {
                 "type": "apiKey",
                 "description": "Enter token in format (Bearer <token>)",
@@ -15001,6 +15148,10 @@
         }
     },
     "tags": [
+        {
+            "name": "Insurance",
+            "description": "Endpoints para verificación de seguros dentales"
+        },
         {
             "name": "Authentication",
             "description": "API Endpoints for Authentication."

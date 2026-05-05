@@ -33,6 +33,13 @@ class AdminServiceProvider extends ServiceProvider
         Route::middleware(['web', 'admin_locale'])
             ->group(__DIR__.'/../Routes/Front/web.php');
 
+        Route::middleware([
+                'auth:sanctum',
+                'throttle:api',
+                \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            ])
+            ->group(__DIR__.'/../Routes/Api/insurance.php');
+
         $this->loadMigrationsFrom(__DIR__.'/../Database/Migrations');
 
         $this->loadTranslationsFrom(__DIR__.'/../Resources/lang', 'admin');

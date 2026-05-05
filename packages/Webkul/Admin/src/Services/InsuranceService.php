@@ -182,6 +182,51 @@ class InsuranceService
         }
     }
 
+    /**
+     * Verifica el seguro usando los parámetros provistos directamente (para uso desde la API REST).
+     * Equivalente a verify() pero sin leer los atributos del perfil del paciente.
+     */
+    public function verifyDirect(int $personId, string $ci, string $seguroName): array
+    {
+        $person = $this->personRepository->find($personId);
+
+        if (! $person) {
+            return $this->indeterminate('Paciente no encontrado.');
+        }
+
+        if (empty($seguroName) || strtolower($seguroName) === 'no tiene') {
+            return [
+                'status'  => 'SIN_SEGURO',
+                'message' => 'El tipo de seguro indicado no tiene integración configurada.',
+                'badge'   => 'warning',
+                'success' => true,
+                'data'    => null,
+            ];
+        }
+
+        $driver = $this->resolveDriver($seguroName);
+
+        if (! $driver) {
+            return $this->indeterminate("Seguro '{$seguroName}' no tiene integración configurada.");
+        }
+
+        $result               = $driver->verify($person, $ci);
+        $result['seguro_name'] = $seguroName;
+
+        Log::info('[InsuranceService] Verificación directa (API)', [
+            'person_id'   => $person->id,
+            'ci'          => $ci,
+            'seguro_name' => $seguroName,
+            'status'      => $result['status'],
+        ]);
+
+        if (in_array($result['status'], ['VIGENTE', 'EN_MORA'])) {
+            $this->createNoteActivity($personId, $result);
+        }
+
+        return $result;
+    }
+
     protected function indeterminate(string $message): array
     {
         return [
