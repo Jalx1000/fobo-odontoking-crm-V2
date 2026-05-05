@@ -131,37 +131,37 @@ class InsuranceService
         $seguroName  = $result['seguro_name'] ?? ($data['CONTRATANTE'] ?? 'N/A');
         $status      = $result['status'];
 
-        $comment  = "**Seguro:** {$seguroName}\n";
-        $comment .= "**Estado:** {$status}\n";
+        $comment  = "Seguro: {$seguroName}\n |";
+        $comment .= " Estado: {$status}\n |";
 
         if (! empty($data['NOMBRE'])) {
-            $comment .= '- **Paciente:** '   . $data['NOMBRE'] . "\n";
+            $comment .= ' Paciente: '   . $data['NOMBRE'] . "\n|";
         }
 
         if (! empty($data['ESTADO'])) {
-            $comment .= '- **Detalle:** '    . $data['ESTADO'] . "\n";
+            $comment .= ' Detalle: '    . $data['ESTADO'] . "\n|";
         }
 
         if (isset($data['VIGENCIA HASTA'])) {
-            $comment .= '- **Vigencia hasta:** ' . $data['VIGENCIA HASTA'] . "\n";
+            $comment .= ' Vigencia hasta: ' . $data['VIGENCIA HASTA'] . "\n|";
         }
 
         if (isset($data['COASEGURO ODONTOLOGICO'])) {
-            $comment .= '- **Coaseguro:** '  . $data['COASEGURO ODONTOLOGICO']           . "\n";
-            $comment .= '- **Clínica:** '    . ($data['CLINICA ODONTOLOGICA']             ?? 'N/A') . "\n";
-            $comment .= '- **Cobertura:** '  . ($data['COBERTURA ADICIONAL ODONTOLOGICA'] ?? 'N/A') . "\n";
+            $comment .= ' Coaseguro: '  . $data['COASEGURO ODONTOLOGICO']           . "\n|";
+            $comment .= ' Clínica: '    . ($data['CLINICA ODONTOLOGICA']             ?? 'N/A') . "\n|";
+            $comment .= ' Cobertura: '  . ($data['COBERTURA ADICIONAL ODONTOLOGICA'] ?? 'N/A') . "\n|";
         }
 
         if (! empty($data['TELEFONO'])) {
-            $comment .= '- **Teléfono:** '   . $data['TELEFONO'] . "\n";
+            $comment .= ' Teléfono: '   . $data['TELEFONO'] . "\n|";
         }
 
         if (isset($data['EDAD'])) {
-            $comment .= '- **Edad:** '        . $data['EDAD'] . "\n";
+            $comment .= ' Edad: '        . $data['EDAD'] . "\n|";
         }
 
         if (! empty($data['CODIGO'])) {
-            $comment .= '- **Código cliente:** ' . $data['CODIGO'] . "\n";
+            $comment .= ' Código cliente: ' . $data['CODIGO'] . "\n|";
         }
 
         $activity = $this->activityRepository->create([
