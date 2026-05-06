@@ -187,7 +187,7 @@ class ActivityController extends Controller
                 ->orderBy('start_time')
                 ->get();
 
-            // Transformar bloques de disponibilidad en slots de 30 minutos
+            // Transformar bloques de disponibilidad en slots de 60 minutos
             $availability = $this->generateSlotsFromAvailability($availability);
 
             return response()->json([
@@ -561,7 +561,7 @@ class ActivityController extends Controller
      * @param  int  $durationMinutes
      * @return \Illuminate\Support\Collection
      */
-    private function generateSlotsFromAvailability($availability, $durationMinutes = 30)
+    private function generateSlotsFromAvailability($availability, $durationMinutes = 60)
     {
         $slots = collect();
 
