@@ -53,6 +53,9 @@ class ShareMeDataService
     public function syncSpecialties()
     {
         $specialties = $this->getSpecialties();
+        Log::info('[SMD-DEBUG] syncSpecialties respuesta cruda', [
+            'specialties' => $specialties
+        ]);
         $syncedCount = 0;
         $alreadyExistCount = 0;
 
