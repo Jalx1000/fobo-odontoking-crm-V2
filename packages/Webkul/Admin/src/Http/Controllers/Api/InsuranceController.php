@@ -8,7 +8,7 @@ use Webkul\Admin\Services\InsuranceService;
 
 /**
  * @OA\SecurityScheme(
- *     securityScheme="bearerAuth",
+      securityScheme="bearerAuth",
  *     type="http",
  *     scheme="bearer",
  *     bearerFormat="JWT",
