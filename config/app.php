@@ -82,7 +82,7 @@ return [
     |
      */
 
-    'timezone' => env('APP_TIMEZONE', 'Asia/Kolkata'),
+    'timezone' => env('APP_TIMEZONE', 'America/La_Paz'),
 
     /*
     |--------------------------------------------------------------------------
