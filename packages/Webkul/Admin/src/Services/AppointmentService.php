@@ -349,10 +349,16 @@ class AppointmentService
 
                 $activity->leads()->sync([$lead->id]);
 
-                // Marcar el lead como "Consulta Confirmada" (stage 7) directo en BD
-                // No se usa leadRepository->update() porque requiere entity_type para
-                // guardar attribute_values, lo cual no aplica en esta actualización puntual.
-                DB::table('leads')->where('id', $lead->id)->update(['lead_pipeline_stage_id' => 7]);
+                // Mover el lead al stage "Cita confirmadas" buscado por nombre para no depender del ID
+                $confirmedStageId = DB::table('lead_pipeline_stages')
+                    ->where('lead_pipeline_id', DB::table('leads')->where('id', $lead->id)->value('lead_pipeline_id'))
+                    ->where(function ($q) {
+                        $q->where('name', 'like', '%confirm%')
+                          ->orWhere('name', 'like', '%Confirm%');
+                    })
+                    ->value('id') ?? 7;
+
+                DB::table('leads')->where('id', $lead->id)->update(['lead_pipeline_stage_id' => $confirmedStageId]);
 
                 if ($productId) {
                     $activity->products()->sync([$productId]);
