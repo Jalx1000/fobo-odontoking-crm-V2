@@ -30,4 +30,10 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'sharemedata' => [
+        'api_key'        => env('SHAREMEDATA_API_KEY'),
+        'base_url'       => env('SHAREMEDATA_BASE_URL', 'https://gamma.sharemedata.com/api/calendar'),
+        'webhook_secret' => env('SHAREMEDATA_WEBHOOK_SECRET'),
+    ],
+
 ];

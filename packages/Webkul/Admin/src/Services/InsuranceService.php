@@ -68,13 +68,19 @@ class InsuranceService
             );
         }
 
-        $result = $driver->verify($person, (string) ($ci ?? ''));
+        $cacheKey = "insurance_verify_{$personId}_" . md5($seguroId . '|' . $ci);
+
+        $result = \Illuminate\Support\Facades\Cache::remember($cacheKey, $this->cacheTtl, function () use ($driver, $person, $ci) {
+            return $driver->verify($person, (string) $ci);
+        });
+
         $result['seguro_name'] = $seguroName;
         Log::info('[InsuranceService] Verificación realizada', [
             'person_id'   => $person->id,
             'status'      => $result['status'],
             'seguro_name' => $seguroName,
         ]);
+
         return $result;
     }
 

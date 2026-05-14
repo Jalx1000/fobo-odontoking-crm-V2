@@ -5,12 +5,12 @@ namespace Webkul\Doctor\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 use Illuminate\Support\Str;
+use Illuminate\View\View;
 use Webkul\Admin\Http\Controllers\Controller;
+use Webkul\Admin\Services\ShareMeDataService;
 use Webkul\Doctor\DataGrids\SpecialtyDataGrid;
 use Webkul\Doctor\Repositories\SpecialtyRepository;
-use Webkul\Admin\Services\ShareMeDataService;
 
 class SpecialtyController extends Controller
 {
@@ -30,6 +30,10 @@ class SpecialtyController extends Controller
 
     public function sync(): RedirectResponse
     {
+        if (! bouncer()->hasPermission('doctors.specialties.create')) {
+            abort(403);
+        }
+
         try {
             $result = $this->shareMeDataService->syncSpecialties();
 
@@ -39,7 +43,7 @@ class SpecialtyController extends Controller
                 session()->flash('info', "No se encontraron especialidades nuevas para sincronizar. ({$result['existed']} ya existían)");
             }
         } catch (\Exception $e) {
-            session()->flash('error', 'Error al sincronizar con ShareMeData: ' . $e->getMessage());
+            session()->flash('error', 'Error al sincronizar con ShareMeData: '.$e->getMessage());
         }
 
         return redirect()->route('admin.specialties.index');
@@ -52,6 +56,10 @@ class SpecialtyController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        if (! bouncer()->hasPermission('doctors.specialties.create')) {
+            abort(403);
+        }
+
         $validated = $request->validate([
             'name'        => ['required', 'string', 'min:2', 'max:150', 'unique:specialties,name'],
             'description' => ['nullable', 'string'],
@@ -75,6 +83,10 @@ class SpecialtyController extends Controller
 
     public function update(Request $request, int $id): RedirectResponse|JsonResponse
     {
+        if (! bouncer()->hasPermission('doctors.specialties.edit')) {
+            abort(403);
+        }
+
         $specialty = $this->specialtyRepository->findOrFail($id);
 
         $validated = $request->validate([
@@ -97,6 +109,10 @@ class SpecialtyController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
+        if (! bouncer()->hasPermission('doctors.specialties.delete')) {
+            abort(403);
+        }
+
         $specialty = $this->specialtyRepository->findOrFail($id);
 
         try {

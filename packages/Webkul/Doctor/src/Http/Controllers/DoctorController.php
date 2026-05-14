@@ -2,16 +2,14 @@
 
 namespace Webkul\Doctor\Http\Controllers;
 
-use Illuminate\Routing\Controller;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\View\View;
+use Illuminate\Routing\Controller;
+use Prettus\Repository\Criteria\RequestCriteria;
+use Webkul\Attribute\Repositories\AttributeValueRepository;
 use Webkul\Doctor\Repositories\DoctorRepository;
 use Webkul\Doctor\Repositories\SpecialtyRepository;
-use Webkul\Attribute\Repositories\AttributeValueRepository;
-use Prettus\Repository\Criteria\RequestCriteria;
 
 class DoctorController extends Controller
 {
@@ -69,6 +67,9 @@ class DoctorController extends Controller
      */
     public function store()
     {
+        if (! bouncer()->hasPermission('doctors.doctors.create')) {
+            abort(403);
+        }
         $validated = request()->validate([
             'number'             => ['nullable', 'string', 'max:50'],
             'name'               => ['required', 'string', 'min:2', 'max:150', 'unique:doctors,name'],
@@ -115,6 +116,9 @@ class DoctorController extends Controller
      */
     public function update($id)
     {
+        if (! bouncer()->hasPermission('doctors.doctors.edit')) {
+            abort(403);
+        }
         $validated = request()->validate([
             'number'             => ['nullable', 'string', 'max:50'],
             'name'               => ['required', 'string', 'min:2', 'max:150', 'unique:doctors,name,'.$id],
@@ -147,6 +151,10 @@ class DoctorController extends Controller
      */
     public function destroy($id)
     {
+        if (! bouncer()->hasPermission('doctors.doctors.delete')) {
+            abort(403);
+        }
+
         $this->doctorRepository->delete($id);
 
         return response()->json([
@@ -163,7 +171,7 @@ class DoctorController extends Controller
     {
         if ($query = request()->get('query')) {
             request()->request->add([
-                'search'       => 'name:' . $query,
+                'search'       => 'name:'.$query,
                 'searchFields' => 'name:like',
             ]);
         }

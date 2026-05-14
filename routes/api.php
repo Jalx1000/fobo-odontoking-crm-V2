@@ -121,4 +121,4 @@ Route::middleware('auth:sanctum')->group(function () {
 /**
  * Webhook para ShareMeData
  */
-Route::post('/webhooks/sharemedata', [\Webkul\Admin\Http\Controllers\ShareMeDataWebhookController::class, 'receive']);
+Route::post('/webhooks/sharemedata', [\Webkul\Admin\Http\Controllers\ShareMeDataWebhookController::class, 'receive'])->name('admin.webhook.sharemedata');

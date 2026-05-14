@@ -134,17 +134,16 @@ class ActivityRepository extends Repository
      */
     public function getActivities($dateRange)
     {
-        $tablePrefix = \Illuminate\Support\Facades\DB::getTablePrefix();
-
         return $this->select(
             'activities.id',
             'activities.created_at',
             'activities.title',
             'activities.schedule_from as start',
             'activities.schedule_to as end',
+            'activities.is_done',
             'users.name as user_name',
         )
-            ->addSelect(\Illuminate\Support\Facades\DB::raw("CASE WHEN {$tablePrefix}activities.is_done = 1 THEN 'done' ELSE '' END AS class"))
+            ->selectRaw("CASE WHEN activities.is_done = 1 THEN 'done' ELSE '' END AS class")
             ->leftJoin('activity_participants', 'activities.id', '=', 'activity_participants.activity_id')
             ->leftJoin('users', 'activities.user_id', '=', 'users.id')
             ->whereIn('type', ['call', 'meeting', 'lunch'])

@@ -6,7 +6,6 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Doctor\Repositories\DoctorRepository;
@@ -40,7 +39,7 @@ class ScheduleController extends Controller
         $cursor = $start->copy();
         while ($cursor->lte($end)) {
             $days[] = [
-                'date' => $cursor->toDateString(),
+                'date'  => $cursor->toDateString(),
                 'label' => $cursor->isoFormat('ddd, D MMM'),
             ];
             $cursor->addDay();
@@ -49,20 +48,20 @@ class ScheduleController extends Controller
         $data = [
             'range' => [
                 'start' => $start->toDateString(),
-                'end' => $end->toDateString(),
+                'end'   => $end->toDateString(),
             ],
-            'days' => $days,
+            'days'    => $days,
             'doctors' => $doctors->map(fn ($d) => [
-                'id' => $d->id,
+                'id'   => $d->id,
                 'name' => $d->name,
             ])->values(),
             'shifts' => $shifts->map(fn ($s) => [
-                'id' => $s->id,
-                'doctor_id' => $s->doctor_id,
-                'date' => $s->date->toDateString(),
+                'id'         => $s->id,
+                'doctor_id'  => $s->doctor_id,
+                'date'       => $s->date->toDateString(),
                 'start_time' => substr($s->start_time, 0, 5),
-                'end_time' => substr($s->end_time, 0, 5),
-                'notes' => $s->notes,
+                'end_time'   => substr($s->end_time, 0, 5),
+                'notes'      => $s->notes,
             ])->values(),
         ];
 
@@ -79,102 +78,102 @@ class ScheduleController extends Controller
     public function store(Request $request): RedirectResponse|JsonResponse
     {
         if ($request->has('recurrence')) {
-             if ($request->has('shifts')) {
-                 $request->validate([
-                     'shifts' => ['required', 'array'],
-                     'shifts.*.doctor_id' => ['required', 'integer', 'exists:doctors,id'],
-                     'shifts.*.start_date' => ['required', 'date'],
-                     'shifts.*.end_date' => ['required', 'date', 'after_or_equal:shifts.*.start_date'],
-                     'shifts.*.days' => ['required', 'array'],
-                     'shifts.*.start_time' => ['required', 'date_format:H:i'],
-                     'shifts.*.end_time' => ['required', 'date_format:H:i', 'after:shifts.*.start_time'],
-                 ]);
-                 
-                 $createdCount = 0;
-                 foreach ($request->input('shifts') as $shiftData) {
-                     $startDate = Carbon::parse($shiftData['start_date']);
-                     $endDate = Carbon::parse($shiftData['end_date']);
-                     $days = $shiftData['days'];
-                     
-                     $cursor = $startDate->copy();
-                     while ($cursor->lte($endDate)) {
-                         if (in_array($cursor->dayOfWeek, $days)) {
-                             $dateStr = $cursor->toDateString();
-                             
-                             $conflict = DB::table('doctor_shifts')
-                                ->where('doctor_id', $shiftData['doctor_id'])
-                                ->where('date', $dateStr)
-                                ->where('start_time', '<', $shiftData['end_time'])
-                                ->where('end_time', '>', $shiftData['start_time'])
-                                ->exists();
-                             
-                             if (!$conflict) {
-                                 $this->shiftRepository->create([
-                                     'doctor_id' => $shiftData['doctor_id'],
-                                     'date' => $dateStr,
-                                     'start_time' => $shiftData['start_time'],
-                                     'end_time' => $shiftData['end_time'],
-                                     'notes' => $shiftData['notes'] ?? null,
-                                 ]);
-                                 $createdCount++;
-                             }
-                         }
-                         $cursor->addDay();
-                     }
-                 }
-                 
-                 if ($request->ajax()) {
-                     return new JsonResponse(['message' => "$createdCount turnos creados correctamente."], 201);
-                 }
-                 return redirect()->back()->with('success', "$createdCount turnos creados.");
-             }
+            if ($request->has('shifts')) {
+                $request->validate([
+                    'shifts'               => ['required', 'array', 'min:1'],
+                    'shifts.*.doctor_id'   => ['required', 'integer', 'exists:doctors,id'],
+                    'shifts.*.start_date'  => ['required', 'date'],
+                    'shifts.*.end_date'    => ['required', 'date', 'after_or_equal:shifts.*.start_date'],
+                    'shifts.*.days'        => ['required', 'array', 'min:1'],
+                    'shifts.*.days.*'      => ['integer', 'between:0,6'],
+                    'shifts.*.start_time'  => ['required', 'date_format:H:i'],
+                    'shifts.*.end_time'    => ['required', 'date_format:H:i', 'after:shifts.*.start_time'],
+                ]);
 
-             // Legacy single recurrence support (if needed, or can be removed if frontend always sends shifts array)
-             $request->validate([
+                $createdCount = 0;
+                foreach ($request->input('shifts') as $shiftData) {
+                    $startDate = Carbon::parse($shiftData['start_date']);
+                    $endDate = Carbon::parse($shiftData['end_date']);
+                    $days = $shiftData['days'];
+
+                    $cursor = $startDate->copy();
+                    while ($cursor->lte($endDate)) {
+                        if (in_array($cursor->dayOfWeek, $days)) {
+                            $dateStr = $cursor->toDateString();
+
+                            if (! $this->shiftRepository->hasConflict(
+                                $shiftData['doctor_id'],
+                                $dateStr,
+                                $shiftData['start_time'],
+                                $shiftData['end_time']
+                            )) {
+                                $this->shiftRepository->create([
+                                    'doctor_id'  => $shiftData['doctor_id'],
+                                    'date'       => $dateStr,
+                                    'start_time' => $shiftData['start_time'],
+                                    'end_time'   => $shiftData['end_time'],
+                                    'notes'      => $shiftData['notes'] ?? null,
+                                ]);
+                                $createdCount++;
+                            }
+                        }
+                        $cursor->addDay();
+                    }
+                }
+
+                if ($request->wantsJson()) {
+                    return new JsonResponse(['message' => "$createdCount turnos creados correctamente."], 201);
+                }
+
+                return redirect()->back()->with('success', "$createdCount turnos creados.");
+            }
+
+            // Legacy single recurrence support (if needed, or can be removed if frontend always sends shifts array)
+            $request->validate([
                 'doctor_id'  => ['required', 'integer', 'exists:doctors,id'],
                 'start_date' => ['required', 'date'],
                 'end_date'   => ['required', 'date', 'after_or_equal:start_date'],
-                'days'       => ['required', 'array'], // 0=Sun, 1=Mon... or 1=Mon? JS usually 0=Sun. Carbon dayOfWeek 0=Sun.
+                'days'       => ['required', 'array', 'min:1'],
+                'days.*'     => ['integer', 'between:0,6'],
                 'start_time' => ['required', 'date_format:H:i'],
                 'end_time'   => ['required', 'date_format:H:i', 'after:start_time'],
-             ]);
+            ]);
 
-             $startDate = Carbon::parse($request->input('start_date'));
-             $endDate = Carbon::parse($request->input('end_date'));
-             $days = $request->input('days'); // Array of integers
-             $createdCount = 0;
+            $startDate = Carbon::parse($request->input('start_date'));
+            $endDate = Carbon::parse($request->input('end_date'));
+            $days = $request->input('days'); // Array of integers
+            $createdCount = 0;
 
-             $cursor = $startDate->copy();
-             while ($cursor->lte($endDate)) {
-                 if (in_array($cursor->dayOfWeek, $days)) {
-                     // Try create
-                     $dateStr = $cursor->toDateString();
-                     
-                     $conflict = DB::table('doctor_shifts')
-                        ->where('doctor_id', $request->input('doctor_id'))
-                        ->where('date', $dateStr)
-                        ->where('start_time', '<', $request->input('end_time'))
-                        ->where('end_time', '>', $request->input('start_time'))
-                        ->exists();
-                     
-                     if (!$conflict) {
-                         $this->shiftRepository->create([
-                             'doctor_id' => $request->input('doctor_id'),
-                             'date' => $dateStr,
-                             'start_time' => $request->input('start_time'),
-                             'end_time' => $request->input('end_time'),
-                             'notes' => $request->input('notes'),
-                         ]);
-                         $createdCount++;
-                     }
-                 }
-                 $cursor->addDay();
-             }
-             
-             if ($request->ajax()) {
-                 return new JsonResponse(['message' => "$createdCount turnos creados correctamente."], 201);
-             }
-             return redirect()->back()->with('success', "$createdCount turnos creados.");
+            $cursor = $startDate->copy();
+            while ($cursor->lte($endDate)) {
+                if (in_array($cursor->dayOfWeek, $days)) {
+                    // Try create
+                    $dateStr = $cursor->toDateString();
+
+                    if (! $this->shiftRepository->hasConflict(
+                        (int) $request->input('doctor_id'),
+                        $dateStr,
+                        $request->input('start_time'),
+                        $request->input('end_time')
+                    )) {
+                        $this->shiftRepository->create([
+                            'doctor_id'  => $request->input('doctor_id'),
+                            'date'       => $dateStr,
+                            'start_time' => $request->input('start_time'),
+                            'end_time'   => $request->input('end_time'),
+                            'notes'      => $request->input('notes'),
+                        ]);
+                        $createdCount++;
+                    }
+                }
+                $cursor->addDay();
+            }
+
+            if ($request->wantsJson()) {
+                return new JsonResponse(['message' => "$createdCount turnos creados correctamente."], 201);
+            }
+
+            return redirect()->back()->with('success', "$createdCount turnos creados.");
         }
 
         $validated = $request->validate([
@@ -185,15 +184,15 @@ class ScheduleController extends Controller
             'notes'      => ['nullable', 'string'],
         ]);
 
-        $conflict = DB::table('doctor_shifts')
-            ->where('doctor_id', $validated['doctor_id'])
-            ->where('date', $validated['date'])
-            ->where('start_time', '<', $validated['end_time'])
-            ->where('end_time', '>', $validated['start_time'])
-            ->exists();
+        $conflict = $this->shiftRepository->hasConflict(
+            (int) $validated['doctor_id'],
+            $validated['date'],
+            $validated['start_time'],
+            $validated['end_time']
+        );
 
         if ($conflict) {
-            if ($request->ajax()) {
+            if ($request->wantsJson()) {
                 return new JsonResponse(['message' => 'Conflicto de horario detectado'], 422);
             }
 
@@ -202,7 +201,7 @@ class ScheduleController extends Controller
 
         $shift = $this->shiftRepository->create($validated);
 
-        if ($request->ajax()) {
+        if ($request->wantsJson()) {
             return new JsonResponse([
                 'id'         => $shift->id,
                 'doctor_id'  => $shift->doctor_id,
@@ -236,16 +235,16 @@ class ScheduleController extends Controller
             'notes'      => ['nullable', 'string'],
         ]);
 
-        $conflict = DB::table('doctor_shifts')
-            ->where('id', '!=', $id)
-            ->where('doctor_id', $validated['doctor_id'])
-            ->where('date', $validated['date'])
-            ->where('start_time', '<', $validated['end_time'])
-            ->where('end_time', '>', $validated['start_time'])
-            ->exists();
+        $conflict = $this->shiftRepository->hasConflict(
+            (int) $validated['doctor_id'],
+            $validated['date'],
+            $validated['start_time'],
+            $validated['end_time'],
+            $id
+        );
 
         if ($conflict) {
-            if ($request->ajax()) {
+            if ($request->wantsJson()) {
                 return new JsonResponse(['message' => 'Conflicto de horario detectado'], 422);
             }
 
@@ -254,7 +253,7 @@ class ScheduleController extends Controller
 
         $shift = $this->shiftRepository->update($validated, $id);
 
-        if ($request->ajax()) {
+        if ($request->wantsJson()) {
             return new JsonResponse([
                 'id'         => $shift->id,
                 'doctor_id'  => $shift->doctor_id,

@@ -4,9 +4,9 @@ namespace Webkul\Doctor\Repositories;
 
 use Illuminate\Container\Container;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\DB;
 use Webkul\Core\Eloquent\Repository;
 use Webkul\Doctor\Contracts\Doctor as DoctorContract;
+use Webkul\Doctor\Services\SpecialtyService;
 
 class DoctorRepository extends Repository
 {
@@ -18,7 +18,7 @@ class DoctorRepository extends Repository
     ];
 
     public function __construct(
-        protected SpecialtyRepository $specialtyRepository,
+        protected SpecialtyService $specialtyService,
         Container $container
     ) {
         parent::__construct($container);
@@ -76,7 +76,7 @@ class DoctorRepository extends Repository
         if (array_key_exists('email', $data)) {
             $data['email'] = trim((string) $data['email']);
         }
-        
+
         if (! isset($data['unique_id']) && isset($data['name'])) {
             $data['unique_id'] = implode('|', array_filter([$data['number'] ?? null, $data['name'] ?? null]));
         }
@@ -88,35 +88,19 @@ class DoctorRepository extends Repository
         return $data;
     }
 
-    protected function resolveSpecialties(array $data): ?array
+    protected function resolveSpecialties(array $data): array
     {
-        $ids = [];
-
         $specialties = $data['specialties'] ?? [];
+
         if (! is_array($specialties)) {
-            if (is_string($specialties) && $specialties !== '') {
-                $specialties = explode(',', $specialties);
-            } else {
-                $specialties = [$specialties];
-            }
+            $specialties = ($specialties !== '' && $specialties !== null)
+                ? explode(',', (string) $specialties)
+                : [];
         }
 
-        foreach ($specialties as $id) {
-            if ($id) {
-                $ids[] = (int) $id;
-            }
-        }
-
-        foreach (($data['specialty_names'] ?? []) as $name) {
-            $name = trim((string) $name);
-
-            if ($name !== '') {
-                $ids[] = $this->specialtyRepository->fetchOrCreateByName($name)->id;
-            }
-        }
-
-        $ids = array_values(array_unique($ids));
-
-        return $ids;
+        return $this->specialtyService->resolveOrCreateMany(
+            $specialties,
+            $data['specialty_names'] ?? []
+        );
     }
 }

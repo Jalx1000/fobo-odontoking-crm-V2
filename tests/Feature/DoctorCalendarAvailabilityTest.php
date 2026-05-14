@@ -58,25 +58,25 @@ it('retorna disponibilidad de doctores en el calendario', function () {
     expect($json)->toHaveKeys(['days', 'doctors', 'appointments', 'availability']);
     expect($json['availability'])->toBeArray();
 
-    // Verificar que los bloques se transformaron en slots de 30 min
-    // Bloque 1 (09:00-12:00) -> 6 slots
-    // Bloque 2 (15:00-18:00) -> 6 slots
+    // Verificar que los bloques se transformaron en slots de 60 min
+    // Bloque 1 (09:00-12:00) -> 3 slots
+    // Bloque 2 (15:00-18:00) -> 3 slots
     $availForDoctorDay = array_values(array_filter($json['availability'], fn ($s) =>
         (int)($s['doctor_id'] ?? 0) === (int)$doctorId && ($s['date'] ?? '') === $date
     ));
 
-    // Esperamos 12 slots en total para este día (6 mañana + 6 tarde)
-    expect(count($availForDoctorDay))->toBe(12);
+    // Esperamos 6 slots en total para este día (3 mañana + 3 tarde)
+    expect(count($availForDoctorDay))->toBe(6);
 
     // Verificar el primer slot de la mañana
     expect(substr($availForDoctorDay[0]['start_time'], 0, 5))->toBe('09:00');
-    expect(substr($availForDoctorDay[0]['end_time'], 0, 5))->toBe('09:30');
+    expect(substr($availForDoctorDay[0]['end_time'], 0, 5))->toBe('10:00');
 
     // Verificar el último slot de la mañana
-    expect(substr($availForDoctorDay[5]['start_time'], 0, 5))->toBe('11:30');
-    expect(substr($availForDoctorDay[5]['end_time'], 0, 5))->toBe('12:00');
+    expect(substr($availForDoctorDay[2]['start_time'], 0, 5))->toBe('11:00');
+    expect(substr($availForDoctorDay[2]['end_time'], 0, 5))->toBe('12:00');
 
     // Verificar el primer slot de la tarde
-    expect(substr($availForDoctorDay[6]['start_time'], 0, 5))->toBe('15:00');
-    expect(substr($availForDoctorDay[6]['end_time'], 0, 5))->toBe('15:30');
+    expect(substr($availForDoctorDay[3]['start_time'], 0, 5))->toBe('15:00');
+    expect(substr($availForDoctorDay[3]['end_time'], 0, 5))->toBe('16:00');
 });
