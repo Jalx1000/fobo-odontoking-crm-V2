@@ -298,11 +298,12 @@ class AppointmentService
 
         $smdResult = $this->shareMeDataService->createEvent($smdPayload);
 
-        Log::debug('[SMD-DEBUG] Respuesta de createEvent', [
-            'result' => $smdResult,
-        ]);
-
         if (! ($smdResult['success'] ?? false)) {
+            Log::warning('[SMD] createEvent FALLÓ', [
+                'payload'  => $smdPayload,
+                'response' => $smdResult,
+            ]);
+
             throw new AppointmentException(
                 "Error al registrar la cita en ShareMeData. La cita no fue creada.",
                 ['smd_response' => $smdResult]

@@ -68,7 +68,7 @@ class ShareMeDataService
     public function syncSpecialties()
     {
         $specialties = $this->getSpecialties();
-        Log::info('[SMD-DEBUG] syncSpecialties respuesta cruda', [
+        Log::debug('[SMD-DEBUG] syncSpecialties respuesta cruda', [
             'specialties' => $specialties,
         ]);
         $syncedCount = 0;
@@ -104,7 +104,7 @@ class ShareMeDataService
             $toFormatted = Carbon::parse($to)->format('Y-m-d\TH:i:s-04:00');
 
             $queryParams = [
-                'where'      => "subsidiary={$subsidiary}&specialty={$specialty}",
+                'where'      => 'subsidiary='.urlencode($subsidiary).'&specialty='.urlencode($specialty),
                 'from'       => $fromFormatted,
                 'to'         => $toFormatted,
                 'groupByDay' => 'true',
@@ -162,50 +162,6 @@ class ShareMeDataService
     }
 
     /**
-     * Verificar si un rango de tiempo está disponible (cubierto por slots de 15 min)
-     */
-    public function isRangeAvailable($doctorExternalId, $specialty, $subsidiary, $start, $end)
-    {
-        $slots = $this->checkAvailability($doctorExternalId, $specialty, $subsidiary, $start, $end);
-
-        if (empty($slots)) {
-            return false;
-        }
-
-        $requestedStart = Carbon::parse($start);
-        $requestedEnd = Carbon::parse($end);
-
-        $requiredIntervals = [];
-        $current = $requestedStart->copy();
-        while ($current->lessThan($requestedEnd)) {
-            $requiredIntervals[] = [
-                'start' => $current->copy(),
-                'end'   => $current->addMinutes(15)->copy(),
-            ];
-        }
-
-        $foundCount = 0;
-        foreach ($requiredIntervals as $required) {
-            foreach ($slots as $daySlots) {
-                foreach ($daySlots as $date => $intervals) {
-                    foreach ($intervals as $interval) {
-                        $apiStart = Carbon::parse($interval['start']);
-                        $apiEnd = Carbon::parse($interval['end']);
-
-                        if ($apiStart->equalTo($required['start']) && $apiEnd->equalTo($required['end'])) {
-                            $foundCount++;
-
-                            continue 3;
-                        }
-                    }
-                }
-            }
-        }
-
-        return $foundCount === count($requiredIntervals);
-    }
-
-    /**
      * Crear evento en el sistema externo
      */
     public function createEvent($data)
@@ -213,7 +169,7 @@ class ShareMeDataService
         try {
             $this->lastResponse = null;
             $response = $this->http()
-                ->withHeaders(['Content-Type' => 'application/json', 'apiKey' => $this->apiKey])
+                ->withHeaders(['Content-Type' => 'application/json'])
                 ->timeout(30)
                 ->post("{$this->baseUrl}/schedule/createEvent", $data);
 
