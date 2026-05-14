@@ -260,7 +260,7 @@ class AppointmentService
         // Resolver producto antes de armar el título
         $product = $productId ? DB::table('products')->where('id', $productId)->first() : null;
 
-        $personPhone = '77788990';
+        $personPhone = '0';
         if (! empty($person->contact_numbers)) {
             $contactNumbers = is_array($person->contact_numbers)
                 ? $person->contact_numbers

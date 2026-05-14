@@ -175,7 +175,7 @@ POST /api/calendar/schedule/createEvent
 {
   "summary":   "CONSULTA: Juan Pérez - Limpieza",
   "physician": { "_id": "unique_id_smd", "email": "dr@clinica.com" },
-  "patient":   { "name": "Juan", "lastName": "Pérez", "phone": "77788990",
+  "patient":   { "name": "Juan", "lastName": "Pérez", "phone": "0",
                  "personID": "", "birthday": "" },
   "slot":      { "start": "2026-05-05T08:00:00-04:00",
                  "end":   "2026-05-05T09:00:00-04:00" }
