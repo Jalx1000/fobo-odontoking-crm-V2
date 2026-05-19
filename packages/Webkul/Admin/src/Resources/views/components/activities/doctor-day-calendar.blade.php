@@ -472,6 +472,49 @@
                         </div>
                     </div>
 
+                    <div v-if="appointmentForm.person.id" class="col-span-2 border rounded-lg p-3 dark:border-gray-700">
+                        <div class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Seguro medico</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="flex flex-col gap-1">
+                                <div class="text-xs text-gray-500 dark:text-gray-400">CI del paciente</div>
+                                <input
+                                    type="text"
+                                    class="rounded border px-2 py-1.5 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                    v-model="insurance.ci"
+                                    placeholder="Cedula de identidad"
+                                />
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <div class="text-xs text-gray-500 dark:text-gray-400">Tipo de seguro</div>
+                                <select
+                                    class="rounded border px-2 py-1.5 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                    v-model="insurance.seguro_id"
+                                >
+                                    <option :value="null" disabled>Seleccionar</option>
+                                    <option v-for="opt in insuranceOptions" :key="'ins-'+opt.id" :value="opt.id">@{{ opt.name }}</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 mt-2">
+                            <button
+                                type="button"
+                                class="text-xs px-3 py-1.5 rounded border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-1"
+                                @click="verifyInsurance"
+                                :disabled="insurance.verifying || !insurance.ci || !insurance.seguro_id"
+                            >
+                                <x-admin::spinner v-if="insurance.verifying" class="w-3 h-3" />
+                                <span>Verificar seguro</span>
+                            </button>
+                            <span
+                                v-if="insurance.result"
+                                class="text-xs px-2 py-1 rounded-full font-medium"
+                                :class="insuranceBadgeClass(insurance.result.badge)"
+                            >
+                                @{{ insurance.result.status }} — @{{ insurance.result.message }}
+                            </span>
+                        </div>
+                    </div>
+
                     <div class="text-sm text-red-600" v-if="modalError">@{{ modalError }}</div>
                 </div>
             </x-slot>
@@ -844,6 +887,82 @@
                 </div>
             </x-slot>
         </x-admin::modal>
+
+        <div
+            v-if="newPatient.open"
+            class="fixed inset-0 z-[9999] flex items-center justify-center"
+            style="background:rgba(0,0,0,0.5)"
+            @click.self="closeNewPatientModal"
+        >
+            <div class="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md mx-4 p-6 flex flex-col gap-4" @click.stop>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold dark:text-white">Nuevo paciente</h3>
+                    <button type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none" @click="closeNewPatientModal">×</button>
+                </div>
+
+                <div class="flex flex-col gap-3">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs text-gray-600 dark:text-gray-300">Nombre *</label>
+                        <input
+                            type="text"
+                            class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                            v-model="newPatient.name"
+                            placeholder="Nombre completo"
+                        />
+                    </div>
+
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs text-gray-600 dark:text-gray-300">Telefono</label>
+                        <input
+                            type="text"
+                            class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                            v-model="newPatient.phone"
+                            placeholder="Telefono"
+                        />
+                    </div>
+
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs text-gray-600 dark:text-gray-300">Cedula de identidad</label>
+                        <input
+                            type="text"
+                            class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                            v-model="newPatient.ci"
+                            placeholder="CI"
+                        />
+                    </div>
+
+                    <div class="border rounded-lg p-3 dark:border-gray-700">
+                        <div class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Verificar en ShareMeData</div>
+                        <button
+                            type="button"
+                            class="text-xs px-3 py-1.5 rounded border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-1"
+                            @click="searchSmd"
+                            :disabled="newPatient.smdSearching"
+                        >
+                            <x-admin::spinner v-if="newPatient.smdSearching" class="w-3 h-3" />
+                            <span>Buscar en SMD</span>
+                        </button>
+                        <div v-if="newPatient.smdResult" class="mt-2 text-xs">
+                            <span v-if="newPatient.smdResult.found" class="text-green-700 dark:text-green-400">
+                                Encontrado: @{{ newPatient.smdResult.name }}
+                                <span v-if="newPatient.smdResult.phone"> · @{{ newPatient.smdResult.phone }}</span>
+                            </span>
+                            <span v-else class="text-gray-500 dark:text-gray-400">No encontrado en SMD.</span>
+                        </div>
+                    </div>
+
+                    <div v-if="newPatient.error" class="text-sm text-red-600">@{{ newPatient.error }}</div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-2 border-t dark:border-gray-700">
+                    <button type="button" class="secondary-button" @click="closeNewPatientModal">Cancelar</button>
+                    <button type="button" class="primary-button" @click="saveNewPatient" :disabled="newPatient.saving">
+                        <span v-if="!newPatient.saving">Crear paciente</span>
+                        <span v-else class="flex items-center gap-2"><x-admin::spinner /> Creando...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </script>
 
@@ -1122,7 +1241,28 @@
                 editUrlTemplate: "{{ route('admin.activities.edit', 'replaceId') }}",
                 deleteUrlTemplate: "{{ route('admin.activities.delete', 'replaceId') }}",
                 scheduleStoreUrl: "{{ route('admin.schedules.store') }}",
+                insuranceOptionsUrl: "{{ route('admin.contacts.persons.insurance_options') }}",
+                verifyInsuranceQuickUrl: "{{ route('admin.contacts.persons.verify_insurance_quick') }}",
+                personStoreUrl: "{{ route('admin.contacts.persons.store') }}",
+                searchSmdUrl: "{{ route('admin.contacts.persons.search_smd') }}",
                 viewType: 'day',
+                insuranceOptions: [],
+                insurance: {
+                    ci: '',
+                    seguro_id: null,
+                    verifying: false,
+                    result: null,
+                },
+                newPatient: {
+                    open: false,
+                    name: '',
+                    phone: '',
+                    ci: '',
+                    saving: false,
+                    error: '',
+                    smdResult: null,
+                    smdSearching: false,
+                },
             };
         },
         computed: {
@@ -1202,6 +1342,7 @@
         },
         mounted() {
             this.fetch();
+            this.loadInsuranceOptions();
             this.updateNow();
             this.nowTimer = window.setInterval(this.updateNow, 30000);
             window.addEventListener('keydown', this.onKeyDown);
@@ -1214,6 +1355,77 @@
             window.removeEventListener('keydown', this.onKeyDown);
         },
         methods: {
+            loadInsuranceOptions() {
+                this.$axios.get(this.insuranceOptionsUrl)
+                    .then(r => { this.insuranceOptions = r.data.options || []; })
+                    .catch(() => {});
+            },
+            verifyInsurance() {
+                if (!this.insurance.ci || !this.insurance.seguro_id) return;
+                this.insurance.verifying = true;
+                this.insurance.result = null;
+                this.$axios.post(this.verifyInsuranceQuickUrl, {
+                    ci_paciente: this.insurance.ci,
+                    seguro_paciente: this.insurance.seguro_id,
+                })
+                .then(r => { this.insurance.result = r.data; })
+                .catch(e => {
+                    this.insurance.result = e.response?.data || { status: 'ERROR', message: 'Error al verificar.', badge: 'error' };
+                })
+                .finally(() => { this.insurance.verifying = false; });
+            },
+            insuranceBadgeClass(badge) {
+                if (badge === 'success') return 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300';
+                if (badge === 'warning') return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
+                return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
+            },
+            closeNewPatientModal() {
+                this.newPatient.open = false;
+            },
+            searchSmd() {
+                const term = this.newPatient.ci || this.newPatient.phone || this.newPatient.name;
+                if (!term || term.length < 3) return;
+                this.newPatient.smdSearching = true;
+                this.newPatient.smdResult = null;
+                this.$axios.get(this.searchSmdUrl, { params: { q: term } })
+                    .then(r => { this.newPatient.smdResult = r.data; })
+                    .catch(() => { this.newPatient.smdResult = { found: false }; })
+                    .finally(() => { this.newPatient.smdSearching = false; });
+            },
+            saveNewPatient() {
+                if (!this.newPatient.name.trim()) {
+                    this.newPatient.error = 'El nombre es obligatorio.';
+                    return;
+                }
+                this.newPatient.saving = true;
+                this.newPatient.error = '';
+                const payload = {
+                    entity_type: 'persons',
+                    name: this.newPatient.name.trim(),
+                };
+                if (this.newPatient.phone) {
+                    payload.contact_numbers = [{ label: 'work', value: this.newPatient.phone }];
+                }
+                if (this.newPatient.ci) {
+                    payload.ci_paciente = this.newPatient.ci;
+                }
+                this.$axios.post(this.personStoreUrl, payload)
+                    .then(r => {
+                        const person = r.data.data;
+                        this.appointmentForm.person = {
+                            id: person.id,
+                            name: person.name,
+                            phone: this.newPatient.phone || '',
+                        };
+                        this.insurance.ci = this.newPatient.ci || '';
+                        this.insurance.result = null;
+                        this.newPatient.open = false;
+                    })
+                    .catch(e => {
+                        this.newPatient.error = e.response?.data?.message || 'Error al crear el paciente.';
+                    })
+                    .finally(() => { this.newPatient.saving = false; });
+            },
             pad2(n) {
                 return String(n).padStart(2, '0');
             },
@@ -1311,9 +1523,18 @@
                 }
             },
             onSelectPatient(result) {
+                if (!result?.id && result?.name) {
+                    this.newPatient.name = result.name;
+                    this.newPatient.phone = '';
+                    this.newPatient.ci = '';
+                    this.newPatient.error = '';
+                    this.newPatient.smdResult = null;
+                    this.newPatient.open = true;
+                    return;
+                }
+
                 let phone = '';
-                if (result?.contact_numbers && Array.isArray(result.contact_numbers) && result.contact_numbers
-                    .length > 0) {
+                if (result?.contact_numbers && Array.isArray(result.contact_numbers) && result.contact_numbers.length > 0) {
                     phone = result.contact_numbers[0].value || '';
                 }
 
@@ -1322,6 +1543,14 @@
                     name: result?.name || '',
                     phone: phone,
                 };
+
+                this.insurance.ci = result?.ci_paciente || '';
+                this.insurance.seguro_id = null;
+                this.insurance.result = null;
+
+                if (result?.ci_paciente && this.insurance.seguro_id) {
+                    this.verifyInsurance();
+                }
             },
             onSelectService(result) {
                 this.appointmentForm.product_id = result?.id || null;
@@ -1574,7 +1803,8 @@
                 this.appointmentForm.duration = this.appointmentForm.duration || 60;
                 this.syncAppointmentEndTime();
                 this.appointmentForm.reason = '';
-                this.appointmentForm.lead_pipeline_stage_id = this.stages.length ? this.stages[0].id : null;
+                const confirmedStage = this.stages.find(s => /confirm/i.test(s.name));
+                this.appointmentForm.lead_pipeline_stage_id = confirmedStage?.id ?? this.stages[0]?.id ?? null;
                 this.appointmentForm.person = {
                     id: '',
                     name: ''

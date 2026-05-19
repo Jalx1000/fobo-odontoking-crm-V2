@@ -120,6 +120,26 @@ class InsuranceController extends Controller
     }
 
     /**
+     * Devuelve las opciones del atributo seguro_paciente.
+     */
+    public function insuranceOptions(): JsonResponse
+    {
+        $seguroAttr = app(\Webkul\Attribute\Repositories\AttributeRepository::class)
+            ->findOneByField('code', 'seguro_paciente');
+
+        if (! $seguroAttr) {
+            return response()->json(['options' => []]);
+        }
+
+        $options = DB::table('attribute_options')
+            ->where('attribute_id', $seguroAttr->id)
+            ->orderBy('sort_order')
+            ->get(['id', 'name']);
+
+        return response()->json(['options' => $options]);
+    }
+
+    /**
      * Limpia la caché de verificación de un paciente.
      */
     public function clearCache(int $id): JsonResponse

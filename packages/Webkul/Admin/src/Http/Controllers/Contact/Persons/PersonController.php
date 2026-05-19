@@ -65,7 +65,7 @@ class PersonController extends Controller
 
         if (request()->ajax()) {
             return response()->json([
-                'data'    => $person,
+                'data'    => new PersonResource($person),
                 'message' => trans('admin::app.contacts.persons.index.create-success'),
             ]);
         }
