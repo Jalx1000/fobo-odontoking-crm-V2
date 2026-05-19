@@ -45,6 +45,8 @@ class Person
     public function syncToSmd($person): void
     {
         try {
+            $person = $person->fresh(); // garantiza atributos post-save cargados
+
             if ($person->smd_patient_id) {
                 return;
             }
@@ -78,10 +80,8 @@ class Person
             }
 
             if ($smdId) {
-                $this->personRepository->update(
-                    ['smd_patient_id' => $smdId, 'entity_type' => 'persons'],
-                    $person->id
-                );
+                // DB directo para evitar que PersonRepository::sanitize() borre user_id (Krayin-dev C-1)
+                DB::table('persons')->where('id', $person->id)->update(['smd_patient_id' => $smdId]);
                 Log::info('[SMD] syncToSmd: paciente vinculado', ['person_id' => $person->id, 'smd_id' => $smdId]);
             }
         } catch (\Exception $e) {
@@ -99,7 +99,15 @@ class Person
     public function updateInSmd($person): void
     {
         try {
-            $phone   = $this->extractPhone($person);
+            $person = $person->fresh(); // garantiza atributos post-save cargados
+            $phone  = $this->extractPhone($person);
+
+            // C-1: guard temprano — sin teléfono no hay nada útil que hacer
+            if (! $phone) {
+                Log::debug('[SMD] updateInSmd: paciente sin teléfono, omitiendo', ['person_id' => $person->id]);
+                return;
+            }
+
             $payload = $this->buildSmdPayload($person, $phone);
 
             // Buscar en SMD por teléfono → luego por email
@@ -122,10 +130,7 @@ class Person
                     ]);
 
                     // Limpiar ID obsoleto para que findInSmd busque por teléfono/email
-                    $this->personRepository->update(
-                        ['smd_patient_id' => null, 'entity_type' => 'persons'],
-                        $person->id
-                    );
+                    DB::table('persons')->where('id', $person->id)->update(['smd_patient_id' => null]);
                     $person->smd_patient_id = null;
                     $smdId = null;
                 } else {
@@ -146,8 +151,15 @@ class Person
                 $smdId = $this->findInSmd($person, $phone);
 
                 if ($smdId) {
-                    // Encontrado tras re-búsqueda → actualizar
-                    $this->shareMeDataService->updatePatient($smdId, $payload);
+                    // Encontrado tras re-búsqueda → actualizar (M-3: capturar resultado)
+                    $reResult = $this->shareMeDataService->updatePatient($smdId, $payload);
+                    if (! $reResult['success']) {
+                        Log::warning('[SMD] updateInSmd: re-update falló tras re-búsqueda', [
+                            'person_id' => $person->id,
+                            'smd_id'    => $smdId,
+                            'message'   => $reResult['message'] ?? '',
+                        ]);
+                    }
                     $this->personRepository->update(
                         ['smd_patient_id' => $smdId, 'entity_type' => 'persons'],
                         $person->id
@@ -182,10 +194,8 @@ class Person
 
             // Guardar smd_patient_id si cambió o no lo tenía
             if ($smdId && $person->smd_patient_id !== $smdId) {
-                $this->personRepository->update(
-                    ['smd_patient_id' => $smdId, 'entity_type' => 'persons'],
-                    $person->id
-                );
+                // DB directo para evitar que PersonRepository::sanitize() borre user_id (Krayin-dev C-1)
+                DB::table('persons')->where('id', $person->id)->update(['smd_patient_id' => $smdId]);
             }
         } catch (\Exception $e) {
             Log::error('[SMD] updateInSmd excepción', ['person_id' => $person->id, 'error' => $e->getMessage()]);
@@ -234,6 +244,14 @@ class Person
         return null;
     }
 
+    /** Caché por-request de atributos (evita N+1 en buildSmdPayload/buildNotes). */
+    private function getAttribute(string $code): ?object
+    {
+        static $cache = [];
+
+        return $cache[$code] ??= $this->attributeRepository->findOneByField('code', $code);
+    }
+
     private function extractPhone($person): ?string
     {
         $contactNumbers = is_array($person->contact_numbers)
@@ -256,17 +274,18 @@ class Person
     {
         $nameParts = explode(' ', trim($person->name ?? 'Paciente'));
 
-        // CI
-        $ciAttr = $this->attributeRepository->findOneByField('code', 'ci_paciente');
+        // CI — usa caché estático (M-1)
+        $ciAttr = $this->getAttribute('ci_paciente');
         $ci     = $ciAttr ? $person->getCustomAttributeValue($ciAttr) : null;
 
         // Fecha de nacimiento aproximada desde edad (job_title = "Edad")
+        // Aproximación: primer día del año de nacimiento. Margen ±1 año. (B-3)
         $age      = is_numeric($person->job_title) ? (int) $person->job_title : null;
         $birthday = $age ? Carbon::now()->subYears($age)->startOfYear()->format('Y-m-d') : null;
 
         // Seguro → mapear nombre CRM al valor que espera SMD
         $insurance  = null;
-        $seguroAttr = $this->attributeRepository->findOneByField('code', 'seguro_paciente');
+        $seguroAttr = $this->getAttribute('seguro_paciente');
 
         if ($seguroAttr) {
             $seguroOptionId = $person->getCustomAttributeValue($seguroAttr);
@@ -305,7 +324,7 @@ class Person
         $lines = [];
 
         // Estado del seguro
-        $estadoAttr = $this->attributeRepository->findOneByField('code', 'estado_seguro_paciente');
+        $estadoAttr = $this->getAttribute('estado_seguro_paciente');
         if ($estadoAttr) {
             $estadoId = $person->getCustomAttributeValue($estadoAttr);
             if ($estadoId) {
@@ -317,7 +336,7 @@ class Person
         }
 
         // Doctor asignado
-        $doctorAttr = $this->attributeRepository->findOneByField('code', 'person_doctor');
+        $doctorAttr = $this->getAttribute('person_doctor');
         if ($doctorAttr) {
             $doctorId = $person->getCustomAttributeValue($doctorAttr);
             if ($doctorId) {

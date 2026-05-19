@@ -32,7 +32,7 @@ class Person extends Model implements PersonContract
      *
      * @var string
      */
-    protected $with = 'organization';
+    protected $with = ['organization'];
 
     /**
      * The attributes that are castable.

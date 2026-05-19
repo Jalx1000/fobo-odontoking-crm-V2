@@ -104,6 +104,55 @@ class InsuranceService
     }
 
     /**
+     * Verifica seguro con CI y nombre de seguro directamente, sin necesitar person_id.
+     * Usado en el formulario de creación donde el paciente aún no existe en BD.
+     */
+    public function verifyWithParams(string $ci, string $seguroName): array
+    {
+        if (empty($seguroName) || strtolower($seguroName) === 'no tiene' || strtolower($seguroName) === 'particular') {
+            return [
+                'status'  => 'SIN_SEGURO',
+                'message' => 'El paciente no cuenta con un seguro registrado.',
+                'badge'   => 'warning',
+                'success' => true,
+                'data'    => null,
+            ];
+        }
+
+        $driver = $this->resolveDriver($seguroName);
+
+        if (! $driver) {
+            return $this->indeterminate("Seguro '{$seguroName}' no tiene integración configurada.");
+        }
+
+        if (empty($ci)) {
+            return $this->indeterminate('Por favor, completa el CI del paciente para verificar el seguro.');
+        }
+
+        // Sin person_id usamos el CI como clave de caché
+        $cacheKey = 'insurance_verify_quick_' . md5($seguroName . '|' . $ci);
+
+        $result = Cache::remember($cacheKey, $this->cacheTtl, function () use ($driver, $ci) {
+            // Pasamos un stdClass mínimo para compatibilidad con los drivers
+            $fakePerson       = new \stdClass();
+            $fakePerson->id   = 0;
+            $fakePerson->name = '';
+
+            return $driver->verify($fakePerson, $ci);
+        });
+
+        $result['seguro_name'] = $seguroName;
+
+        Log::info('[InsuranceService] Verificación rápida (sin person_id)', [
+            'ci_suffix'   => '***' . substr($ci, -4),
+            'status'      => $result['status'],
+            'seguro_name' => $seguroName,
+        ]);
+
+        return $result;
+    }
+
+    /**
      * Fuerza una nueva verificación eliminando la caché del paciente.
      */
     public function forceVerify(int $personId): array

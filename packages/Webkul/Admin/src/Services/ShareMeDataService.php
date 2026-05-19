@@ -173,7 +173,7 @@ class ShareMeDataService
         try {
             $response = $this->http()->get("{$this->patientsBaseUrl}/patients", [
                 'where'      => 'phone=/'.urlencode($phone).'/',
-                'select'     => '_id,fullName,phone,secondEmail,name,lastName',
+                'select'     => '_id,fullName,phone,secondEmail,name,lastName,personID,birthday,extra',
                 'pageSize'   => 20,
                 'pageNumber' => 1,
             ]);
@@ -183,14 +183,36 @@ class ShareMeDataService
             }
 
             Log::warning('[SMD] searchPatient falló', [
-                'phone'  => $phone,
-                'status' => $response->status(),
-                'body'   => $response->json(),
+                'phone_suffix' => '***'.substr($phone, -4),
+                'status'       => $response->status(),
             ]);
 
             return [];
         } catch (\Exception $e) {
             Log::error('[SMD] searchPatient excepción: '.$e->getMessage());
+
+            return [];
+        }
+    }
+
+    /**
+     * Buscar paciente en SMD por CI (personID).
+     */
+    public function searchPatientByCi(string $ci): array
+    {
+        try {
+            $response = $this->http()->get("{$this->patientsBaseUrl}/patients", [
+                'where'      => 'personID=/'.urlencode($ci).'/',
+                'select'     => '_id,fullName,phone,secondEmail,name,lastName,personID,birthday,extra',
+                'pageSize'   => 5,
+                'pageNumber' => 1,
+            ]);
+
+            return $response->successful()
+                ? ($response->json('data') ?? $response->json() ?? [])
+                : [];
+        } catch (\Exception $e) {
+            Log::error('[SMD] searchPatientByCi excepción: '.$e->getMessage());
 
             return [];
         }
@@ -204,7 +226,7 @@ class ShareMeDataService
         try {
             $response = $this->http()->get("{$this->patientsBaseUrl}/patients", [
                 'where'      => 'secondEmail=/'.urlencode($email).'/',
-                'select'     => '_id,fullName,phone,secondEmail,name,lastName',
+                'select'     => '_id,fullName,phone,secondEmail,name,lastName,personID,birthday,extra',
                 'pageSize'   => 5,
                 'pageNumber' => 1,
             ]);

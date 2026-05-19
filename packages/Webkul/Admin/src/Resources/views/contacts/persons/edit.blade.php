@@ -51,8 +51,22 @@
 
                 <!-- Sección 1: Datos del Paciente -->
                 <div class="box-shadow rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-                    <h4 class="mb-4 text-base font-bold dark:text-white">Datos del Paciente</h4>
-                    
+                    <div class="mb-4 flex items-center justify-between">
+                        <h4 class="text-base font-bold dark:text-white">Datos del Paciente</h4>
+                        {{-- Chip de estado SMD --}}
+                        <div class="flex items-center gap-2">
+                            <div id="smd-status-chip" class="hidden items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all duration-200">
+                                <span id="smd-status-dot" class="h-2 w-2 rounded-full"></span>
+                                <span id="smd-status-text"></span>
+                            </div>
+                            @include('admin::contacts.persons.partials.smd-checker', [
+                                'searchUrl' => route('admin.contacts.persons.search_smd'),
+                                'mode'      => 'edit',
+                                'person'    => $person,
+                            ])
+                        </div>
+                    </div>
+
                     <x-admin::attributes
                         :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
                             ['code', 'IN', ['name', 'job_title', 'emails', 'contact_numbers']],
@@ -64,6 +78,25 @@
                         ]"
                         :entity="$person"
                     />
+                </div>
+
+                <!-- Banner resultado SMD -->
+                <div id="smd-result-banner" class="hidden rounded-lg border px-4 py-3 text-sm transition-all duration-300">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex items-start gap-3">
+                            <span id="smd-banner-icon" class="mt-0.5 shrink-0"></span>
+                            <div>
+                                <p id="smd-banner-title" class="font-semibold"></p>
+                                <p id="smd-banner-detail" class="mt-0.5 text-xs opacity-80"></p>
+                            </div>
+                        </div>
+                        <div class="flex shrink-0 items-center gap-2">
+                            <button id="smd-autofill-btn" type="button" class="hidden rounded-md bg-white px-3 py-1.5 text-xs font-semibold shadow-sm ring-1 ring-inset transition hover:bg-gray-50 focus:outline-none" onclick="smdAutofill()">Actualizar campos</button>
+                            <button type="button" class="text-xs opacity-60 hover:opacity-100 focus:outline-none" onclick="smdDismiss()" aria-label="Cerrar">
+                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Sección 2: Datos del Seguro -->

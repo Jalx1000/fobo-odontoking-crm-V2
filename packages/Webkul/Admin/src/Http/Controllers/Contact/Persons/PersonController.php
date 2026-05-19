@@ -4,6 +4,7 @@ namespace Webkul\Admin\Http\Controllers\Contact\Persons;
 
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Event;
@@ -177,6 +178,55 @@ class PersonController extends Controller
     }
 
     /**
+     * Busca un paciente en SMD por teléfono, CI o email.
+     * Usado por el verificador del formulario de creación.
+     */
+    public function searchSmd(Request $request): JsonResponse
+    {
+        if (! bouncer()->hasPermission('contacts.persons.edit')) {
+            return response()->json(['message' => 'No autorizado'], 403);
+        }
+
+        $term = trim($request->get('q', ''));
+
+        if (strlen($term) < 3) {
+            return response()->json(['found' => false, 'message' => 'Ingresa al menos 3 caracteres.']);
+        }
+
+        // 1. Por teléfono
+        $results = $this->shareMeDataService->searchPatient($term);
+
+        // 2. Por CI
+        if (empty($results)) {
+            $results = $this->shareMeDataService->searchPatientByCi($term);
+        }
+
+        // 3. Por email
+        if (empty($results)) {
+            $results = $this->shareMeDataService->searchPatientByEmail($term);
+        }
+
+        if (empty($results)) {
+            return response()->json(['found' => false]);
+        }
+
+        $p = $results[0];
+
+        return response()->json([
+            'found'     => true,
+            'smd_id'    => $p['_id']                       ?? null,
+            'name'      => trim(($p['name'] ?? '').' '.($p['lastName'] ?? '')),
+            'phone'     => $p['phone']                     ?? null,
+            'ci'        => $p['personID']                  ?? null,
+            'email'     => $p['secondEmail']               ?? null,
+            'birthday'  => isset($p['birthday'])
+                ? \Carbon\Carbon::parse($p['birthday'])->format('Y-m-d')
+                : null,
+            'insurance' => $p['extra']['insurance'][0]     ?? null,
+        ]);
+    }
+
+    /**
      * Sincroniza manualmente el paciente con ShareMeData.
      */
     public function syncSmd(int $id): JsonResponse
@@ -239,7 +289,8 @@ class PersonController extends Controller
             return response()->json(['message' => 'No se obtuvo ID de SMD. Intenta de nuevo.'], 422);
         }
 
-        $this->personRepository->update(['smd_patient_id' => $smdPatientId, 'entity_type' => 'persons'], $id);
+        // DB directo para evitar que PersonRepository::sanitize() borre user_id
+        \Illuminate\Support\Facades\DB::table('persons')->where('id', $id)->update(['smd_patient_id' => $smdPatientId]);
 
         return response()->json([
             'success'        => true,

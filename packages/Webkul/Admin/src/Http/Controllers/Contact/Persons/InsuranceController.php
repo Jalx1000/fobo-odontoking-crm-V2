@@ -3,6 +3,7 @@
 namespace Webkul\Admin\Http\Controllers\Contact\Persons;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Webkul\Admin\Http\Controllers\Controller;
@@ -97,6 +98,25 @@ class InsuranceController extends Controller
         $this->clearCache($id);
 
         return $this->verify($id);
+    }
+
+    /**
+     * Verifica seguro sin person_id (para usar en formulario de creación).
+     * Recibe ci_paciente y seguro_option_id directamente en el body.
+     */
+    public function verifyQuick(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ci_paciente'     => 'required|string|min:3',
+            'seguro_paciente' => 'required|exists:attribute_options,id',
+        ]);
+
+        $option = DB::table('attribute_options')->where('id', $data['seguro_paciente'])->first();
+        $seguroName = $option->name ?? '';
+
+        $result = $this->insuranceService->verifyWithParams($data['ci_paciente'], $seguroName);
+
+        return response()->json($result);
     }
 
     /**

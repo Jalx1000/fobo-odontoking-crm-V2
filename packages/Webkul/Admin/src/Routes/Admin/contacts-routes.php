@@ -31,6 +31,10 @@ Route::prefix('contacts')->group(function () {
 
         Route::get('search', 'search')->name('admin.contacts.persons.search');
 
+        Route::middleware('throttle:30,1')->get('search-smd', 'searchSmd')->name('admin.contacts.persons.search_smd');
+
+        Route::post('verify-insurance-quick', [InsuranceController::class, 'verifyQuick'])->name('admin.contacts.persons.verify_insurance_quick');
+
         Route::post('{id}/sync-smd', 'syncSmd')->name('admin.contacts.persons.sync_smd');
 
         Route::middleware(['throttle:100,60'])->delete('{id}', 'destroy')->name('admin.contacts.persons.delete');

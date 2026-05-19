@@ -300,7 +300,7 @@ class AppointmentService
             }
 
             if ($smdPersonId) {
-                $this->personRepository->update(['smd_patient_id' => $smdPersonId, 'entity_type' => 'persons'], $person->id);
+                DB::table('persons')->where('id', $person->id)->update(['smd_patient_id' => $smdPersonId]);
                 $person = $this->personRepository->find($person->id);
             }
         }
@@ -335,8 +335,11 @@ class AppointmentService
 
         if (! ($smdResult['success'] ?? false)) {
             Log::warning('[SMD] createEvent FALLÓ', [
-                'payload'  => $smdPayload,
-                'response' => $smdResult,
+                'patient_phone_suffix' => '***'.substr($smdPayload['patient']['phone'] ?? '', -4),
+                'physician_id'         => $smdPayload['physician']['_id'] ?? null,
+                'slot'                 => $smdPayload['slot'] ?? null,
+                'smd_status'           => $smdResult['status'] ?? null,
+                'smd_message'          => $smdResult['message'] ?? null,
             ]);
 
             throw new AppointmentException(
