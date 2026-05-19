@@ -57,6 +57,7 @@ class Person extends Model implements PersonContract
         'user_id',
         'organization_id',
         'unique_id',
+        'smd_patient_id',
     ];
 
     /**

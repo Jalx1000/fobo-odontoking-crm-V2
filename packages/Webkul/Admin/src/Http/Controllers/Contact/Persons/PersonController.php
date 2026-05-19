@@ -14,6 +14,7 @@ use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Admin\Http\Requests\AttributeForm;
 use Webkul\Admin\Http\Requests\MassDestroyRequest;
 use Webkul\Admin\Http\Resources\PersonResource;
+use Webkul\Admin\Services\ShareMeDataService;
 use Webkul\Contact\Repositories\PersonRepository;
 
 class PersonController extends Controller
@@ -23,8 +24,10 @@ class PersonController extends Controller
      *
      * @return void
      */
-    public function __construct(protected PersonRepository $personRepository)
-    {
+    public function __construct(
+        protected PersonRepository   $personRepository,
+        protected ShareMeDataService $shareMeDataService,
+    ) {
         request()->request->add(['entity_type' => 'persons']);
     }
 
@@ -171,6 +174,84 @@ class PersonController extends Controller
                 'message' => trans('admin::app.contacts.persons.index.delete-failed'),
             ], 400);
         }
+    }
+
+    /**
+     * Sincroniza manualmente el paciente con ShareMeData.
+     */
+    public function syncSmd(int $id): JsonResponse
+    {
+        if (! bouncer()->hasPermission('contacts.persons.edit')) {
+            return response()->json(['message' => 'No autorizado'], 403);
+        }
+
+        $person = $this->personRepository->find($id);
+
+        if (! $person) {
+            return response()->json(['message' => 'Paciente no encontrado'], 404);
+        }
+
+        $contactNumbers = is_array($person->contact_numbers)
+            ? $person->contact_numbers
+            : json_decode($person->contact_numbers ?? '[]', true);
+
+        $phone = $contactNumbers[0]['value'] ?? null;
+
+        if (! $phone || $phone === '0') {
+            return response()->json([
+                'message' => 'El paciente no tiene número de teléfono registrado.',
+            ], 422);
+        }
+
+        $smdPatients = $this->shareMeDataService->searchPatient($phone);
+
+        if (! empty($smdPatients)) {
+            $smdPatientId = $smdPatients[0]['_id'] ?? null;
+            $action       = 'encontrado';
+        } else {
+            $nameParts = explode(' ', trim($person->name ?? ''));
+            $ciAttr    = app(\Webkul\Attribute\Repositories\AttributeRepository::class)
+                ->findOneByField('code', 'ci_paciente');
+            $ci        = $ciAttr ? $person->getCustomAttributeValue($ciAttr) : null;
+
+            $result = $this->shareMeDataService->createPatient([
+                'first_name' => $nameParts[0]                                  ?? 'Paciente',
+                'last_name'  => implode(' ', array_slice($nameParts, 1)) ?: 'Externo',
+                'phone'      => $phone,
+                'ci'         => $ci ?: null,
+            ]);
+
+            if (! $result['success'] && ($result['duplicate'] ?? false)) {
+                $retry        = $this->shareMeDataService->searchPatient($phone);
+                $smdPatientId = $retry[0]['_id'] ?? null;
+                $action       = 'recuperado_duplicado';
+            } elseif ($result['success']) {
+                $smdPatientId = $result['data']['_id'] ?? null;
+                $action       = 'creado';
+            } else {
+                return response()->json([
+                    'message' => 'No se pudo sincronizar con ShareMeData: '.($result['message'] ?? 'Error desconocido'),
+                ], 422);
+            }
+        }
+
+        if (! $smdPatientId) {
+            return response()->json(['message' => 'No se obtuvo ID de SMD. Intenta de nuevo.'], 422);
+        }
+
+        $this->personRepository->update(['smd_patient_id' => $smdPatientId, 'entity_type' => 'persons'], $id);
+
+        return response()->json([
+            'success'        => true,
+            'smd_patient_id' => $smdPatientId,
+            'action'         => $action,
+            'message'        => match ($action) {
+                'encontrado'           => 'Paciente vinculado con ShareMeData correctamente.',
+                'creado'               => 'Paciente creado en ShareMeData y vinculado.',
+                'recuperado_duplicado' => 'Paciente ya existía en ShareMeData. Vinculado correctamente.',
+                default                => 'Sincronizado.',
+            },
+        ]);
     }
 
     /**

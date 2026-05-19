@@ -36,24 +36,24 @@ it('permite webhook sin secret cuando no hay configuración de token', function 
     expect($response->status())->not->toBe(401);
 });
 
-it('retorna 400 cuando el payload no tiene physician._id', function () {
+it('retorna 422 cuando el payload no tiene physician._id', function () {
     Config::set('services.sharemedata.webhook_secret', null);
 
     postJson(route('admin.webhook.sharemedata'), [
         'patient' => ['phone' => '70000001'],
     ])
-        ->assertStatus(400)
-        ->assertJson(['message' => 'Datos incompletos']);
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['physician._id']);
 });
 
-it('retorna 400 cuando el payload no tiene patient.phone', function () {
+it('retorna 422 cuando el payload no tiene patient.phone', function () {
     Config::set('services.sharemedata.webhook_secret', null);
 
     postJson(route('admin.webhook.sharemedata'), [
         'physician' => ['_id' => 'doc1'],
     ])
-        ->assertStatus(400)
-        ->assertJson(['message' => 'Datos incompletos']);
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['patient.phone']);
 });
 
 it('acepta webhook con token correcto y crea entidades', function () {

@@ -13,6 +13,8 @@ class ShareMeDataService
 
     protected string $baseUrl;
 
+    protected string $patientsBaseUrl;
+
     protected $lastResponse = null;
 
     public function __construct(
@@ -20,6 +22,7 @@ class ShareMeDataService
     ) {
         $this->apiKey = config('services.sharemedata.api_key');
         $this->baseUrl = config('services.sharemedata.base_url', 'https://gamma.sharemedata.com/api/calendar');
+        $this->patientsBaseUrl = config('services.sharemedata.patients_url', 'https://gamma.sharemedata.com/api');
     }
 
     protected function http(): \Illuminate\Http\Client\PendingRequest
@@ -159,6 +162,175 @@ class ShareMeDataService
     public function getLastResponse()
     {
         return $this->lastResponse;
+    }
+
+    /**
+     * Buscar paciente en SMD por teléfono. Retorna array de pacientes encontrados.
+     * La API de SMD requiere búsqueda regex: where=phone=/numero/
+     */
+    public function searchPatient(string $phone): array
+    {
+        try {
+            $response = $this->http()->get("{$this->patientsBaseUrl}/patients", [
+                'where'      => 'phone=/'.urlencode($phone).'/',
+                'select'     => '_id,fullName,phone,secondEmail,name,lastName',
+                'pageSize'   => 20,
+                'pageNumber' => 1,
+            ]);
+
+            if ($response->successful()) {
+                return $response->json('data') ?? $response->json() ?? [];
+            }
+
+            Log::warning('[SMD] searchPatient falló', [
+                'phone'  => $phone,
+                'status' => $response->status(),
+                'body'   => $response->json(),
+            ]);
+
+            return [];
+        } catch (\Exception $e) {
+            Log::error('[SMD] searchPatient excepción: '.$e->getMessage());
+
+            return [];
+        }
+    }
+
+    /**
+     * Buscar paciente en SMD por email (secondEmail).
+     */
+    public function searchPatientByEmail(string $email): array
+    {
+        try {
+            $response = $this->http()->get("{$this->patientsBaseUrl}/patients", [
+                'where'      => 'secondEmail=/'.urlencode($email).'/',
+                'select'     => '_id,fullName,phone,secondEmail,name,lastName',
+                'pageSize'   => 5,
+                'pageNumber' => 1,
+            ]);
+
+            if ($response->successful()) {
+                return $response->json('data') ?? $response->json() ?? [];
+            }
+
+            return [];
+        } catch (\Exception $e) {
+            Log::error('[SMD] searchPatientByEmail excepción: '.$e->getMessage());
+
+            return [];
+        }
+    }
+
+    /**
+     * Crear paciente en SMD. Retorna ['success' => bool, 'data' => [...], 'duplicate' => bool].
+     * Endpoint correcto: /patients/user (no /patients)
+     * Maneja @error.duplicatePatient como duplicado no fatal.
+     */
+    public function createPatient(array $data): array
+    {
+        try {
+            $payload = array_filter([
+                'name'        => $data['first_name'] ?? null,
+                'lastName'    => $data['last_name']  ?? null,
+                'phone'       => $data['phone']       ?? null,
+                'birthday'    => $data['birthday']    ?? null,
+                'gender'      => $data['gender']      ?? null,
+                'personID'    => $data['ci']          ?? null,
+                'expedido'    => $data['expedido']    ?? null,
+                'secondEmail' => $data['email']       ?? null,
+                'nationality' => $data['nationality'] ?? 'BO',
+                'note'        => $data['notes']       ?? null,
+            ], fn ($v) => $v !== null);
+
+            if (! empty($data['insurance'])) {
+                $payload['extra'] = ['insurance' => [$data['insurance']]];
+            }
+
+            $response = $this->http()
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->post("{$this->patientsBaseUrl}/patients/user", $payload);
+
+            if ($response->successful()) {
+                return ['success' => true, 'data' => $response->json()];
+            }
+
+            $body    = $response->json();
+            $message = $body['message'] ?? $response->body();
+
+            $isDuplicate = str_contains((string) $message, '@error.duplicatePatient');
+
+            Log::warning('[SMD] createPatient '.($isDuplicate ? 'duplicado' : 'falló'), [
+                'status'  => $response->status(),
+                'message' => $message,
+            ]);
+
+            return [
+                'success'   => false,
+                'duplicate' => $isDuplicate,
+                'message'   => $message,
+                'status'    => $response->status(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('[SMD] createPatient excepción: '.$e->getMessage());
+
+            return ['success' => false, 'duplicate' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Actualizar paciente en SMD por ID. Usa PATCH (no PUT).
+     */
+    public function updatePatient(string $smdPatientId, array $data): array
+    {
+        try {
+            $payload = array_filter([
+                'name'        => $data['first_name'] ?? null,
+                'lastName'    => $data['last_name']  ?? null,
+                'phone'       => $data['phone']       ?? null,
+                'birthday'    => $data['birthday']    ?? null,
+                'personID'    => $data['ci']          ?? null,
+                'secondEmail' => $data['email']       ?? null,
+                'note'        => $data['notes']       ?? null,
+            ], fn ($v) => $v !== null);
+
+            if (! empty($data['insurance'])) {
+                $payload['extra'] = ['insurance' => [$data['insurance']]];
+            }
+
+            $response = $this->http()
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->patch("{$this->patientsBaseUrl}/patients/{$smdPatientId}", $payload);
+
+            if ($response->successful()) {
+                return ['success' => true, 'data' => $response->json()];
+            }
+
+            $body    = $response->json() ?? [];
+            // SMD usa 'error' o 'message' indistintamente según el endpoint
+            $message = $body['message'] ?? $body['error'] ?? $response->body();
+
+            $notFound = str_contains((string) $message, '@error.usercantfound')
+                || str_contains((string) $message, 'notfound')
+                || $response->status() === 404;
+
+            Log::warning('[SMD] updatePatient falló', [
+                'smd_patient_id' => $smdPatientId,
+                'status'         => $response->status(),
+                'message'        => $message,
+                'not_found'      => $notFound,
+            ]);
+
+            return [
+                'success'   => false,
+                'not_found' => $notFound,
+                'message'   => $message,
+                'status'    => $response->status(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('[SMD] updatePatient excepción: '.$e->getMessage());
+
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
     }
 
     /**

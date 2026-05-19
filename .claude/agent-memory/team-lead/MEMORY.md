@@ -1,0 +1,1 @@
+- [ShareMeData API v2 Integration Plan](project_sharemedata_v2.md) — Brechas v2 (patients endpoints, Dropbox), riesgos de base URL y schema, plan en planning/00-sharemedata-api-v2/

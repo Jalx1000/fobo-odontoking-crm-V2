@@ -31,6 +31,8 @@ Route::prefix('contacts')->group(function () {
 
         Route::get('search', 'search')->name('admin.contacts.persons.search');
 
+        Route::post('{id}/sync-smd', 'syncSmd')->name('admin.contacts.persons.sync_smd');
+
         Route::middleware(['throttle:100,60'])->delete('{id}', 'destroy')->name('admin.contacts.persons.delete');
 
         Route::post('mass-destroy', 'massDestroy')->name('admin.contacts.persons.mass_delete');

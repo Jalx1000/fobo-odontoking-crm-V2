@@ -14,10 +14,12 @@ class EventServiceProvider extends ServiceProvider
     protected $listen = [
         'contacts.person.create.after' => [
             'Webkul\Admin\Listeners\Person@linkToEmail',
+            'Webkul\Admin\Listeners\Person@syncToSmd',
         ],
 
         'contacts.person.update.after' => [
             'Webkul\Admin\Listeners\EntitySync@syncPersonToLeads',
+            'Webkul\Admin\Listeners\Person@updateInSmd',
         ],
 
         'lead.create.after' => [

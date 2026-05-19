@@ -54,7 +54,7 @@ it('permite actualizar y verificar el seguro simultáneamente', function () {
 
     $updateData = [
         'ci_paciente' => '1234567',
-        'seguro_paciente' => 87, // Nacional Vida
+        'seguro_paciente' => 113, // Nacional Vida
     ];
 
     actingAs($this->adminUser, 'user')
@@ -70,7 +70,7 @@ it('permite actualizar y verificar el seguro simultáneamente', function () {
 
 it('crea una nota automática después de una verificación exitosa', function () {
     $this->person->attribute_values()->create(['attribute_id' => $this->ciAttr->id, 'text_value' => '5856583', 'entity_type' => 'persons']);
-    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 87, 'entity_type' => 'persons']);
+    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 113, 'entity_type' => 'persons']);
 
     Http::fake([
         'n8n.sofopolis.com/*' => Http::response([
@@ -90,7 +90,7 @@ it('crea una nota automática después de una verificación exitosa', function (
 
 it('mapea correctamente un paciente VIGENTE desde n8n', function () {
     $this->person->attribute_values()->create(['attribute_id' => $this->ciAttr->id, 'text_value' => '5856583', 'entity_type' => 'persons']);
-    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 87, 'entity_type' => 'persons']);
+    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 113, 'entity_type' => 'persons']);
 
     Http::fake([
         'n8n.sofopolis.com/*' => Http::response([
@@ -115,7 +115,7 @@ it('mapea correctamente un paciente VIGENTE desde n8n', function () {
 
 it('mapea correctamente un paciente EN_MORA (Suspendido) desde n8n', function () {
     $this->person->attribute_values()->create(['attribute_id' => $this->ciAttr->id, 'text_value' => '5856583', 'entity_type' => 'persons']);
-    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 87, 'entity_type' => 'persons']);
+    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 113, 'entity_type' => 'persons']);
 
     Http::fake([
         'n8n.sofopolis.com/*' => Http::response([
@@ -139,7 +139,7 @@ it('mapea correctamente un paciente EN_MORA (Suspendido) desde n8n', function ()
 
 it('mapea correctamente un paciente NO_REGISTRADO', function () {
     $this->person->attribute_values()->create(['attribute_id' => $this->ciAttr->id, 'text_value' => '0000000', 'entity_type' => 'persons']);
-    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 87, 'entity_type' => 'persons']);
+    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 113, 'entity_type' => 'persons']);
 
     Http::fake([
         'n8n.sofopolis.com/*' => Http::response([
@@ -160,7 +160,7 @@ it('mapea correctamente un paciente NO_REGISTRADO', function () {
 
 it('maneja el estado INDETERMINADO por timeout o error de red', function () {
     $this->person->attribute_values()->create(['attribute_id' => $this->ciAttr->id, 'text_value' => '5856583', 'entity_type' => 'persons']);
-    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 87, 'entity_type' => 'persons']);
+    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 113, 'entity_type' => 'persons']);
 
     Http::fake([
         'n8n.sofopolis.com/*' => function () {
@@ -179,7 +179,7 @@ it('maneja el estado INDETERMINADO por timeout o error de red', function () {
 
 it('maneja el estado INDETERMINADO cuando n8n devuelve JSON inválido o vacío', function () {
     $this->person->attribute_values()->create(['attribute_id' => $this->ciAttr->id, 'text_value' => '5856583', 'entity_type' => 'persons']);
-    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 87, 'entity_type' => 'persons']);
+    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 113, 'entity_type' => 'persons']);
 
     Http::fake([
         'n8n.sofopolis.com/*' => Http::response('', 200) // Respuesta vacía (no es un array JSON)
@@ -196,7 +196,7 @@ it('maneja el estado INDETERMINADO cuando n8n devuelve JSON inválido o vacío',
 
 it('mapea correctamente un paciente NO_REGISTRADO (caso string)', function () {
     $this->person->attribute_values()->create(['attribute_id' => $this->ciAttr->id, 'text_value' => '12387735', 'entity_type' => 'persons']);
-    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 87, 'entity_type' => 'persons']);
+    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 113, 'entity_type' => 'persons']);
 
     Http::fake([
         'n8n.sofopolis.com/*' => Http::response([
@@ -217,7 +217,7 @@ it('mapea correctamente un paciente NO_REGISTRADO (caso string)', function () {
 
 it('utiliza la caché para evitar llamadas redundantes a n8n', function () {
     $this->person->attribute_values()->create(['attribute_id' => $this->ciAttr->id, 'text_value' => '5856583', 'entity_type' => 'persons']);
-    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 87, 'entity_type' => 'persons']); // 87 = Nacional Vida
+    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 113, 'entity_type' => 'persons']); // 87 = Nacional Vida
 
     // Mock de n8n que solo responde UNA vez
     Http::fake([
@@ -245,7 +245,7 @@ it('valida reglas de negocio en tiempo real ante cambios de aseguradora', functi
     // Forzamos el atributo a "No tiene" (ID 89 según tinker)
     $this->person->attribute_values()->updateOrCreate(
         ['attribute_id' => $this->seguroAttr->id, 'entity_type' => 'persons'],
-        ['integer_value' => 89]
+        ['integer_value' => 115]
     );
     
     $this->person->attribute_values()->updateOrCreate(
@@ -261,7 +261,7 @@ it('valida reglas de negocio en tiempo real ante cambios de aseguradora', functi
     // En entorno de test ALIANZA_LOGIN_URL no está configurado → retorna INDETERMINADO.
     $this->person->attribute_values()->updateOrCreate(
         ['attribute_id' => $this->seguroAttr->id, 'entity_type' => 'persons'],
-        ['integer_value' => 86, 'text_value' => '5856583']
+        ['integer_value' => 112, 'text_value' => '5856583']
     );
 
     Cache::flush();
@@ -276,7 +276,7 @@ it('detecta correctamente cuando un paciente tiene la opción "No tiene" seguro'
     // Según tinker previo, ID 89 es "No tiene"
     
     $this->person->attribute_values()->create(['attribute_id' => $this->ciAttr->id, 'text_value' => '5856583', 'entity_type' => 'persons']);
-    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 89, 'entity_type' => 'persons']);
+    $this->person->attribute_values()->create(['attribute_id' => $this->seguroAttr->id, 'integer_value' => 115, 'entity_type' => 'persons']);
 
     // No debería llamar a n8n, así que si Http falla es porque no interceptó el caso
     Http::fake([

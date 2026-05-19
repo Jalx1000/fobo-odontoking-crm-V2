@@ -33,6 +33,7 @@ return [
     'sharemedata' => [
         'api_key'        => env('SHAREMEDATA_API_KEY'),
         'base_url'       => env('SHAREMEDATA_BASE_URL', 'https://gamma.sharemedata.com/api/calendar'),
+        'patients_url'   => env('SHAREMEDATA_PATIENTS_URL', 'https://gamma.sharemedata.com/api'),
         'webhook_secret' => env('SHAREMEDATA_WEBHOOK_SECRET'),
     ],
 

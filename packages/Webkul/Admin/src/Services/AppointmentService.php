@@ -270,6 +270,41 @@ class AppointmentService
             }
         }
 
+        // ── 4.5 Sincronizar paciente con SMD para obtener personID ───────────
+        $smdPersonId = $person->smd_patient_id ?? null;
+
+        if (! $smdPersonId && $personPhone !== '0') {
+            $smdPatients = $this->shareMeDataService->searchPatient($personPhone);
+
+            if (! empty($smdPatients)) {
+                $smdPersonId = $smdPatients[0]['_id'] ?? null;
+            } else {
+                $nameParts_ = explode(' ', trim($person->name ?? 'Paciente'));
+                $ciAttr_    = app(\Webkul\Attribute\Repositories\AttributeRepository::class)
+                    ->findOneByField('code', 'ci_paciente');
+                $ci_        = $ciAttr_ ? $person->getCustomAttributeValue($ciAttr_) : null;
+
+                $result_ = $this->shareMeDataService->createPatient([
+                    'first_name' => $nameParts_[0]                                    ?? 'Paciente',
+                    'last_name'  => implode(' ', array_slice($nameParts_, 1)) ?: 'Externo',
+                    'phone'      => $personPhone,
+                    'ci'         => $ci_ ?: null,
+                ]);
+
+                if ($result_['success']) {
+                    $smdPersonId = $result_['data']['_id'] ?? null;
+                } elseif ($result_['duplicate'] ?? false) {
+                    $retry_      = $this->shareMeDataService->searchPatient($personPhone);
+                    $smdPersonId = $retry_[0]['_id'] ?? null;
+                }
+            }
+
+            if ($smdPersonId) {
+                $this->personRepository->update(['smd_patient_id' => $smdPersonId, 'entity_type' => 'persons'], $person->id);
+                $person = $this->personRepository->find($person->id);
+            }
+        }
+
         $nameParts  = explode(' ', trim($person->name ?? 'Paciente'));
         $firstName  = $nameParts[0] ?: 'Paciente';
         $lastName   = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : 'Externo';
@@ -283,7 +318,7 @@ class AppointmentService
                 'name'     => (string) $firstName,
                 'lastName' => (string) $lastName,
                 'phone'    => (string) $personPhone,
-                'personID' => '',
+                'personID' => (string) ($smdPersonId ?? ''),
                 'birthday' => '',
             ],
             'slot' => [
