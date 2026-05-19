@@ -464,7 +464,7 @@
                                 <div class="text-xs text-gray-600 dark:text-gray-300">Motivo de consulta</div>
                                 <textarea
                                     rows="3"
-                                    class="col-span-2 rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                    class="w-full rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
                                     v-model="appointmentForm.reason"
                                     placeholder="Motivo de consulta"
                                 ></textarea>
@@ -888,81 +888,177 @@
             </x-slot>
         </x-admin::modal>
 
+        <Teleport to="body">
         <div
             v-if="newPatient.open"
-            class="fixed inset-0 z-[9999] flex items-center justify-center"
-            style="background:rgba(0,0,0,0.5)"
+            style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55)"
             @click.self="closeNewPatientModal"
         >
-            <div class="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md mx-4 p-6 flex flex-col gap-4" @click.stop>
-                <div class="flex items-center justify-between">
-                    <h3 class="text-lg font-semibold dark:text-white">Nuevo paciente</h3>
+            <div class="bg-white dark:bg-gray-900 rounded-xl shadow-2xl mx-4 flex flex-col overflow-hidden" style="width:100%;max-width:520px;max-height:calc(100vh - 2rem)" @click.stop>
+
+                {{-- Header --}}
+                <div class="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700 flex-shrink-0">
+                    <h3 class="text-base font-semibold dark:text-white">Nuevo paciente</h3>
                     <button type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none" @click="closeNewPatientModal">×</button>
                 </div>
 
-                <div class="flex flex-col gap-3">
+                <div class="px-6 py-4 flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
+
+                    {{-- Buscar en SMD --}}
+                    <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 flex flex-col gap-2">
+                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Buscar paciente en SMD</div>
+                        <div class="flex gap-2">
+                            <input
+                                type="text"
+                                class="flex-1 rounded border px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                                v-model="newPatient.smdQuery"
+                                placeholder="Nombre o CI..."
+                                @keyup.enter="searchSmd"
+                            />
+                            <button
+                                type="button"
+                                class="px-3 py-1.5 rounded border dark:border-gray-700 text-sm hover:bg-white dark:hover:bg-gray-700 flex items-center gap-1 whitespace-nowrap"
+                                @click="searchSmd"
+                                :disabled="newPatient.smdSearching"
+                            >
+                                <span v-if="newPatient.smdSearching" class="animate-spin inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full"></span>
+                                <span v-else>🔍</span>
+                                Buscar
+                            </button>
+                        </div>
+                        <div
+                            v-if="newPatient.smdResult"
+                            class="text-xs px-2 py-1 rounded"
+                            :class="newPatient.smdResult.found ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'"
+                        >
+                            @{{ newPatient.smdResult.message }}
+                        </div>
+                    </div>
+
+                    {{-- Nombre --}}
                     <div class="flex flex-col gap-1">
-                        <label class="text-xs text-gray-600 dark:text-gray-300">Nombre *</label>
+                        <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Nombre <span class="text-red-500">*</span></label>
                         <input
                             type="text"
-                            class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                            class="rounded border px-3 py-2 text-sm w-full dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
                             v-model="newPatient.name"
                             placeholder="Nombre completo"
                         />
                     </div>
 
-                    <div class="flex flex-col gap-1">
-                        <label class="text-xs text-gray-600 dark:text-gray-300">Telefono</label>
-                        <input
-                            type="text"
-                            class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-800 dark:text-gray-300"
-                            v-model="newPatient.phone"
-                            placeholder="Telefono"
-                        />
-                    </div>
-
-                    <div class="flex flex-col gap-1">
-                        <label class="text-xs text-gray-600 dark:text-gray-300">Cedula de identidad</label>
-                        <input
-                            type="text"
-                            class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-800 dark:text-gray-300"
-                            v-model="newPatient.ci"
-                            placeholder="CI"
-                        />
-                    </div>
-
-                    <div class="border rounded-lg p-3 dark:border-gray-700">
-                        <div class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Verificar en ShareMeData</div>
-                        <button
-                            type="button"
-                            class="text-xs px-3 py-1.5 rounded border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-1"
-                            @click="searchSmd"
-                            :disabled="newPatient.smdSearching"
-                        >
-                            <x-admin::spinner v-if="newPatient.smdSearching" class="w-3 h-3" />
-                            <span>Buscar en SMD</span>
-                        </button>
-                        <div v-if="newPatient.smdResult" class="mt-2 text-xs">
-                            <span v-if="newPatient.smdResult.found" class="text-green-700 dark:text-green-400">
-                                Encontrado: @{{ newPatient.smdResult.name }}
-                                <span v-if="newPatient.smdResult.phone"> · @{{ newPatient.smdResult.phone }}</span>
-                            </span>
-                            <span v-else class="text-gray-500 dark:text-gray-400">No encontrado en SMD.</span>
+                    {{-- Teléfono + Email --}}
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Teléfono</label>
+                            <input
+                                type="text"
+                                class="rounded border px-3 py-2 text-sm w-full dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                                v-model="newPatient.phone"
+                                placeholder="Ej: 0991234567"
+                            />
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Email</label>
+                            <input
+                                type="email"
+                                class="rounded border px-3 py-2 text-sm w-full dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                                v-model="newPatient.email"
+                                placeholder="correo@ejemplo.com"
+                            />
                         </div>
                     </div>
 
-                    <div v-if="newPatient.error" class="text-sm text-red-600">@{{ newPatient.error }}</div>
+                    {{-- Fecha nacimiento + CI --}}
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Fecha de nacimiento</label>
+                            <input
+                                type="date"
+                                class="rounded border px-3 py-2 text-sm w-full dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                                v-model="newPatient.fechaNacimiento"
+                            />
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-medium text-gray-600 dark:text-gray-300">CI / Cédula</label>
+                            <input
+                                type="text"
+                                class="rounded border px-3 py-2 text-sm w-full dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                                v-model="newPatient.ci"
+                                placeholder="Cédula de identidad"
+                            />
+                        </div>
+                    </div>
+
+                    {{-- Seguro médico --}}
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Seguro médico</label>
+                        <select
+                            class="rounded border px-3 py-2 text-sm w-full dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                            v-model="newPatient.seguro_id"
+                        >
+                            <option :value="null">Sin seguro / No seleccionado</option>
+                            <option v-for="opt in insuranceOptions" :key="'np-ins-'+opt.id" :value="opt.id">@{{ opt.name }}</option>
+                        </select>
+                    </div>
+
+                    {{-- Verificar cobertura --}}
+                    <div class="flex items-center gap-3">
+                        <div class="relative group">
+                            <button
+                                type="button"
+                                class="text-sm px-3 py-2 rounded border dark:border-gray-700 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
+                                @click="verifyInsuranceNewPatient"
+                                :disabled="newPatient.insuranceVerifying || !newPatientCanVerifyInsurance"
+                            >
+                                <span v-if="newPatient.insuranceVerifying" class="animate-spin inline-block w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full"></span>
+                                <span>Verificar cobertura</span>
+                            </button>
+                            <div
+                                v-if="newPatientVerifyTooltip && !newPatientCanVerifyInsurance"
+                                class="absolute bottom-full left-0 mb-1 px-2 py-1 rounded bg-gray-800 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10"
+                            >
+                                @{{ newPatientVerifyTooltip }}
+                            </div>
+                        </div>
+                        <span
+                            v-if="newPatient.insuranceResult"
+                            class="text-xs px-3 py-1.5 rounded-full font-medium"
+                            :class="insuranceBadgeClass(newPatient.insuranceResult.badge)"
+                        >
+                            @{{ newPatient.insuranceResult.status }} — @{{ newPatient.insuranceResult.message }}
+                        </span>
+                    </div>
+
+                    {{-- Error --}}
+                    <div v-if="newPatient.error" class="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded px-3 py-2">
+                        @{{ newPatient.error }}
+                    </div>
+
                 </div>
 
-                <div class="flex items-center justify-end gap-2 pt-2 border-t dark:border-gray-700">
-                    <button type="button" class="secondary-button" @click="closeNewPatientModal">Cancelar</button>
-                    <button type="button" class="primary-button" @click="saveNewPatient" :disabled="newPatient.saving">
-                        <span v-if="!newPatient.saving">Crear paciente</span>
-                        <span v-else class="flex items-center gap-2"><x-admin::spinner /> Creando...</span>
+                {{-- Footer --}}
+                <div class="flex justify-between items-center px-6 py-4 border-t dark:border-gray-700 flex-shrink-0">
+                    <button
+                        type="button"
+                        class="border dark:border-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
+                        @click="closeNewPatientModal"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="button"
+                        class="primary-button text-white px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                        @click="saveNewPatient"
+                        :disabled="newPatient.saving || !newPatient.name.trim()"
+                    >
+                        <span v-if="newPatient.saving" class="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+                        Crear paciente
                     </button>
                 </div>
+
             </div>
         </div>
+        </Teleport>
     </div>
 </script>
 
@@ -1245,6 +1341,7 @@
                 verifyInsuranceQuickUrl: "{{ route('admin.contacts.persons.verify_insurance_quick') }}",
                 personStoreUrl: "{{ route('admin.contacts.persons.store') }}",
                 searchSmdUrl: "{{ route('admin.contacts.persons.search_smd') }}",
+                syncSmdBaseUrl: "{{ route('admin.contacts.persons.sync_smd', ['id' => '__ID__']) }}",
                 viewType: 'day',
                 insuranceOptions: [],
                 insurance: {
@@ -1257,11 +1354,17 @@
                     open: false,
                     name: '',
                     phone: '',
+                    email: '',
+                    fechaNacimiento: '',
                     ci: '',
-                    saving: false,
-                    error: '',
+                    seguro_id: null,
+                    insuranceResult: null,
+                    insuranceVerifying: false,
+                    smdQuery: '',
                     smdResult: null,
                     smdSearching: false,
+                    saving: false,
+                    error: '',
                 },
             };
         },
@@ -1339,6 +1442,19 @@
             month2Cells() {
                 return this.buildMonthCells(this.month2Date);
             },
+            newPatientCanVerifyInsurance() {
+                if (!this.newPatient.ci || !this.newPatient.seguro_id) return false;
+                const opt = this.insuranceOptions.find(o => o.id === this.newPatient.seguro_id);
+                if (opt && /no\s*tiene/i.test(opt.name)) return false;
+                return true;
+            },
+            newPatientVerifyTooltip() {
+                if (!this.newPatient.ci) return 'Ingresa la cédula de identidad';
+                if (!this.newPatient.seguro_id) return 'Selecciona un tipo de seguro';
+                const opt = this.insuranceOptions.find(o => o.id === this.newPatient.seguro_id);
+                if (opt && /no\s*tiene/i.test(opt.name)) return 'Sin seguro seleccionado';
+                return '';
+            },
         },
         mounted() {
             this.fetch();
@@ -1382,49 +1498,71 @@
             closeNewPatientModal() {
                 this.newPatient.open = false;
             },
-            searchSmd() {
-                const term = this.newPatient.ci || this.newPatient.phone || this.newPatient.name;
-                if (!term || term.length < 3) return;
+            async searchSmd() {
+                if (!this.newPatient.smdQuery.trim()) return;
                 this.newPatient.smdSearching = true;
                 this.newPatient.smdResult = null;
-                this.$axios.get(this.searchSmdUrl, { params: { q: term } })
-                    .then(r => { this.newPatient.smdResult = r.data; })
-                    .catch(() => { this.newPatient.smdResult = { found: false }; })
-                    .finally(() => { this.newPatient.smdSearching = false; });
-            },
-            saveNewPatient() {
-                if (!this.newPatient.name.trim()) {
-                    this.newPatient.error = 'El nombre es obligatorio.';
-                    return;
+                try {
+                    const { data } = await this.$axios.get(this.searchSmdUrl, { params: { q: this.newPatient.smdQuery } });
+                    if (data && data.found) {
+                        if (data.name)     this.newPatient.name            = data.name;
+                        if (data.phone)    this.newPatient.phone           = data.phone;
+                        if (data.email)    this.newPatient.email           = data.email;
+                        if (data.ci)       this.newPatient.ci              = data.ci;
+                        if (data.birthday) this.newPatient.fechaNacimiento = data.birthday;
+                        this.newPatient.smdResult = { found: true, message: 'Datos cargados desde SMD' };
+                    } else {
+                        this.newPatient.smdResult = { found: false, message: data.message || 'No encontrado en SMD' };
+                    }
+                } catch {
+                    this.newPatient.smdResult = { found: false, message: 'Error al buscar en SMD' };
+                } finally {
+                    this.newPatient.smdSearching = false;
                 }
+            },
+            async verifyInsuranceNewPatient() {
+                this.newPatient.insuranceVerifying = true;
+                this.newPatient.insuranceResult = null;
+                try {
+                    const { data } = await this.$axios.post(this.verifyInsuranceQuickUrl, {
+                        ci_paciente: this.newPatient.ci,
+                        seguro_paciente: this.newPatient.seguro_id,
+                    });
+                    this.newPatient.insuranceResult = data;
+                } catch {
+                    this.newPatient.insuranceResult = { badge: 'gray', status: 'ERROR', message: 'No se pudo verificar' };
+                } finally {
+                    this.newPatient.insuranceVerifying = false;
+                }
+            },
+            async saveNewPatient() {
+                if (!this.newPatient.name.trim()) return;
                 this.newPatient.saving = true;
                 this.newPatient.error = '';
-                const payload = {
-                    entity_type: 'persons',
-                    name: this.newPatient.name.trim(),
-                };
-                if (this.newPatient.phone) {
-                    payload.contact_numbers = [{ label: 'work', value: this.newPatient.phone }];
+                try {
+                    const payload = { entity_type: 'persons', name: this.newPatient.name.trim() };
+                    if (this.newPatient.phone)           payload.contact_numbers     = [{ label: 'work', value: this.newPatient.phone }];
+                    if (this.newPatient.email)           payload.emails              = [{ label: 'work', value: this.newPatient.email }];
+                    if (this.newPatient.fechaNacimiento) payload.fecha_nacimiento    = this.newPatient.fechaNacimiento;
+                    if (this.newPatient.ci)              payload.ci_paciente         = this.newPatient.ci;
+                    if (this.newPatient.seguro_id)       payload.seguro_paciente     = this.newPatient.seguro_id;
+                    if (this.newPatient.insuranceResult?.status) {
+                        payload.estado_seguro_paciente = this.newPatient.insuranceResult.status;
+                    }
+                    const { data } = await this.$axios.post(this.personStoreUrl, payload);
+                    const person = data.data;
+                    this.appointmentForm.person = { id: person.id, name: person.name };
+                    if (person.ci_paciente) this.insurance.ci = person.ci_paciente;
+                    if (person.id) {
+                        const syncUrl = this.syncSmdBaseUrl.replace('__ID__', person.id);
+                        this.$axios.post(syncUrl).catch(() => {});
+                    }
+                    this.closeNewPatientModal();
+                } catch (e) {
+                    this.newPatient.error = e?.response?.data?.message || 'Error al crear el paciente.';
+                } finally {
+                    this.newPatient.saving = false;
                 }
-                if (this.newPatient.ci) {
-                    payload.ci_paciente = this.newPatient.ci;
-                }
-                this.$axios.post(this.personStoreUrl, payload)
-                    .then(r => {
-                        const person = r.data.data;
-                        this.appointmentForm.person = {
-                            id: person.id,
-                            name: person.name,
-                            phone: this.newPatient.phone || '',
-                        };
-                        this.insurance.ci = this.newPatient.ci || '';
-                        this.insurance.result = null;
-                        this.newPatient.open = false;
-                    })
-                    .catch(e => {
-                        this.newPatient.error = e.response?.data?.message || 'Error al crear el paciente.';
-                    })
-                    .finally(() => { this.newPatient.saving = false; });
             },
             pad2(n) {
                 return String(n).padStart(2, '0');
@@ -1524,12 +1662,13 @@
             },
             onSelectPatient(result) {
                 if (!result?.id && result?.name) {
-                    this.newPatient.name = result.name;
-                    this.newPatient.phone = '';
-                    this.newPatient.ci = '';
-                    this.newPatient.error = '';
-                    this.newPatient.smdResult = null;
-                    this.newPatient.open = true;
+                    this.newPatient = {
+                        open: true, name: result.name, phone: '', email: '',
+                        fechaNacimiento: '', ci: '', seguro_id: null,
+                        insuranceResult: null, insuranceVerifying: false,
+                        smdQuery: result.name, smdResult: null, smdSearching: false,
+                        saving: false, error: '',
+                    };
                     return;
                 }
 
