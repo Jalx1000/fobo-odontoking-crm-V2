@@ -306,6 +306,75 @@ class PersonController extends Controller
     }
 
     /**
+     * Retorna los datos del paciente vinculado en SMD.
+     */
+    public function smdData(int $id): JsonResponse
+    {
+        $person = $this->personRepository->find($id);
+
+        if (! $person) {
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
+        if (! $person->smd_patient_id) {
+            return response()->json(['linked' => false]);
+        }
+
+        $data = $this->shareMeDataService->getPatient($person->smd_patient_id);
+
+        if (! $data) {
+            return response()->json([
+                'linked' => true,
+                'smd_id' => $person->smd_patient_id,
+                'stale'  => true,
+            ]);
+        }
+
+        return response()->json([
+            'linked'    => true,
+            'smd_id'    => $person->smd_patient_id,
+            'stale'     => false,
+            'name'      => trim(($data['name'] ?? '').' '.($data['lastName'] ?? '')),
+            'phone'     => $data['phone']                 ?? null,
+            'ci'        => $data['personID']              ?? null,
+            'insurance' => $data['extra']['insurance'][0] ?? null,
+        ]);
+    }
+
+    /**
+     * Vincula manualmente un paciente CRM con un ID de SMD.
+     */
+    public function linkSmd(Request $request, int $id): JsonResponse
+    {
+        if (! bouncer()->hasPermission('contacts.persons.edit')) {
+            return response()->json(['message' => 'No autorizado'], 403);
+        }
+
+        $request->validate(['smd_patient_id' => 'required|string']);
+
+        $person = $this->personRepository->find($id);
+
+        if (! $person) {
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
+        $smdData = $this->shareMeDataService->getPatient($request->smd_patient_id);
+
+        if (! $smdData) {
+            return response()->json(['message' => 'El ID proporcionado no existe en SMD'], 422);
+        }
+
+        \Illuminate\Support\Facades\DB::table('persons')
+            ->where('id', $id)
+            ->update(['smd_patient_id' => $request->smd_patient_id]);
+
+        return response()->json([
+            'message' => 'Paciente vinculado correctamente',
+            'smd_id'  => $request->smd_patient_id,
+        ]);
+    }
+
+    /**
      * Mass destroy the specified resources from storage.
      */
     public function massDestroy(MassDestroyRequest $request): JsonResponse

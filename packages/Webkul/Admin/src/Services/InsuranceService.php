@@ -81,6 +81,10 @@ class InsuranceService
             'seguro_name' => $seguroName,
         ]);
 
+        $person->insurance_status     = $result['status'] ?? null;
+        $person->insurance_checked_at = now();
+        $person->save();
+
         return $result;
     }
 

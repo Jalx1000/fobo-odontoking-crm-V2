@@ -133,12 +133,27 @@
             <!-- Stages Navigation -->
             <x-admin::activities :endpoint="route('admin.contacts.persons.activities.index', $person->id)" :extra-types="[
                 ['name' => 'historial', 'label' => 'Historial IA'],
+                ['name' => 'smd', 'label' => 'Seguro & SMD'],
             ]">
                 {{-- Historial IA --}}
                 <x-slot:historial>
                     @include('admin::leads.view.historial-ia', [
                         'entityEmail' => ($person->emails[0]['value'] ?? ($person->email ?? null)),
                         'entityName'  => $person->name
+                    ])
+                </x-slot>
+
+                {{-- Seguro & SMD --}}
+                <x-slot:smd>
+                    @include('admin::contacts.persons.view.smd-insurance', [
+                        'person'             => $person,
+                        'smdUrl'             => route('admin.contacts.persons.smd_data', $person->id),
+                        'linkUrl'            => route('admin.contacts.persons.link_smd', $person->id),
+                        'syncUrl'            => route('admin.contacts.persons.sync_smd', $person->id),
+                        'searchUrl'          => route('admin.contacts.persons.search_smd'),
+                        'insuranceStatusUrl' => route('admin.contacts.persons.insurance_status', $person->id),
+                        'verifyUrl'          => route('admin.contacts.persons.verify_insurance', $person->id),
+                        'clearCacheUrl'      => route('admin.contacts.persons.clear_insurance_cache', $person->id),
                     ])
                 </x-slot>
             </x-admin::activities>

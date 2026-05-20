@@ -40,8 +40,9 @@ class Person extends Model implements PersonContract
      * @var array
      */
     protected $casts = [
-        'emails'          => 'array',
-        'contact_numbers' => 'array',
+        'emails'               => 'array',
+        'contact_numbers'      => 'array',
+        'insurance_checked_at' => 'datetime',
     ];
 
     /**
@@ -58,6 +59,8 @@ class Person extends Model implements PersonContract
         'organization_id',
         'unique_id',
         'smd_patient_id',
+        'insurance_status',
+        'insurance_checked_at',
     ];
 
     /**

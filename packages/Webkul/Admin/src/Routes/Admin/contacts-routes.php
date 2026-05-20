@@ -39,6 +39,10 @@ Route::prefix('contacts')->group(function () {
 
         Route::post('{id}/sync-smd', 'syncSmd')->name('admin.contacts.persons.sync_smd');
 
+        Route::get('{id}/smd-data', 'smdData')->name('admin.contacts.persons.smd_data');
+        Route::post('{id}/link-smd', 'linkSmd')->name('admin.contacts.persons.link_smd');
+        Route::get('{id}/insurance-status', [InsuranceController::class, 'insuranceStatus'])->name('admin.contacts.persons.insurance_status');
+
         Route::middleware(['throttle:100,60'])->delete('{id}', 'destroy')->name('admin.contacts.persons.delete');
 
         Route::post('mass-destroy', 'massDestroy')->name('admin.contacts.persons.mass_delete');

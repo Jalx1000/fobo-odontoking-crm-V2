@@ -300,6 +300,34 @@ class ShareMeDataService
     }
 
     /**
+     * Obtener un paciente de SMD por su ID interno (_id).
+     * Retorna el array del paciente o null si no existe o hay error.
+     */
+    public function getPatient(string $smdId): ?array
+    {
+        try {
+            $response = $this->http()->get("{$this->patientsBaseUrl}/patients/{$smdId}", [
+                'select' => '_id,fullName,phone,secondEmail,name,lastName,personID,birthday,extra',
+            ]);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::warning('[SMD] getPatient falló', [
+                'smd_id' => $smdId,
+                'status' => $response->status(),
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('[SMD] getPatient excepción: '.$e->getMessage());
+
+            return null;
+        }
+    }
+
+    /**
      * Actualizar paciente en SMD por ID. Usa PATCH (no PUT).
      */
     public function updatePatient(string $smdPatientId, array $data): array

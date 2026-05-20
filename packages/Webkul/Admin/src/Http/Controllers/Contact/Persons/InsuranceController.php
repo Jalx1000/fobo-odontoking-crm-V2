@@ -140,6 +140,38 @@ class InsuranceController extends Controller
     }
 
     /**
+     * Devuelve el estado de cobertura persistido en BD para un paciente.
+     */
+    public function insuranceStatus(int $id): JsonResponse
+    {
+        $person = $this->personRepository->find($id);
+
+        if (! $person) {
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
+        $ciAttr     = app(\Webkul\Attribute\Repositories\AttributeRepository::class)->findOneByField('code', 'ci_paciente');
+        $seguroAttr = app(\Webkul\Attribute\Repositories\AttributeRepository::class)->findOneByField('code', 'seguro_paciente');
+
+        $ci       = $ciAttr     ? $person->getCustomAttributeValue($ciAttr)     : null;
+        $seguroId = $seguroAttr ? $person->getCustomAttributeValue($seguroAttr) : null;
+
+        $seguroLabel = null;
+        if ($seguroId) {
+            $option      = DB::table('attribute_options')->find($seguroId);
+            $seguroLabel = $option?->name;
+        }
+
+        return response()->json([
+            'ci'           => $ci,
+            'seguro_id'    => $seguroId,
+            'seguro_label' => $seguroLabel,
+            'status'       => $person->insurance_status,
+            'checked_at'   => $person->insurance_checked_at?->toISOString(),
+        ]);
+    }
+
+    /**
      * Limpia la caché de verificación de un paciente.
      */
     public function clearCache(int $id): JsonResponse
