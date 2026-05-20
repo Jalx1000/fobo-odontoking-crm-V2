@@ -232,7 +232,7 @@ class Person
 
         foreach ($emails as $emailEntry) {
             $email = $emailEntry['value'] ?? null;
-            if (! $email || str_ends_with($email, '@s.kommo-whatsapp.net')) {
+            if (! $email || str_ends_with($email, '@whatsapp.sofopolis.net')) {
                 continue;
             }
             $results = $this->shareMeDataService->searchPatientByEmail($email);

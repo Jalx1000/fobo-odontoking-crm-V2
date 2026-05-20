@@ -122,3 +122,9 @@ Route::middleware('auth:sanctum')->group(function () {
  * Webhook para ShareMeData
  */
 Route::middleware('throttle:60,1')->post('/webhooks/sharemedata', [\Webkul\Admin\Http\Controllers\ShareMeDataWebhookController::class, 'receive'])->name('admin.webhook.sharemedata');
+
+/**
+ * Webhook para Dropbox (notificaciones de cambios en carpeta SMD)
+ */
+Route::get('/webhooks/dropbox', [\Webkul\Admin\Http\Controllers\DropboxWebhookController::class, 'verify'])->name('admin.webhook.dropbox.verify');
+Route::middleware('throttle:60,1')->post('/webhooks/dropbox', [\Webkul\Admin\Http\Controllers\DropboxWebhookController::class, 'handle'])->name('admin.webhook.dropbox');

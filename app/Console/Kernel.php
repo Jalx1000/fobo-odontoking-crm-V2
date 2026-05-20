@@ -13,6 +13,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('inbound-emails:process')->everyFiveMinutes();
+        $schedule->command('smd:sync-dropbox --days=2')->everyFiveMinutes();
     }
 
     /**

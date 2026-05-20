@@ -9,6 +9,8 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Webkul\Admin\Console\Commands\InitDropboxCursor;
+use Webkul\Admin\Console\Commands\SyncDropboxAppointments;
 use Webkul\Admin\Exceptions\Handler;
 use Webkul\Admin\Http\Middleware\Bouncer as BouncerMiddleware;
 use Webkul\Admin\Http\Middleware\Locale;
@@ -60,6 +62,11 @@ class AdminServiceProvider extends ServiceProvider
         ]);
 
         $this->app->register(EventServiceProvider::class);
+
+        $this->commands([
+            InitDropboxCursor::class,
+            SyncDropboxAppointments::class,
+        ]);
     }
 
     /**
