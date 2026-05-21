@@ -65,7 +65,7 @@
                 </div>
 
                 <!-- Banner resultado SMD -->
-                <div id="smd-result-banner" class="hidden rounded-lg border px-4 py-3 text-sm transition-all duration-300">
+                <div id="smd-result-banner" class="rounded-lg border px-4 py-3 text-sm transition-all duration-300">
                     <div class="flex items-start justify-between gap-4">
                         <div class="flex items-start gap-3">
                             <span id="smd-banner-icon" class="mt-0.5 shrink-0"></span>

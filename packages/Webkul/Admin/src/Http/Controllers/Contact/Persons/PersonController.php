@@ -70,9 +70,18 @@ class PersonController extends Controller
             ]);
         }
 
+        // Reload para obtener smd_patient_id que pudo haber sido asignado por el listener
+        $person->refresh();
+
         session()->flash('success', trans('admin::app.contacts.persons.index.create-success'));
 
-        return redirect()->route('admin.contacts.persons.index');
+        if ($person->smd_patient_id) {
+            session()->flash('info', 'Paciente vinculado a ShareMeData ✓ (ID: ' . $person->smd_patient_id . ')');
+        } else {
+            session()->flash('warning', 'Paciente creado, pero no se encontró en ShareMeData. Verifícalo manualmente desde su perfil.');
+        }
+
+        return redirect()->route('admin.contacts.persons.view', $person->id);
     }
 
     /**
