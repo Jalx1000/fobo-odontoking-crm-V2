@@ -82,10 +82,10 @@
                     <div class="dwc-day-block" :style="{ height: dayHeight + 'px', borderBottom: 'none' }">
                         <div v-for="idx in 24" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
-                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }">
+                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
                             <div class="dwc-event-title">@{{ ev.title || ev.type }}</div>
                             <div class="dwc-event-time">@{{ formatTime(ev.start) }} — @{{ formatTime(ev.end) }}</div>
-                            <div class="flex items-center gap-2 mt-1">
+                            <div class="flex items-center gap-2 mt-1" @click.stop>
                                 <a :href="editUrl(ev.id)" class="icon-edit text-xl"></a>
                                 <button type="button" class="icon-delete text-xl text-red-600" @click.stop="remove(ev)"></button>
                             </div>
@@ -110,10 +110,10 @@
                     <div v-for="(day, di) in days" :key="'day-'+di" class="dwc-day-block" :style="{ height: dayHeight + 'px' }">
                         <div v-for="idx in 24" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
-                        <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }">
+                        <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
                             <div class="dwc-event-title">@{{ ev.title || ev.type }}</div>
                             <div class="dwc-event-time">@{{ formatTime(ev.start) }} — @{{ formatTime(ev.end) }} · @{{ day.label }}</div>
-                            <div class="flex items-center gap-2 mt-1">
+                            <div class="flex items-center gap-2 mt-1" @click.stop>
                                 <a :href="editUrl(ev.id)" class="icon-edit text-xl"></a>
                                 <button type="button" class="icon-delete text-xl text-red-600" @click.stop="remove(ev)"></button>
                             </div>
@@ -151,6 +151,21 @@
 
             <div class="mt-1 text-sm text-red-600" v-if="addError">@{{ addError }}</div>
         </div>
+
+        <Teleport to="body">
+            <div
+                v-if="hoveredEvent"
+                class="fixed z-[9999] w-56 rounded-lg border border-gray-200 bg-white dark:bg-gray-900 dark:border-gray-700 shadow-xl p-2.5 text-xs pointer-events-none"
+                :style="{ top: tooltipPos.top + 'px', left: tooltipPos.left + 'px' }"
+                style="min-width:200px"
+            >
+                <div class="font-semibold text-gray-800 dark:text-gray-100 mb-1 truncate">@{{ hoveredEvent.person_name || hoveredEvent.title || hoveredEvent.type }}</div>
+                <div class="text-gray-500 dark:text-gray-400 mb-1" v-if="hoveredEvent.doctor_name">Dr. @{{ hoveredEvent.doctor_name }}</div>
+                <div class="text-gray-500 dark:text-gray-400 mb-1">@{{ formatTime(hoveredEvent.start) }} – @{{ formatTime(hoveredEvent.end) }}</div>
+                <div class="text-gray-600 dark:text-gray-300 italic truncate" v-if="hoveredEvent.comment">@{{ hoveredEvent.comment }}</div>
+                <div class="mt-1.5 text-blue-600 dark:text-blue-400 font-medium" v-if="hoveredEvent.lead_id">→ Ver lead</div>
+            </div>
+        </Teleport>
     </div>
 </script>
 
@@ -352,6 +367,10 @@
                 storeUrl: "{{ route('admin.activities.store') }}",
                 editUrlTemplate: "{{ route('admin.activities.edit', 'replaceId') }}",
                 deleteUrlTemplate: "{{ route('admin.activities.delete', 'replaceId') }}",
+                leadUrlTemplate: "{{ route('admin.leads.view', 'replaceId') }}",
+                hoveredEventId: null,
+                hoveredEvent: null,
+                tooltipPos: { top: 0, left: 0 },
             };
         },
         computed: {
@@ -563,6 +582,24 @@
             },
             editUrl(id) {
                 return this.editUrlTemplate.replace('replaceId', id);
+            },
+            leadUrl(leadId) {
+                if (!leadId) return null;
+                return this.leadUrlTemplate.replace('replaceId', leadId);
+            },
+            goToLead(leadId) {
+                const url = this.leadUrl(leadId);
+                if (url) window.location.href = url;
+            },
+            onEventMouseEnter(e, evId, evData) {
+                this.hoveredEventId = evId;
+                this.hoveredEvent = evData || null;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const tooltipW = 220;
+                const left = (rect.right + 8 + tooltipW > window.innerWidth)
+                    ? rect.left - tooltipW - 8
+                    : rect.right + 8;
+                this.tooltipPos = { top: rect.top, left };
             },
             remove(ev) {
                 this.$axios.delete(this.deleteUrlTemplate.replace('replaceId', ev.id))

@@ -15,6 +15,26 @@
                 <p class="text-xs font-medium text-orange-600 dark:text-gray-300">Seguro</p>
             </div>
 
+            <!-- Modal de Confirmación de Borrado de Caché -->
+            <x-admin::modal ref="clearCacheConfirmModal">
+                <x-slot:header>
+                    <p class="text-lg font-bold text-gray-800 dark:text-white">Confirmar</p>
+                </x-slot:header>
+
+                <x-slot:content>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        ¿Estás seguro de que deseas borrar los datos guardados de esta verificación? Esto forzará una nueva consulta a la aseguradora.
+                    </p>
+                </x-slot:content>
+
+                <x-slot:footer>
+                    <div class="flex gap-2 justify-end">
+                        <button class="secondary-button" @click="$refs.clearCacheConfirmModal.close()">Cancelar</button>
+                        <button class="danger-button" @click="doClearCache(); $refs.clearCacheConfirmModal.close()">Confirmar</button>
+                    </div>
+                </x-slot:footer>
+            </x-admin::modal>
+
             <!-- Modal de Captura de Datos -->
             <x-admin::modal ref="insuranceModal">
                 <x-slot:header>
@@ -207,10 +227,10 @@
                 },
 
                 clearCache() {
-                    if (!confirm('¿Estás seguro de que deseas borrar los datos guardados de esta verificación? Esto forzará una nueva consulta a la aseguradora.')) {
-                        return;
-                    }
+                    this.$refs.clearCacheConfirmModal.open();
+                },
 
+                doClearCache() {
                     this.$axios.post("{{ route('admin.contacts.persons.clear_insurance_cache', $person->id) }}")
                         .then(res => {
                             this.$emitter.emit('add-flash', { type: 'success', message: res.data.message });
@@ -218,9 +238,9 @@
                             this.initVerification();
                         })
                         .catch(err => {
-                            this.$emitter.emit('add-flash', { 
-                                type: 'error', 
-                                message: 'No se pudo limpiar la caché.' 
+                            this.$emitter.emit('add-flash', {
+                                type: 'error',
+                                message: 'No se pudo limpiar la caché.'
                             });
                         });
                 }

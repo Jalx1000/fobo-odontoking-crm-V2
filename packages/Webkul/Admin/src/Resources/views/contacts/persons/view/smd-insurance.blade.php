@@ -18,12 +18,12 @@
                 <div class="px-5 py-3 border-b dark:border-gray-700 flex items-center justify-between">
                     <span class="text-sm font-semibold dark:text-white">Seguro médico</span>
                     <span
-                        class="text-xs px-2.5 py-1 rounded-full font-medium"
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
                         :class="{
                             'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400': insurance.status === 'VIGENTE',
                             'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400': insurance.status === 'EN_MORA',
                             'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400': insurance.status === 'NO_ENCONTRADO',
-                            'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400': !insurance.status,
+                            'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400': !insurance.status || !['VIGENTE','EN_MORA','NO_ENCONTRADO'].includes(insurance.status),
                         }"
                     >
                         @{{ insurance.status || 'Sin verificar' }}
@@ -62,7 +62,7 @@
                             @click="verifyInsurance"
                             :disabled="insurance.verifying"
                         >
-                            <span v-if="insurance.verifying" class="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+                            <x-admin::spinner v-if="insurance.verifying" class="w-3.5 h-3.5" />
                             @{{ insurance.verifying ? 'Verificando...' : 'Verificar cobertura' }}
                         </button>
                         <button
@@ -82,12 +82,13 @@
                 <div class="px-5 py-3 border-b dark:border-gray-700 flex items-center justify-between">
                     <span class="text-sm font-semibold dark:text-white">Estado en SMD</span>
                     <span
-                        class="text-xs px-2.5 py-1 rounded-full font-medium"
-                        :class="smd.linked
-                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                            : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'"
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                        :class="{
+                            'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400': smd.linked,
+                            'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400': !smd.linked,
+                        }"
                     >
-                        @{{ smd.linked ? 'Vinculado ✓' : 'No vinculado' }}
+                        @{{ smd.linked ? 'Vinculado' : 'No vinculado' }}
                     </span>
                 </div>
                 <div class="px-5 py-4 flex flex-col gap-3">
@@ -131,7 +132,7 @@
                                     @click="reverifyLink"
                                     :disabled="smd.reverifying"
                                 >
-                                    <span v-if="smd.reverifying" class="animate-spin inline-block w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full"></span>
+                                    <x-admin::spinner v-if="smd.reverifying" class="w-3.5 h-3.5" />
                                     Re-verificar vínculo
                                 </button>
                             </div>
@@ -148,7 +149,7 @@
                                 @click="syncSmd"
                                 :disabled="smd.syncing"
                             >
-                                <span v-if="smd.syncing" class="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+                                <x-admin::spinner v-if="smd.syncing" class="w-3.5 h-3.5" />
                                 @{{ smd.syncing ? 'Sincronizando...' : 'Sincronizar con SMD' }}
                             </button>
                             <div class="border dark:border-gray-700 rounded-lg p-3 flex flex-col gap-2">
@@ -167,8 +168,8 @@
                                         @click="searchSmd"
                                         :disabled="smd.searching"
                                     >
-                                        <span v-if="smd.searching" class="animate-spin inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full"></span>
-                                        <span v-else>🔍</span>
+                                        <x-admin::spinner v-if="smd.searching" class="w-3 h-3" />
+                                        <span v-else class="icon-search text-sm"></span>
                                         Buscar
                                     </button>
                                 </div>
@@ -385,6 +386,7 @@
                     if (diff < 86400) return `hace ${Math.floor(diff / 3600)} h`;
                     return `hace ${Math.floor(diff / 86400)} días`;
                 },
+
             },
         });
     </script>

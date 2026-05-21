@@ -79,18 +79,23 @@ return [
         ],
 
         'external_pgsql' => [
-            'driver'         => 'pgsql',
-            'url'            => env('EXTERNAL_PGSQL_URL'),
-            'host'           => env('EXTERNAL_PGSQL_HOST', '127.0.0.1'),
-            'port'           => env('EXTERNAL_PGSQL_PORT', '5432'),
-            'database'       => env('EXTERNAL_PGSQL_DATABASE', ''),
-            'username'       => env('EXTERNAL_PGSQL_USERNAME', ''),
-            'password'       => env('EXTERNAL_PGSQL_PASSWORD', ''),
-            'charset'        => 'utf8',
-            'prefix'         => env('EXTERNAL_PGSQL_PREFIX', ''),
-            'prefix_indexes' => true,
-            'schema'         => env('EXTERNAL_PGSQL_SCHEMA', 'public'),
-            'sslmode'        => env('EXTERNAL_PGSQL_SSLMODE', 'prefer'),
+            'driver'          => 'pgsql',
+            'url'             => env('EXTERNAL_PGSQL_URL'),
+            'host'            => env('EXTERNAL_PGSQL_HOST', '127.0.0.1'),
+            'port'            => env('EXTERNAL_PGSQL_PORT', '5432'),
+            'database'        => env('EXTERNAL_PGSQL_DATABASE', ''),
+            'username'        => env('EXTERNAL_PGSQL_USERNAME', ''),
+            'password'        => env('EXTERNAL_PGSQL_PASSWORD', ''),
+            'charset'         => 'utf8',
+            'prefix'          => env('EXTERNAL_PGSQL_PREFIX', ''),
+            'prefix_indexes'  => true,
+            'schema'          => env('EXTERNAL_PGSQL_SCHEMA', 'public'),
+            'sslmode'         => env('EXTERNAL_PGSQL_SSLMODE', 'prefer'),
+            'options'         => [
+                // Tiempo máximo de espera para establecer la conexión TCP (segundos).
+                // Evita que un Railway caído bloquee el request más de 5 segundos.
+                \PDO::ATTR_TIMEOUT => env('EXTERNAL_PGSQL_CONNECT_TIMEOUT', 5),
+            ],
         ],
 
         'sqlsrv' => [

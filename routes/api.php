@@ -70,7 +70,7 @@ Route::get('/public/products', function (Request $request) {
 });
 
 Route::get('/public/chat-history', function (Request $request) {
-    $email = $request->query('email');  
+    $email = $request->query('email');
 
     if (! $email) {
         return response()->json(['error' => 'email es requerido'], 400);
@@ -81,27 +81,53 @@ Route::get('/public/chat-history', function (Request $request) {
         $tables = [trim($singleTable)];
     } else {
         $tablesEnv = env('EXTERNAL_PGSQL_CHAT_TABLES');
-        $tables = $tablesEnv ? array_values(array_filter(array_map('trim', explode(',', $tablesEnv)))) : ['EXTERNAL_PGSQL_CHAT_TABLE=n8n_chat_histories_odonto'];
+        $tables = $tablesEnv ? array_values(array_filter(array_map('trim', explode(',', $tablesEnv)))) : ['n8n_chat_histories_odonto'];
     }
 
     $messages = collect();
 
-    foreach ($tables as $table) {
-        $rows = DB::connection('external_pgsql')
-            ->table($table)
-            ->select('session_id', 'message')
-            ->where('session_id', $email)
-            ->get();
+    try {
+        foreach ($tables as $table) {
+            $rows = DB::connection('external_pgsql')
+                ->table($table)
+                ->select('session_id', 'message')
+                ->where('session_id', $email)
+                ->get();
 
-        foreach ($rows as $row) {
-            $messages->push($row->message);
+            foreach ($rows as $row) {
+                $messages->push($row->message);
+            }
         }
+    } catch (\Illuminate\Database\QueryException $e) {
+        \Illuminate\Support\Facades\Log::error('[ChatHistory] Error consultando historial', [
+            'email'   => $email,
+            'error'   => $e->getMessage(),
+        ]);
+
+        return response()->json([
+            'email'    => $email,
+            'messages' => [],
+            'count'    => 0,
+            'warning'  => 'No se pudo conectar al servicio de historial. Intente más tarde.',
+        ], 503);
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('[ChatHistory] Error inesperado', [
+            'email' => $email,
+            'error' => $e->getMessage(),
+        ]);
+
+        return response()->json([
+            'email'    => $email,
+            'messages' => [],
+            'count'    => 0,
+            'warning'  => 'Error interno. Intente más tarde.',
+        ], 503);
     }
 
     return response()->json([
-        'email' => $email,
+        'email'    => $email,
         'messages' => $messages,
-        'count' => $messages->count(),
+        'count'    => $messages->count(),
     ]);
 });
 

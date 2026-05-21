@@ -182,10 +182,12 @@
                         <span :class="{'font-bold text-blue-600': cell.iso === todayISO()}">@{{ cell.day }}</span>
                     </div>
                     <div class="dwc-month-cell-events custom-scrollbar">
-                         <div v-for="ev in getEventsForDay(cell.iso)" :key="'mev-'+ev.id" 
+                         <div v-for="ev in getEventsForDay(cell.iso)" :key="'mev-'+ev.id"
                               class="dwc-month-event"
                               :title="ev.title || ev.type"
-                              @click="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null"
+                              @click.stop="goToLead(ev.lead_id)"
+                              @mouseenter="onEventMouseEnter($event, ev.id, ev)"
+                              @mouseleave="hoveredEventId = null; hoveredEvent = null"
                          >
                              <span class="font-semibold">@{{ formatTime(ev.start) }}</span> @{{ ev.title || ev.type }}
                          </div>
@@ -215,7 +217,9 @@
                         <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'wev-'+ev.id"
                              class="dwc-week-event"
                              :title="ev.title || ev.type"
-                             @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null"
+                             @click.stop="goToLead(ev.lead_id)"
+                             @mouseenter="onEventMouseEnter($event, ev.id, ev)"
+                             @mouseleave="hoveredEventId = null; hoveredEvent = null"
                         >
                             <span class="font-bold">@{{ formatTime(ev.start) }}</span>
                             <span class="truncate">@{{ ev.title || ev.type }}</span>
@@ -257,13 +261,13 @@
                         <div v-for="idx in 13" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
                         <!-- Events -->
-                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
+                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
                             <div class="dwc-event-content dwc-event-layout">
                                 <div class="dwc-event-info">
                                     <div class="dwc-event-row-primary">
                                         <span class="dwc-event-patient" :title="ev.person_name">@{{ formatPatientName(ev.person_name) }}</span>
                                     </div>
-                                    
+
                                     <div class="dwc-event-row-secondary">
                                         <span class="dwc-event-doctor" :title="ev.doctor_name">Dr. @{{ ev.doctor_name }}</span>
                                         <span class="dwc-event-separator">,</span>
@@ -288,6 +292,7 @@
                                     </div>
                                 </div>
                             </div>
+
                         </div>
                     </div>
                 </div>
@@ -323,13 +328,13 @@
 
                             <div v-for="idx in 13" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
-                            <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="editUrl(ev.id) ? window.location.href=editUrl(ev.id) : null">
+                            <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
                                 <div class="dwc-event-content dwc-event-layout">
                                     <div class="dwc-event-info">
                                         <div class="dwc-event-row-primary">
                                             <span class="dwc-event-patient" :title="ev.person_name">@{{ formatPatientName(ev.person_name) }}</span>
                                         </div>
-                                        
+
                                         <div class="dwc-event-row-secondary">
                                             <span class="dwc-event-doctor" :title="ev.doctor_name">Dr. @{{ ev.doctor_name }}</span>
                                             <span class="dwc-event-separator">,</span>
@@ -354,6 +359,7 @@
                                         </div>
                                     </div>
                                 </div>
+
                             </div>
                         </div>
                     </div>
@@ -391,9 +397,9 @@
                         </div>
 
                         <div class="flex flex-col gap-1">
-                            <div class="text-xs text-gray-600 dark:text-gray-300">Doctor</div>
+                            <x-admin::form.control-group.label>Doctor</x-admin::form.control-group.label>
                             <select
-                                class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                class="custom-select w-full rounded border border-gray-200 px-2.5 py-2 text-sm font-normal text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
                                 v-model="appointmentForm.doctor_id"
                             >
                                 <option :value="null" disabled>Doctor</option>
@@ -415,9 +421,9 @@
                         </div>
 
                         <div class="flex flex-col gap-1">
-                            <div class="text-xs text-gray-600 dark:text-gray-300">Duración</div>
+                            <x-admin::form.control-group.label>Duración</x-admin::form.control-group.label>
                             <select
-                                class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                class="custom-select w-full rounded border border-gray-200 px-2.5 py-2 text-sm font-normal text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
                                 v-model.number="appointmentForm.duration"
                                 @change="syncAppointmentEndTime"
                             >
@@ -445,12 +451,11 @@
                                 :disabled="true"
                             ></v-time-picker>
                         </div>
-<!-- aaaaaaaaaaaaaaaaaaaaaaaa -->
                         <div class="col-span-2">
                             <div class="flex flex-col gap-1">
-                                <div class="text-xs text-gray-600 dark:text-gray-300">Estado</div>
+                                <x-admin::form.control-group.label>Estado</x-admin::form.control-group.label>
                                 <select
-                                    class="col-span-2 rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                    class="custom-select w-full rounded border border-gray-200 px-2.5 py-2 text-sm font-normal text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
                                     v-model="appointmentForm.lead_pipeline_stage_id"
                                 >
                                     <option :value="null" disabled>Estado</option>
@@ -461,10 +466,10 @@
 
                         <div class="col-span-2">
                             <div class="flex flex-col gap-1">
-                                <div class="text-xs text-gray-600 dark:text-gray-300">Motivo de consulta</div>
+                                <x-admin::form.control-group.label>Motivo de consulta</x-admin::form.control-group.label>
                                 <textarea
                                     rows="3"
-                                    class="w-full rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                    class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm font-normal text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
                                     v-model="appointmentForm.reason"
                                     placeholder="Motivo de consulta"
                                 ></textarea>
@@ -473,21 +478,21 @@
                     </div>
 
                     <div v-if="appointmentForm.person.id" class="col-span-2 border rounded-lg p-3 dark:border-gray-700">
-                        <div class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Seguro medico</div>
+                        <div class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Seguro médico</div>
                         <div class="grid grid-cols-2 gap-2">
                             <div class="flex flex-col gap-1">
-                                <div class="text-xs text-gray-500 dark:text-gray-400">CI del paciente</div>
+                                <x-admin::form.control-group.label>CI del paciente</x-admin::form.control-group.label>
                                 <input
                                     type="text"
-                                    class="rounded border px-2 py-1.5 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                    class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm font-normal text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
                                     v-model="insurance.ci"
                                     placeholder="Cedula de identidad"
                                 />
                             </div>
                             <div class="flex flex-col gap-1">
-                                <div class="text-xs text-gray-500 dark:text-gray-400">Tipo de seguro</div>
+                                <x-admin::form.control-group.label>Tipo de seguro</x-admin::form.control-group.label>
                                 <select
-                                    class="rounded border px-2 py-1.5 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                    class="custom-select w-full rounded border border-gray-200 px-2.5 py-2 text-sm font-normal text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
                                     v-model="insurance.seguro_id"
                                 >
                                     <option :value="null" disabled>Seleccionar</option>
@@ -507,7 +512,7 @@
                             </button>
                             <span
                                 v-if="insurance.result"
-                                class="text-xs px-2 py-1 rounded-full font-medium"
+                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
                                 :class="insuranceBadgeClass(insurance.result.badge)"
                             >
                                 @{{ insurance.result.status }} — @{{ insurance.result.message }}
@@ -577,11 +582,11 @@
                         <div class="grid grid-cols-2 gap-4 mb-4">
                             <div class="flex flex-col gap-1">
                                 <label class="text-xs font-medium text-gray-500">Fecha de Inicio</label>
-                                <input type="date" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="recurringForm.start_date" />
+                                <input type="date" class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400" v-model="recurringForm.start_date" />
                             </div>
                             <div class="flex flex-col gap-1">
                                 <label class="text-xs font-medium text-gray-500">Fecha de Fin</label>
-                                <input type="date" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="recurringForm.end_date" />
+                                <input type="date" class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400" v-model="recurringForm.end_date" />
                             </div>
                         </div>
 
@@ -644,13 +649,13 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div class="flex flex-col gap-1">
                             <label class="text-xs font-medium text-gray-500">Miembro del equipo</label>
-                            <select class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="timeOffForm.doctor_id">
+                            <select class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400" v-model="timeOffForm.doctor_id">
                                 <option v-for="d in doctors" :key="'to-d-'+d.id" :value="d.id">@{{ d.name }}</option>
                             </select>
                         </div>
                         <div class="flex flex-col gap-1">
                             <label class="text-xs font-medium text-gray-500">Tipo</label>
-                            <select class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="timeOffForm.type">
+                            <select class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400" v-model="timeOffForm.type">
                                 <option value="Vacaciones anuales">Vacaciones anuales</option>
                                 <option value="Enfermedad">Enfermedad</option>
                                 <option value="Personal">Personal</option>
@@ -662,7 +667,7 @@
                     <div class="grid grid-cols-1 gap-4">
                          <div class="flex flex-col gap-1">
                             <label class="text-xs font-medium text-gray-500">Fecha de inicio</label>
-                            <input type="date" class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="timeOffForm.start_date" />
+                            <input type="date" class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400" v-model="timeOffForm.start_date" />
                         </div>
                     </div>
 
@@ -684,7 +689,7 @@
 
                     <div class="flex flex-col gap-1">
                         <label class="text-xs font-medium text-gray-500">Descripción</label>
-                        <textarea class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" rows="3" v-model="timeOffForm.description" placeholder="Añadir descripción o comentario (opcional)"></textarea>
+                        <textarea class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400" rows="3" v-model="timeOffForm.description" placeholder="Añadir descripción o comentario (opcional)"></textarea>
                     </div>
 
                     <div class="flex items-center justify-between">
@@ -707,7 +712,7 @@
             <x-slot:footer>
                 <div class="flex items-center gap-2 justify-end">
                     <button type="button" class="secondary-button" @click="$refs.timeOffModal.close()">Cancelar</button>
-                    <button type="button" class="primary-button bg-black hover:bg-gray-800 text-white" @click="saveTimeOff" :disabled="modalSaving">
+                    <button type="button" class="primary-button" @click="saveTimeOff" :disabled="modalSaving">
                         <span v-if="!modalSaving">Guardar</span>
                         <span v-else class="flex items-center gap-2"><x-admin::spinner /> Guardando...</span>
                     </button>
@@ -796,7 +801,7 @@
                             <div class="text-xs text-gray-600 dark:text-gray-300">Título</div>
                             <input
                                 type="text"
-                                class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
                                 v-model="groupForm.title"
                                 placeholder="Título"
                             />
@@ -805,7 +810,7 @@
                         <div class="flex flex-col gap-1">
                             <div class="text-xs text-gray-600 dark:text-gray-300">Tipo</div>
                             <select
-                                class="rounded border px-2 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                                class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
                                 v-model="groupForm.type"
                             >
                                 <option value="meeting">Consulta</option>
@@ -889,20 +894,13 @@
         </x-admin::modal>
 
         <Teleport to="body">
-        <div
-            v-if="newPatient.open"
-            style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55)"
-            @click.self="closeNewPatientModal"
-        >
-            <div class="bg-white dark:bg-gray-900 rounded-xl shadow-2xl mx-4 flex flex-col overflow-hidden" style="width:100%;max-width:520px;max-height:calc(100vh - 2rem)" @click.stop>
+        <x-admin::modal ref="newPatientModal" size="normal">
+            <x-slot:header>
+                Nuevo paciente
+            </x-slot:header>
 
-                {{-- Header --}}
-                <div class="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700 flex-shrink-0">
-                    <h3 class="text-base font-semibold dark:text-white">Nuevo paciente</h3>
-                    <button type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none" @click="closeNewPatientModal">×</button>
-                </div>
-
-                <div class="px-6 py-4 flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
+            <x-slot:content>
+                <div class="flex flex-col gap-4">
 
                     {{-- Buscar en SMD --}}
                     <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 flex flex-col gap-2">
@@ -921,7 +919,7 @@
                                 @click="searchSmd"
                                 :disabled="newPatient.smdSearching"
                             >
-                                <span v-if="newPatient.smdSearching" class="animate-spin inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full"></span>
+                                <x-admin::spinner v-if="newPatient.smdSearching" class="w-3 h-3" />
                                 <span v-else>🔍</span>
                                 Buscar
                             </button>
@@ -940,7 +938,7 @@
                         <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Nombre <span class="text-red-500">*</span></label>
                         <input
                             type="text"
-                            class="rounded border px-3 py-2 text-sm w-full dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                            class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
                             v-model="newPatient.name"
                             placeholder="Nombre completo"
                         />
@@ -952,7 +950,7 @@
                             <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Teléfono</label>
                             <input
                                 type="text"
-                                class="rounded border px-3 py-2 text-sm w-full dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                                class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
                                 v-model="newPatient.phone"
                                 placeholder="Ej: 0991234567"
                             />
@@ -961,7 +959,7 @@
                             <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Email</label>
                             <input
                                 type="email"
-                                class="rounded border px-3 py-2 text-sm w-full dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                                class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
                                 v-model="newPatient.email"
                                 placeholder="correo@ejemplo.com"
                             />
@@ -974,7 +972,7 @@
                             <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Fecha de nacimiento</label>
                             <input
                                 type="date"
-                                class="rounded border px-3 py-2 text-sm w-full dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                                class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
                                 v-model="newPatient.fechaNacimiento"
                             />
                         </div>
@@ -982,7 +980,7 @@
                             <label class="text-xs font-medium text-gray-600 dark:text-gray-300">CI / Cédula</label>
                             <input
                                 type="text"
-                                class="rounded border px-3 py-2 text-sm w-full dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                                class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
                                 v-model="newPatient.ci"
                                 placeholder="Cédula de identidad"
                             />
@@ -993,7 +991,7 @@
                     <div class="flex flex-col gap-1">
                         <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Seguro médico</label>
                         <select
-                            class="rounded border px-3 py-2 text-sm w-full dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                            class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
                             v-model="newPatient.seguro_id"
                         >
                             <option :value="null">Sin seguro / No seleccionado</option>
@@ -1010,7 +1008,7 @@
                                 @click="verifyInsuranceNewPatient"
                                 :disabled="newPatient.insuranceVerifying || !newPatientCanVerifyInsurance"
                             >
-                                <span v-if="newPatient.insuranceVerifying" class="animate-spin inline-block w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full"></span>
+                                <x-admin::spinner v-if="newPatient.insuranceVerifying" class="w-3.5 h-3.5" />
                                 <span>Verificar cobertura</span>
                             </button>
                             <div
@@ -1035,29 +1033,47 @@
                     </div>
 
                 </div>
+            </x-slot:content>
 
-                {{-- Footer --}}
-                <div class="flex justify-between items-center px-6 py-4 border-t dark:border-gray-700 flex-shrink-0">
+            <x-slot:footer>
+                <div class="flex justify-between items-center w-full">
                     <button
                         type="button"
-                        class="border dark:border-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
+                        class="secondary-button"
                         @click="closeNewPatientModal"
                     >
                         Cancelar
                     </button>
                     <button
                         type="button"
-                        class="primary-button text-white px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                        class="primary-button flex items-center gap-2"
                         @click="saveNewPatient"
                         :disabled="newPatient.saving || !newPatient.name.trim()"
                     >
-                        <span v-if="newPatient.saving" class="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+                        <x-admin::spinner v-if="newPatient.saving" class="w-3.5 h-3.5" />
                         Crear paciente
                     </button>
                 </div>
+            </x-slot:footer>
+        </x-admin::modal>
+        </Teleport>
 
+        <Teleport to="body">
+            <div
+                v-if="hoveredEvent"
+                class="fixed z-[9999] w-64 rounded-lg border border-gray-200 bg-white dark:bg-gray-900 dark:border-gray-700 shadow-xl p-3 text-xs pointer-events-none"
+                :style="{ top: tooltipPos.top + 'px', left: tooltipPos.left + 'px' }"
+                style="min-width:220px"
+            >
+                <div class="font-semibold text-gray-800 dark:text-gray-100 mb-1 truncate">@{{ hoveredEvent.person_name || hoveredEvent.title || hoveredEvent.type }}</div>
+                <div class="text-gray-500 dark:text-gray-400 mb-1" v-if="hoveredEvent.doctor_name">Dr. @{{ hoveredEvent.doctor_name }}</div>
+                <div class="text-gray-500 dark:text-gray-400 mb-1">@{{ formatTime(hoveredEvent.start) }} – @{{ formatTime(hoveredEvent.end) }}</div>
+                <div class="text-gray-500 dark:text-gray-400 mb-1" v-if="getStageName(hoveredEvent.lead_pipeline_stage_id)">
+                    Estado: @{{ getStageName(hoveredEvent.lead_pipeline_stage_id) }}
+                </div>
+                <div class="text-gray-600 dark:text-gray-300 italic truncate" v-if="hoveredEvent.comment">@{{ hoveredEvent.comment }}</div>
+                <div class="mt-2 text-blue-600 dark:text-blue-400 font-medium" v-if="hoveredEvent.lead_id">→ Ver lead</div>
             </div>
-        </div>
         </Teleport>
     </div>
 </script>
@@ -1336,6 +1352,10 @@
                 productSearchUrl: "{{ route('admin.products.search') }}",
                 editUrlTemplate: "{{ route('admin.activities.edit', 'replaceId') }}",
                 deleteUrlTemplate: "{{ route('admin.activities.delete', 'replaceId') }}",
+                leadUrlTemplate: "{{ route('admin.leads.view', 'replaceId') }}",
+                hoveredEventId: null,
+                hoveredEvent: null,
+                tooltipPos: { top: 0, left: 0 },
                 scheduleStoreUrl: "{{ route('admin.schedules.store') }}",
                 insuranceOptionsUrl: "{{ route('admin.contacts.persons.insurance_options') }}",
                 verifyInsuranceQuickUrl: "{{ route('admin.contacts.persons.verify_insurance_quick') }}",
@@ -1351,7 +1371,6 @@
                     result: null,
                 },
                 newPatient: {
-                    open: false,
                     name: '',
                     phone: '',
                     email: '',
@@ -1496,7 +1515,7 @@
                 return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
             },
             closeNewPatientModal() {
-                this.newPatient.open = false;
+                if (this.$refs.newPatientModal) this.$refs.newPatientModal.close();
             },
             async searchSmd() {
                 if (!this.newPatient.smdQuery.trim()) return;
@@ -1663,12 +1682,13 @@
             onSelectPatient(result) {
                 if (!result?.id && result?.name) {
                     this.newPatient = {
-                        open: true, name: result.name, phone: '', email: '',
+                        name: result.name, phone: '', email: '',
                         fechaNacimiento: '', ci: '', seguro_id: null,
                         insuranceResult: null, insuranceVerifying: false,
                         smdQuery: result.name, smdResult: null, smdSearching: false,
                         saving: false, error: '',
                     };
+                    this.$nextTick(() => { if (this.$refs.newPatientModal) this.$refs.newPatientModal.open(); });
                     return;
                 }
 
@@ -2295,6 +2315,24 @@
             },
             editUrl(id) {
                 return this.editUrlTemplate.replace('replaceId', id);
+            },
+            leadUrl(leadId) {
+                if (!leadId) return null;
+                return this.leadUrlTemplate.replace('replaceId', leadId);
+            },
+            goToLead(leadId) {
+                const url = this.leadUrl(leadId);
+                if (url) window.location.href = url;
+            },
+            onEventMouseEnter(e, evId, evData) {
+                this.hoveredEventId = evId;
+                this.hoveredEvent = evData || null;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const tooltipW = 240;
+                const left = (rect.right + 8 + tooltipW > window.innerWidth)
+                    ? rect.left - tooltipW - 8
+                    : rect.right + 8;
+                this.tooltipPos = { top: rect.top, left };
             },
             remove(ev) {
                 this.$axios.delete(this.deleteUrlTemplate.replace('replaceId', ev.id))
