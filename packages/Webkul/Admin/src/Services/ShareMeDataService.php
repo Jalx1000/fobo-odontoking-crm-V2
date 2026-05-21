@@ -103,8 +103,9 @@ class ShareMeDataService
     {
         try {
             $this->lastResponse = null;
-            $fromFormatted = Carbon::parse($from)->format('Y-m-d\TH:i:s-04:00');
-            $toFormatted = Carbon::parse($to)->format('Y-m-d\TH:i:s-04:00');
+            $appTz         = config('app.timezone', 'America/La_Paz');
+            $fromFormatted = Carbon::parse($from)->setTimezone($appTz)->format('Y-m-d\TH:i:sP');
+            $toFormatted   = Carbon::parse($to)->setTimezone($appTz)->format('Y-m-d\TH:i:sP');
 
             $queryParams = [
                 'where'      => 'subsidiary='.urlencode($subsidiary).'&specialty='.urlencode($specialty),

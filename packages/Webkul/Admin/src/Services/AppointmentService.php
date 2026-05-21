@@ -236,8 +236,8 @@ class AppointmentService
             'doctor_external_id' => $doctorExternalId,
             'schedule_from'      => $scheduleFrom->format('Y-m-d H:i:s'),
             'schedule_to'        => $scheduleTo->format('Y-m-d H:i:s'),
-            'schedule_from_tz'   => $scheduleFrom->format('Y-m-d\TH:i:s-04:00'),
-            'schedule_to_tz'     => $scheduleTo->format('Y-m-d\TH:i:s-04:00'),
+            'schedule_from_tz'   => $scheduleFrom->setTimezone(config('app.timezone', 'America/La_Paz'))->format('Y-m-d\TH:i:sP'),
+            'schedule_to_tz'     => $scheduleTo->setTimezone(config('app.timezone', 'America/La_Paz'))->format('Y-m-d\TH:i:sP'),
             'is_available'       => $isAvailableExternally,
             'smd_errors'         => $smdErrors,
             'specialties_tried'  => $doctorSpecialties,
@@ -322,8 +322,8 @@ class AppointmentService
                 'birthday' => '',
             ],
             'slot' => [
-                'start' => $scheduleFrom->format('Y-m-d\TH:i:s-04:00'),
-                'end'   => $scheduleTo->format('Y-m-d\TH:i:s-04:00'),
+                'start' => $scheduleFrom->setTimezone(config('app.timezone', 'America/La_Paz'))->format('Y-m-d\TH:i:sP'),
+                'end'   => $scheduleTo->setTimezone(config('app.timezone', 'America/La_Paz'))->format('Y-m-d\TH:i:sP'),
             ],
         ];
 

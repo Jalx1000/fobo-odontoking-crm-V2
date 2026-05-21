@@ -417,6 +417,75 @@ class ActivityController extends Controller
 
         $data = request()->all();
 
+        // Capturar valores originales antes de la actualización para el historial de cambios.
+        $existing = $this->activityRepository->findOrFail($id);
+        $original = $existing->only([
+            'title', 'comment', 'schedule_from', 'schedule_to', 'is_done', 'location',
+        ]);
+
+        // ── Validación de horarios al editar una consulta (meeting) ──────────
+        if (
+            ($data['type'] ?? $existing->type) === 'meeting'
+            && (isset($data['schedule_from']) || isset($data['schedule_to']))
+        ) {
+            $scheduleFrom = Carbon::parse($data['schedule_from'] ?? $existing->schedule_from);
+            $scheduleTo   = Carbon::parse($data['schedule_to']   ?? $existing->schedule_to);
+
+            // Obtener doctor_id actual o del request (ignorar string vacío)
+            $doctorId = (! empty($data['doctor_id']) ? $data['doctor_id'] : null)
+                ?? $existing->doctors()->value('doctors.id');
+
+            if ($doctorId) {
+                // 1. Validar que el nuevo horario esté dentro de un turno del doctor
+                $hasValidShift = DB::table('doctor_shifts')
+                    ->where('doctor_id', $doctorId)
+                    ->where('date', $scheduleFrom->toDateString())
+                    ->where('start_time', '<=', $scheduleFrom->format('H:i'))
+                    ->where('end_time', '>=', $scheduleTo->format('H:i'))
+                    ->exists();
+
+                if (! $hasValidShift) {
+                    $msg = 'El horario seleccionado está fuera de la jornada laboral del doctor para este día.';
+                    if (request()->ajax()) {
+                        return response()->json(['message' => $msg], 422);
+                    }
+                    session()->flash('error', $msg);
+
+                    return redirect()->back();
+                }
+
+                // 2. Validar que no haya conflicto con otras citas del doctor
+                // (excluyendo la propia actividad que se está editando)
+                $localConflict = DB::table('activities')
+                    ->join('doctor_activities', 'activities.id', '=', 'doctor_activities.activity_id')
+                    ->where('doctor_activities.doctor_id', $doctorId)
+                    ->where('activities.id', '!=', $id)
+                    ->where(function ($query) use ($scheduleFrom, $scheduleTo) {
+                        $query->where(function ($q) use ($scheduleFrom, $scheduleTo) {
+                            $q->where('schedule_from', '>=', $scheduleFrom)
+                              ->where('schedule_from', '<', $scheduleTo);
+                        })->orWhere(function ($q) use ($scheduleFrom, $scheduleTo) {
+                            $q->where('schedule_to', '>', $scheduleFrom)
+                              ->where('schedule_to', '<=', $scheduleTo);
+                        })->orWhere(function ($q) use ($scheduleFrom, $scheduleTo) {
+                            $q->where('schedule_from', '<=', $scheduleFrom)
+                              ->where('schedule_to', '>=', $scheduleTo);
+                        });
+                    })
+                    ->exists();
+
+                if ($localConflict) {
+                    $msg = 'El doctor ya tiene una cita programada en este horario.';
+                    if (request()->ajax()) {
+                        return response()->json(['message' => $msg], 422);
+                    }
+                    session()->flash('error', $msg);
+
+                    return redirect()->back();
+                }
+            }
+        }
+
         $activity = $this->activityRepository->update($data, $id);
 
         /**
@@ -456,6 +525,9 @@ class ActivityController extends Controller
 
         Event::dispatch('activity.update.after', $activity);
 
+        // ── Registrar cambios en el historial ────────────────────────────────
+        $this->logActivityChanges($activity, $original, $data);
+
         if (request()->ajax()) {
             return response()->json([
                 'data'    => new ActivityResource($activity),
@@ -466,6 +538,90 @@ class ActivityController extends Controller
         session()->flash('success', trans('admin::app.activities.update-success'));
 
         return redirect()->route('admin.activities.index');
+    }
+
+    /**
+     * Registra en el historial (activities tipo "system") los campos que cambiaron
+     * al editar una Activity (consulta). Las entradas se adjuntan al Lead y/o Person
+     * asociados para que aparezcan en sus respectivos historiales.
+     */
+    private function logActivityChanges($activity, array $original, array $newData): void
+    {
+        $trackFields = [
+            'title'         => 'Título',
+            'comment'       => 'Comentario',
+            'schedule_from' => 'Inicio',
+            'schedule_to'   => 'Fin',
+            'is_done'       => 'Completada',
+            'location'      => 'Ubicación',
+        ];
+
+        $changed = [];
+
+        foreach ($trackFields as $field => $label) {
+            if (! array_key_exists($field, $newData)) {
+                continue;
+            }
+
+            $oldRaw = $original[$field] ?? null;
+            $newRaw = $newData[$field]  ?? null;
+
+            // Normalizar valores de fecha para comparación sin segundos y timezone
+            if (in_array($field, ['schedule_from', 'schedule_to'])) {
+                $oldNorm = $oldRaw ? Carbon::parse($oldRaw)->format('Y-m-d H:i') : null;
+                $newNorm = $newRaw ? Carbon::parse($newRaw)->format('Y-m-d H:i') : null;
+            } else {
+                $oldNorm = (string) ($oldRaw ?? '');
+                $newNorm = (string) ($newRaw ?? '');
+            }
+
+            if ($oldNorm !== $newNorm) {
+                $changed[$field] = ['label' => $label, 'old' => $oldRaw, 'new' => $newRaw];
+            }
+        }
+
+        if (empty($changed)) {
+            return;
+        }
+
+        // Obtener leads y persons asociados para adjuntar el log
+        $leads   = $activity->leads()->pluck('leads.id')->toArray();
+        $persons = $activity->persons()->pluck('persons.id')->toArray();
+
+        foreach ($changed as $field => $info) {
+            try {
+                $systemActivity = $this->activityRepository->create([
+                    'type'       => 'system',
+                    'title'      => trans('admin::app.activities.updated', ['attribute' => $info['label']]),
+                    'is_done'    => 1,
+                    'additional' => json_encode([
+                        'attribute' => $info['label'],
+                        'new'       => ['value' => $info['new'], 'label' => $info['new']],
+                        'old'       => ['value' => $info['old'], 'label' => $info['old']],
+                    ]),
+                    'user_id'    => auth()->guard('user')->id() ?? auth()->id(),
+                ]);
+
+                foreach ($leads as $leadId) {
+                    DB::table('lead_activities')->insertOrIgnore([
+                        'lead_id'     => $leadId,
+                        'activity_id' => $systemActivity->id,
+                    ]);
+                }
+
+                foreach ($persons as $personId) {
+                    DB::table('person_activities')->insertOrIgnore([
+                        'person_id'   => $personId,
+                        'activity_id' => $systemActivity->id,
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Error registrando historial de cambio en Activity: ' . $e->getMessage(), [
+                    'activity_id' => $activity->id,
+                    'field'       => $field,
+                ]);
+            }
+        }
     }
 
     /**
