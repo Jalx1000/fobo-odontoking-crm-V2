@@ -298,7 +298,7 @@ class IncomingAppointmentService
             $nameParts = array_filter(explode(' ', trim($data['doctor_name'])));
             foreach ($nameParts as $part) {
                 if (strlen($part) <= 2) continue;
-                $found = DB::table('od_doctors')
+                $found = DB::table('doctors')
                     ->where('name', 'like', "%{$part}%")
                     ->where('is_active', 1)
                     ->first();
