@@ -1,7 +1,7 @@
 <?php
 header('Content-Type: text/plain');
 
-$url = 'http://gamma.sharemedata.com:3000/api/calendar/schedule/createEvent';
+$url = 'http://gamma.sharemedata.com/api/calendar/schedule/createEvent';
 $apiKey = '$2a$08$ZnoEdG50NB2n4VfimSpVjOkqgv1VqHVqRRL9Z6pohthsOvTliEWi2';
 
 // Datos mínimos para no fallar por validación
