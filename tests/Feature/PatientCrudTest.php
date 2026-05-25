@@ -28,13 +28,15 @@ it('permite al administrador crear un nuevo paciente', function () {
         'unique_id'       => 'create-' . uniqid(),
     ];
 
-    actingAs($this->adminUser, 'user')
-        ->post(route('admin.contacts.persons.store'), $personData)
-        ->assertRedirect(route('admin.contacts.persons.index'))
-        ->assertSessionHas('success');
+    $response = actingAs($this->adminUser, 'user')
+        ->post(route('admin.contacts.persons.store'), $personData);
 
     $person = Person::where('name', $personData['name'])->first();
     expect($person)->not->toBeNull();
+
+    $response->assertRedirect(route('admin.contacts.persons.view', $person->id))
+             ->assertSessionHas('success');
+
     expect($person->job_title)->toBe($personData['job_title']);
 });
 

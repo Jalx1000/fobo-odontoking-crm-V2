@@ -53,6 +53,10 @@ class ProductController extends Controller
      */
     public function store(AttributeForm $request)
     {
+        $request->validate([
+            'duration_minutes' => ['nullable', 'integer', 'min:1', 'max:480'],
+        ]);
+
         $data = $request->all();
 
         if (empty($data['sku'])) {
@@ -109,6 +113,10 @@ class ProductController extends Controller
      */
     public function update(AttributeForm $request, int $id)
     {
+        $request->validate([
+            'duration_minutes' => ['nullable', 'integer', 'min:1', 'max:480'],
+        ]);
+
         Event::dispatch('product.update.before', $id);
 
         $product = $this->productRepository->update($request->all(), $id);

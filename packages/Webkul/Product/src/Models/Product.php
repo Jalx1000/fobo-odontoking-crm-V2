@@ -28,6 +28,11 @@ class Product extends Model implements ProductContract
         'description',
         'quantity',
         'price',
+        'duration_minutes',
+    ];
+
+    protected $casts = [
+        'duration_minutes' => 'integer',
     ];
 
     /**

@@ -56,6 +56,8 @@ Route::get('/public/products', function (Request $request) {
     $products = $query->orderBy('created_at', 'desc')->get()->map(function ($product) use ($valueRepo) {
         $data = $product->attributesToArray();
 
+        $data['duration_minutes'] = $product->duration_minutes;
+
         foreach ($product->getCustomAttributes() as $attribute) {
             $raw = $product->getCustomAttributeValue($attribute);
             $data[$attribute->code] = $attribute->type === 'boolean'

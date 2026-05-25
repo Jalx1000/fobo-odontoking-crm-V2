@@ -3,6 +3,9 @@
 namespace Webkul\Admin\Http\Controllers\Api;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Admin\Services\InsuranceService;
 
@@ -123,5 +126,172 @@ class InsuranceController extends Controller
         $httpStatus = $result['success'] === false && $result['status'] === 'INDETERMINADO' ? 502 : 200;
 
         return response()->json($result, $httpStatus);
+    }
+
+    /**
+     * @OA\Get(
+     *     path="/api/v1/insurance/verify",
+     *     summary="Verificar seguro por cédula — Agente WhatsApp",
+     *     description="Verifica si un paciente tiene seguro dental activo buscándolo por cédula (ci_paciente) y nombre de aseguradora en texto libre. Diseñado para el agente de WhatsApp. Responde con shape anti-enumeración: la respuesta es idéntica para 'paciente no encontrado' y 'sin seguro activo', para evitar revelar si un CI existe en el sistema. Rate limit: 10 req/min por token.",
+     *     tags={"Insurance"},
+     *     security={{"bearerAuth": {}}},
+     *     @OA\Parameter(
+     *         name="ci_paciente",
+     *         in="query",
+     *         required=true,
+     *         description="Cédula de identidad del paciente (custom attribute ci_paciente del Person)",
+     *         @OA\Schema(type="string", minLength=3, maxLength=30, example="0912345678")
+     *     ),
+     *     @OA\Parameter(
+     *         name="seguro_paciente",
+     *         in="query",
+     *         required=true,
+     *         description="Nombre de la empresa aseguradora en texto libre (ej. 'Alianza', 'Nacional Vida', 'Membresía Odontoking')",
+     *         @OA\Schema(type="string", minLength=2, maxLength=100, example="Alianza")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Verificación completada. has_insurance:true indica seguro VIGENTE o EN_MORA.",
+     *         @OA\JsonContent(
+     *             oneOf={
+     *                 @OA\Schema(
+     *                     description="Seguro activo",
+     *                     @OA\Property(property="has_insurance", type="boolean", example=true),
+     *                     @OA\Property(property="insurance_name", type="string", example="Seguros Equinoccial"),
+     *                     @OA\Property(property="policy_number", type="string", nullable=true, example="POL-2025-00123"),
+     *                     @OA\Property(property="coverage_type", type="string", example="dental"),
+     *                     @OA\Property(property="valid_until", type="string", nullable=true, example="2026-12-31"),
+     *                     @OA\Property(property="covered_services", type="array", @OA\Items(type="string"), example={"limpieza","radiografia"}),
+     *                     @OA\Property(property="patient_name", type="string", nullable=true, example="Adenilza Flores"),
+     *                     @OA\Property(property="patient_id", type="integer", nullable=true, example=55)
+     *                 ),
+     *                 @OA\Schema(
+     *                     description="Sin seguro o paciente no encontrado (misma respuesta — anti-enumeración)",
+     *                     @OA\Property(property="has_insurance", type="boolean", example=false),
+     *                     @OA\Property(property="patient_found", type="boolean", example=false)
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Token inválido o ausente",
+     *         @OA\JsonContent(@OA\Property(property="message", type="string", example="Unauthenticated."))
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Parámetros faltantes o inválidos",
+     *         @OA\JsonContent(@OA\Property(property="message", type="string"), @OA\Property(property="errors", type="object"))
+     *     ),
+     *     @OA\Response(
+     *         response=429,
+     *         description="Rate limit excedido (máx 10 req/min por token)",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Too many requests. Maximum 10 verifications per minute per token."),
+     *             @OA\Property(property="retry_after", type="integer", example=60)
+     *         )
+     *     )
+     * )
+     */
+    public function verifyForAgent(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ci_paciente'     => ['required', 'string', 'min:3', 'max:30'],
+            'seguro_paciente' => ['required', 'string', 'min:2', 'max:100'],
+        ]);
+
+        $ci         = trim($data['ci_paciente']);
+        $seguroName = trim($data['seguro_paciente']);
+        $webhookUrl = env('SEGUROS_WEBHOOK_URL', 'https://n8n.sofopolis.com/webhook/seguros-verify');
+
+        try {
+            $response = Http::timeout(30)->post($webhookUrl, [
+                'empresa_seguro'   => $seguroName,
+                'carnet_identidad' => $ci,
+            ]);
+
+            if ($response->failed()) {
+                $this->logAudit($request, $ci, $seguroName, false);
+                return response()->json(['has_insurance' => false, 'patient_found' => false], 200);
+            }
+
+            $webhookData = $response->json();
+            $success     = $webhookData['success'] ?? false;
+            $results     = $webhookData['data'] ?? [];
+
+            $hasInsurance = $success
+                && ! empty($results)
+                && ! (is_string($results) && strtolower(trim($results)) === 'no registrado');
+
+            $this->logAudit($request, $ci, $seguroName, $hasInsurance);
+
+            if (! $hasInsurance) {
+                usleep(random_int(50000, 150000));
+                return response()->json(['has_insurance' => false, 'patient_found' => false]);
+            }
+
+            $row        = is_array($results) ? ($results[0] ?? $results) : [];
+            $validUntil = $this->extractField($row, ['VIGENCIA HASTA', 'VENCIMIENTO', 'valid_until']);
+
+            return response()->json([
+                'has_insurance'    => true,
+                'insurance_name'   => $seguroName,
+                'policy_number'    => $this->extractField($row, ['POLIZA', 'NUMERO POLIZA', 'policy_number']),
+                'coverage_type'    => $this->extractField($row, ['TIPO COBERTURA', 'coverage_type', 'PLAN']) ?? 'dental',
+                'valid_until'      => $validUntil,
+                'covered_services' => $this->extractField($row, ['SERVICIOS', 'covered_services']) ?? [],
+                'patient_name'     => $this->extractField($row, ['NOMBRE COMPLETO', 'NOMBRE', 'Nombre', 'patient_name']),
+                'raw'              => $row,
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('[verifyForAgent] Webhook error', ['error' => $e->getMessage()]);
+            return response()->json(['has_insurance' => false, 'patient_found' => false], 200);
+        }
+    }
+
+    /**
+     * Escribe una fila en insurance_audit_logs con datos hasheados.
+     * Nunca loguea CI, token ni nombre en claro. Falla silenciosamente.
+     */
+    private function logAudit(Request $request, string $ci, string $seguro, bool $result): void
+    {
+        try {
+            $tokenRaw  = optional($request->user()?->currentAccessToken())->token ?? 'unknown';
+            $tokenHash = hash('sha256', $tokenRaw);
+
+            DB::table('insurance_audit_logs')->insert([
+                'token_hash'  => $tokenHash,
+                'ci_hash'     => hash('sha256', $ci),
+                'seguro_hash' => hash('sha256', strtolower(trim($seguro))),
+                'result'      => $result,
+                'ip_address'  => $request->ip(),
+                'created_at'  => now(),
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('[InsuranceAudit] Error al escribir audit log', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Busca un campo en el array de datos del driver por múltiples claves posibles.
+     * Necesario porque cada aseguradora devuelve keys diferentes (NOMBRE COMPLETO, NOMBRE, etc.)
+     */
+    private function extractField(array $data, array $keys): mixed
+    {
+        foreach ($keys as $key) {
+            if (isset($data[$key])) {
+                return $data[$key];
+            }
+
+            foreach ($data as $dataKey => $value) {
+                if (strtolower((string) $dataKey) === strtolower($key)) {
+                    return $value;
+                }
+            }
+        }
+
+        return null;
     }
 }

@@ -33,7 +33,7 @@
             <span>@{{ modelValue || '00:00' }}</span>
             <i class="icon-clock text-lg"></i>
         </div>
-        <div v-if="isOpen" class="tp-dropdown" ref="dropdown">
+        <div v-show="isOpen" class="tp-dropdown" ref="dropdown">
             <div class="tp-lists">
                 <ul class="tp-list" ref="hours">
                     <li v-for="h in 24" :key="'h-'+h" @click.stop="selectHour(h-1)" :class="{ 'is-selected': (h-1) == currentHour }">
@@ -356,7 +356,6 @@
     data() {
         return {
             isOpen: false,
-            dropdownEl: null,
         };
     },
     computed: {
@@ -368,28 +367,12 @@
         }
     },
     watch: {
-        isOpen(isOpen) {
-            if (isOpen) {
+        isOpen(val) {
+            if (val) {
                 this.$nextTick(() => {
-                    const dropdown = this.$refs.dropdown;
-                    if (!dropdown) return;
-
-                    this.dropdownEl = dropdown;
-                    document.body.appendChild(this.dropdownEl);
-
-                    const inputRect = this.$refs.root.getBoundingClientRect();
-                    this.dropdownEl.style.position = 'absolute';
-                    this.dropdownEl.style.top = `${inputRect.bottom + window.scrollY + 4}px`;
-                    this.dropdownEl.style.left = `${inputRect.left + window.scrollX}px`;
-                    this.dropdownEl.style.width = `${inputRect.width}px`;
-
+                    this.positionDropdown();
                     this.scrollToSelected();
                 });
-            } else {
-                if (this.dropdownEl && this.dropdownEl.parentNode === document.body) {
-                    document.body.removeChild(this.dropdownEl);
-                    this.dropdownEl = null;
-                }
             }
         }
     },
@@ -403,16 +386,28 @@
         selectHour(h) {
             const m = this.currentMinute;
             this.$emit('update:modelValue', `${this.pad2(h)}:${this.pad2(m)}`);
+            this.$nextTick(() => this.scrollToSelected());
         },
         selectMinute(m) {
             const h = this.currentHour;
             this.$emit('update:modelValue', `${this.pad2(h)}:${this.pad2(m)}`);
             this.isOpen = false;
         },
+        positionDropdown() {
+            const dropdown = this.$refs.dropdown;
+            const root = this.$refs.root;
+            if (!dropdown || !root) return;
+            const rect = root.getBoundingClientRect();
+            dropdown.style.position = 'fixed';
+            dropdown.style.top = `${rect.bottom + 4}px`;
+            dropdown.style.left = `${rect.left}px`;
+            dropdown.style.width = `${rect.width}px`;
+        },
         scrollToSelected() {
-            if (!this.dropdownEl) return;
-            const hoursEl = this.dropdownEl.querySelector('.tp-lists ul:first-of-type');
-            const minutesEl = this.dropdownEl.querySelector('.tp-lists ul:last-of-type');
+            const dropdown = this.$refs.dropdown;
+            if (!dropdown) return;
+            const hoursEl = this.$refs.hours;
+            const minutesEl = this.$refs.minutes;
             if (hoursEl) {
                 const selected = hoursEl.querySelector('.is-selected');
                 if (selected) {
@@ -427,8 +422,9 @@
             }
         },
         onClickOutside(e) {
-            if (this.$refs.root && !this.$refs.root.contains(e.target) &&
-                this.dropdownEl && !this.dropdownEl.contains(e.target)) {
+            const root = this.$refs.root;
+            const dropdown = this.$refs.dropdown;
+            if (root && !root.contains(e.target) && dropdown && !dropdown.contains(e.target)) {
                 this.isOpen = false;
             }
         }
@@ -438,9 +434,6 @@
     },
     beforeUnmount() {
         document.removeEventListener('click', this.onClickOutside, true);
-        if (this.dropdownEl && this.dropdownEl.parentNode === document.body) {
-            document.body.removeChild(this.dropdownEl);
-        }
     }
 });
 
@@ -865,7 +858,7 @@ app.component('v-schedules', {
         .tp-container { position: relative; display: inline-block; width: 100%; }
     .tp-input { display: flex; align-items: center; justify-content: space-between; width: 100%; border: 1px solid #e5e7eb; border-radius: 0.375rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; background: white; cursor: pointer; height: 39px; }
     .dark .tp-input { border-color: #374151; background: #1f2937; color: #d1d5db; }
-    .tp-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 0.375rem; z-index: 100000; margin-top: 4px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
+    .tp-dropdown { position: fixed; background: white; border: 1px solid #e5e7eb; border-radius: 0.375rem; z-index: 100000; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
     .dark .tp-dropdown { border-color: #374151; background: #1f2937; }
     .tp-lists { display: flex; height: 160px; }
     .tp-list { list-style: none; margin: 0; padding: 4px; overflow-y: auto; flex: 1; border-right: 1px solid #e5e7eb; }

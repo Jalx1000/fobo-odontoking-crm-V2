@@ -41,6 +41,51 @@ class ScheduleController extends Controller
         return response()->json($horarios);
     }
 
+    /**
+     * @OA\Get(
+     *     path="/api/disponibilidad",
+     *     summary="Slots de disponibilidad de un doctor para una fecha",
+     *     description="Devuelve los bloques de tiempo disponibles de un doctor en una fecha específica, descontando las citas ya reservadas. Una llamada por fecha — para consultar 7 días hacer 7 requests. Requiere token Sanctum (Bearer).",
+     *     tags={"Doctors"},
+     *     security={{"bearerAuth": {}}},
+     *     @OA\Parameter(
+     *         name="doctorId",
+     *         in="query",
+     *         required=true,
+     *         description="ID del doctor (User)",
+     *         @OA\Schema(type="integer", example=3)
+     *     ),
+     *     @OA\Parameter(
+     *         name="date",
+     *         in="query",
+     *         required=true,
+     *         description="Fecha a consultar en formato YYYY-MM-DD. Solo acepta una fecha por llamada.",
+     *         @OA\Schema(type="string", format="date", example="2026-05-26")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Lista de slots disponibles para la fecha. Array vacío si el doctor no trabaja ese día.",
+     *         @OA\JsonContent(
+     *             type="array",
+     *             @OA\Items(
+     *                 @OA\Property(property="doctorId", type="integer", example=3),
+     *                 @OA\Property(property="date", type="string", format="date", example="2026-05-26"),
+     *                 @OA\Property(property="startTime", type="string", example="09:00"),
+     *                 @OA\Property(property="endTime", type="string", example="13:00")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=400, description="Parámetros inválidos",
+     *         @OA\JsonContent(@OA\Property(property="errors", type="object"))
+     *     ),
+     *     @OA\Response(response=401, description="Token ausente o inválido",
+     *         @OA\JsonContent(@OA\Property(property="message", type="string", example="Unauthenticated."))
+     *     ),
+     *     @OA\Response(response=404, description="Doctor no encontrado o sin horario para esa fecha",
+     *         @OA\JsonContent(@OA\Property(property="message", type="string", example="El doctor no trabaja en la fecha especificada."))
+     *     )
+     * )
+     */
     public function getDisponibilidad(Request $request)
     {
         $validator = Validator::make($request->all(), [

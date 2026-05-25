@@ -180,6 +180,291 @@
                 ]
             }
         },
+        "/api/v1/insurance/verify": {
+            "get": {
+                "tags": [
+                    "Insurance"
+                ],
+                "summary": "Verificar seguro por cédula — Agente WhatsApp",
+                "description": "Verifica si un paciente tiene seguro dental activo buscándolo por cédula (ci_paciente) y nombre de aseguradora en texto libre. Diseñado para el agente de WhatsApp. Responde con shape anti-enumeración: la respuesta es idéntica para 'paciente no encontrado' y 'sin seguro activo', para evitar revelar si un CI existe en el sistema. Rate limit: 10 req/min por token.",
+                "operationId": "6d7a0640bf0bc43ce2ae6c71c9a27a09",
+                "parameters": [
+                    {
+                        "name": "ci_paciente",
+                        "in": "query",
+                        "description": "Cédula de identidad del paciente (custom attribute ci_paciente del Person)",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 30,
+                            "minLength": 3,
+                            "example": "0912345678"
+                        }
+                    },
+                    {
+                        "name": "seguro_paciente",
+                        "in": "query",
+                        "description": "Nombre de la empresa aseguradora en texto libre (ej. 'Alianza', 'Nacional Vida', 'Membresía Odontoking')",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 100,
+                            "minLength": 2,
+                            "example": "Alianza"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Verificación completada. has_insurance:true indica seguro VIGENTE o EN_MORA.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "oneOf": [
+                                        {
+                                            "description": "Seguro activo",
+                                            "properties": {
+                                                "has_insurance": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                },
+                                                "insurance_name": {
+                                                    "type": "string",
+                                                    "example": "Seguros Equinoccial"
+                                                },
+                                                "policy_number": {
+                                                    "type": "string",
+                                                    "example": "POL-2025-00123",
+                                                    "nullable": true
+                                                },
+                                                "coverage_type": {
+                                                    "type": "string",
+                                                    "example": "dental"
+                                                },
+                                                "valid_until": {
+                                                    "type": "string",
+                                                    "example": "2026-12-31",
+                                                    "nullable": true
+                                                },
+                                                "covered_services": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "example": [
+                                                        "limpieza",
+                                                        "radiografia"
+                                                    ]
+                                                },
+                                                "patient_name": {
+                                                    "type": "string",
+                                                    "example": "Adenilza Flores",
+                                                    "nullable": true
+                                                },
+                                                "patient_id": {
+                                                    "type": "integer",
+                                                    "example": 55,
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        {
+                                            "description": "Sin seguro o paciente no encontrado (misma respuesta — anti-enumeración)",
+                                            "properties": {
+                                                "has_insurance": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                },
+                                                "patient_found": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Token inválido o ausente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Parámetros faltantes o inválidos",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limit excedido (máx 10 req/min por token)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Too many requests. Maximum 10 verifications per minute per token."
+                                        },
+                                        "retry_after": {
+                                            "type": "integer",
+                                            "example": 60
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/doctors/{id}": {
+            "get": {
+                "tags": [
+                    "Doctors"
+                ],
+                "summary": "Obtener doctor por ID con schedule semanal",
+                "description": "Devuelve los datos de un doctor específico junto con su disponibilidad (slots libres) para los próximos 7 días. Endpoint público — no requiere token. Alternativa eficiente a cargar todos los doctores y filtrar en el cliente.",
+                "operationId": "49f0a815df87b00cc69e810cc173fb83",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID numérico del doctor",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Doctor encontrado con su schedule de 7 días",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "integer",
+                                            "example": 1
+                                        },
+                                        "name": {
+                                            "type": "string",
+                                            "example": "Dr. García"
+                                        },
+                                        "specialties": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "schedule": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "date": {
+                                                        "type": "string",
+                                                        "format": "date",
+                                                        "example": "2026-05-24"
+                                                    },
+                                                    "slots": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "properties": {
+                                                                "start_time": {
+                                                                    "type": "string",
+                                                                    "example": "09:00"
+                                                                },
+                                                                "end_time": {
+                                                                    "type": "string",
+                                                                    "example": "10:00"
+                                                                },
+                                                                "status": {
+                                                                    "type": "string",
+                                                                    "example": "available"
+                                                                }
+                                                            },
+                                                            "type": "object"
+                                                        }
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "ID no numérico",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Invalid doctor ID format"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Doctor no encontrado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Doctor not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/specialties": {
             "post": {
                 "tags": [
@@ -15151,6 +15436,10 @@
         {
             "name": "Insurance",
             "description": "Endpoints para verificación de seguros dentales"
+        },
+        {
+            "name": "Doctors",
+            "description": "Endpoints para consultar doctores y su disponibilidad"
         },
         {
             "name": "Authentication",

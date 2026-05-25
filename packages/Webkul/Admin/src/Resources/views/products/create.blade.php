@@ -93,6 +93,23 @@
                                 ])"
                             />
 
+                            <x-admin::form.control-group>
+                                <x-admin::form.control-group.label>
+                                    {{ __('Duración (minutos)') }}
+                                </x-admin::form.control-group.label>
+
+                                <x-admin::form.control-group.control
+                                    type="number"
+                                    name="duration_minutes"
+                                    :value="old('duration_minutes', '')"
+                                    placeholder="60"
+                                    min="1"
+                                    max="480"
+                                />
+
+                                <x-admin::form.control-group.error field-name="duration_minutes" />
+                            </x-admin::form.control-group>
+
                             {!! view_render_event('admin.products.create.accordion.content.attributes.after') !!}
                         </x-slot>
                     </x-admin::accordion>

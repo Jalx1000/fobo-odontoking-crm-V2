@@ -28,6 +28,19 @@ class RouteServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
+        RateLimiter::for('insurance-agent', function (Request $request) {
+            $tokenId = optional($request->user()?->currentAccessToken())->id ?? 'unauthenticated';
+
+            return Limit::perMinute(10)
+                ->by('insurance-agent|' . $tokenId)
+                ->response(function () {
+                    return response()->json([
+                        'message'     => 'Too many requests. Maximum 10 verifications per minute per token.',
+                        'retry_after' => 60,
+                    ], 429);
+                });
+        });
+
         $this->routes(function () {
             Route::middleware('api')
                 ->prefix('api')
