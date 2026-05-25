@@ -97,23 +97,45 @@ class AlianzaDriver implements InsuranceDriverInterface
 
         if ($response->successful() && ($body['success'] ?? false)) {
             $rows   = $body['data'] ?? [];
-            $record = is_array($rows) && isset($rows[0]) ? $rows[0] : $rows;
+            $record = is_array($rows) && isset($rows[0]) ? $rows[0] : null;
 
-            $estado = strtoupper($record['ESTADO'] ?? 'VIGENTE');
-            $badge  = $estado === 'VIGENTE' ? 'success' : 'warning';
+            // Sin registro real → no asegurado
+            if (empty($record)) {
+                $this->updateInsuranceAttributes($person, 'NO_REGISTRADO');
+                return [
+                    'status'  => 'NO_REGISTRADO',
+                    'message' => 'El paciente no figura con cobertura dental en Alianza.',
+                    'badge'   => 'warning',
+                    'success' => true,
+                    'data'    => null,
+                ];
+            }
+
+            // ESTADO debe venir explícito desde la API — nunca asumir VIGENTE por defecto
+            $estado = strtoupper($record['ESTADO'] ?? '');
+
+            if (empty($estado)) {
+                Log::warning('[AlianzaDriver] Respuesta sin campo ESTADO', ['record' => $record, 'ci' => $ci]);
+                $this->updateInsuranceAttributes($person, 'INDETERMINADO');
+                return $this->indeterminate('La aseguradora devolvió datos incompletos. Contacta a soporte.');
+            }
+
+            $badge = $estado === 'VIGENTE' ? 'success' : 'warning';
 
             $this->updateInsuranceAttributes($person, $estado);
 
             return [
                 'status'  => $estado,
-                'message' => '¡Todo en orden! El paciente tiene cobertura dental activa en Alianza.',
+                'message' => $estado === 'VIGENTE'
+                    ? '¡Todo en orden! El paciente tiene cobertura dental activa en Alianza.'
+                    : 'El seguro Alianza está registrado pero con estado: ' . $estado,
                 'badge'   => $badge,
                 'success' => true,
                 'data'    => [
                     'CI'                     => $record['NRO. DOCUMENTO']                   ?? $ci,
                     'CONTRATANTE'            => $record['CONTRATANTE']                      ?? '',
                     'NOMBRE COMPLETO'        => $record['NOMBRE COMPLETO']                  ?? '',
-                    'ESTADO'                 => $record['ESTADO']                           ?? $estado,
+                    'ESTADO'                 => $estado,
                     'EDAD'                   => $record['EDAD']                             ?? null,
                     'CODIGO'                 => $record['CODIGO DE ASEGURADO']              ?? '',
                     'COBERTURA ODONTOLOGICA' => $record['COBERTURA ADICIONAL ODONTOLOGICA'] ?? '',
@@ -175,7 +197,7 @@ class AlianzaDriver implements InsuranceDriverInterface
                 ->where('entity_type', 'leads')
                 ->first();
 
-            if ($leadAttribute && $person->leads->count() > 0) {
+            if ($leadAttribute && $person instanceof \Webkul\Contact\Models\Person && $person->leads->count() > 0) {
                 foreach ($person->leads as $lead) {
                     app(\Webkul\Attribute\Repositories\AttributeValueRepository::class)->save([
                         'entity_id'                   => $lead->id,

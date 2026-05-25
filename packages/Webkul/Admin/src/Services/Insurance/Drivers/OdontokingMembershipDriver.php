@@ -159,7 +159,7 @@ class OdontokingMembershipDriver implements InsuranceDriverInterface
                 ->where('entity_type', 'leads')
                 ->first();
 
-            if ($leadAttribute && $person->leads->count() > 0) {
+            if ($leadAttribute && $person instanceof \Webkul\Contact\Models\Person && $person->leads->count() > 0) {
                 foreach ($person->leads as $lead) {
                     app(\Webkul\Attribute\Repositories\AttributeValueRepository::class)->save([
                         'entity_id'                   => $lead->id,
