@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\RateLimiter;
+use Mockery;
+use Webkul\Admin\Services\InsuranceService;
 use Webkul\User\Models\User;
 
 uses(DatabaseTransactions::class);
@@ -17,6 +19,16 @@ beforeEach(function () {
     RateLimiter::clear('insurance-agent|unauthenticated');
     Cache::flush();
 });
+
+// Helper: mockea InsuranceService::verifyWithParams para tests positivos.
+// Los tests negativos usan Http::fake porque el fallo de login de cualquier
+// driver devuelve INDETERMINADO → has_insurance:false, sin necesidad de mock.
+function mockVerifyWithParams(array $returnValue): void
+{
+    $mock = Mockery::mock(InsuranceService::class);
+    $mock->shouldReceive('verifyWithParams')->once()->andReturn($returnValue);
+    app()->instance(InsuranceService::class, $mock);
+}
 
 // ─── Autenticación ─────────────────────────────────────────────────────────
 
@@ -124,20 +136,19 @@ it('devuelve has_insurance:true cuando el webhook retorna datos del paciente', f
 });
 
 it('la respuesta positiva tiene la estructura correcta', function () {
-    Http::fake(['*' => Http::response([
-        'success' => true,
-        'data'    => [[
-            'CI'            => 'CI-TEST',
-            'Nombre'        => 'Test Paciente',
-            'VIGENCIA HASTA' => '31/12/2026',
-        ]],
-    ], 200)]);
+    mockVerifyWithParams([
+        'status'      => 'VIGENTE',
+        'seguro_name' => 'Alianza',
+        'success'     => true,
+        'data'        => ['NOMBRE COMPLETO' => 'Test Paciente', 'VIGENCIA HASTA' => '31/12/2026'],
+    ]);
 
     $this->actingAs($this->user, 'sanctum')
         ->get('/api/v1/insurance/verify?ci_paciente=CI-TEST&seguro_paciente=Alianza')
         ->assertStatus(200)
         ->assertJsonStructure([
             'has_insurance',
+            'status',
             'insurance_name',
             'policy_number',
             'coverage_type',
@@ -148,13 +159,13 @@ it('la respuesta positiva tiene la estructura correcta', function () {
         ]);
 });
 
-it('la respuesta positiva incluye patient_name desde los datos del webhook', function () {
-    Http::fake(['*' => Http::response([
-        'success' => true,
-        'data'    => [[
-            'Nombre' => 'María García',
-        ]],
-    ], 200)]);
+it('la respuesta positiva incluye patient_name desde los datos del driver', function () {
+    mockVerifyWithParams([
+        'status'      => 'VIGENTE',
+        'seguro_name' => 'Alianza',
+        'success'     => true,
+        'data'        => ['NOMBRE COMPLETO' => 'María García'],
+    ]);
 
     $response = $this->actingAs($this->user, 'sanctum')
         ->get('/api/v1/insurance/verify?ci_paciente=CI-TEST&seguro_paciente=Alianza')
@@ -163,10 +174,15 @@ it('la respuesta positiva incluye patient_name desde los datos del webhook', fun
     expect($response->json('patient_name'))->toBe('María García');
 });
 
-it('la respuesta positiva incluye el campo raw con datos crudos del webhook', function () {
-    $row = ['CI' => 'CI-TEST', 'Nombre' => 'Test', 'Observaciones' => 'MF HASTA EL 31/12/2026'];
+it('la respuesta positiva incluye el campo raw con datos crudos del driver', function () {
+    $row = ['NOMBRE COMPLETO' => 'Test', 'ESTADO' => 'VIGENTE', 'CI' => 'CI-TEST'];
 
-    Http::fake(['*' => Http::response(['success' => true, 'data' => [$row]], 200)]);
+    mockVerifyWithParams([
+        'status'      => 'VIGENTE',
+        'seguro_name' => 'Alianza',
+        'success'     => true,
+        'data'        => $row,
+    ]);
 
     $response = $this->actingAs($this->user, 'sanctum')
         ->get('/api/v1/insurance/verify?ci_paciente=CI-TEST&seguro_paciente=Alianza')
@@ -216,10 +232,12 @@ it('el audit log guarda result:false cuando has_insurance es false', function ()
 });
 
 it('el audit log guarda result:true cuando has_insurance es true', function () {
-    Http::fake(['*' => Http::response([
-        'success' => true,
-        'data'    => [['Nombre' => 'Test']],
-    ], 200)]);
+    mockVerifyWithParams([
+        'status'      => 'VIGENTE',
+        'seguro_name' => 'Alianza',
+        'success'     => true,
+        'data'        => ['NOMBRE COMPLETO' => 'Test'],
+    ]);
 
     $this->actingAs($this->user, 'sanctum')
         ->get('/api/v1/insurance/verify?ci_paciente=CI-AUDIT-TRUE&seguro_paciente=Alianza');

@@ -28,7 +28,7 @@ class NacionalVidaDriver implements InsuranceDriverInterface
             $response = Http::timeout($this->timeout)
                 ->post($this->webhookUrl, [
                     'empresa_seguro'   => 'Nacional Vida',
-                    'carnet_identidad' => (int) $ci,
+                    'carnet_identidad' => $ci,
                 ]);
 
             if ($response->failed()) {

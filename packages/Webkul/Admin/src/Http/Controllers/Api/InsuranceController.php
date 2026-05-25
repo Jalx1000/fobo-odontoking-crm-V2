@@ -202,26 +202,15 @@ class InsuranceController extends Controller
 
         $ci         = trim($data['ci_paciente']);
         $seguroName = trim($data['seguro_paciente']);
-        $webhookUrl = env('SEGUROS_WEBHOOK_URL', 'https://n8n.sofopolis.com/webhook/seguros-verify');
 
         try {
-            $response = Http::timeout(30)->post($webhookUrl, [
-                'empresa_seguro'   => $seguroName,
-                'carnet_identidad' => $ci,
-            ]);
+            // Delegar al driver correcto según la aseguradora:
+            //  - Alianza → AlianzaDriver (API propia devnet.alianza.com.bo)
+            //  - Nacional → NacionalVidaDriver (webhook n8n)
+            //  - Membresía Odontoking → OdontokingMembershipDriver (webhook n8n)
+            $result = $this->insuranceService->verifyWithParams($ci, $seguroName);
 
-            if ($response->failed()) {
-                $this->logAudit($request, $ci, $seguroName, false);
-                return response()->json(['has_insurance' => false, 'patient_found' => false], 200);
-            }
-
-            $webhookData = $response->json();
-            $success     = $webhookData['success'] ?? false;
-            $results     = $webhookData['data'] ?? [];
-
-            $hasInsurance = $success
-                && ! empty($results)
-                && ! (is_string($results) && strtolower(trim($results)) === 'no registrado');
+            $hasInsurance = in_array($result['status'] ?? '', ['VIGENTE', 'EN_MORA']);
 
             $this->logAudit($request, $ci, $seguroName, $hasInsurance);
 
@@ -230,21 +219,21 @@ class InsuranceController extends Controller
                 return response()->json(['has_insurance' => false, 'patient_found' => false]);
             }
 
-            $row        = is_array($results) ? ($results[0] ?? $results) : [];
-            $validUntil = $this->extractField($row, ['VIGENCIA HASTA', 'VENCIMIENTO', 'valid_until']);
+            $row = $result['data'] ?? [];
 
             return response()->json([
                 'has_insurance'    => true,
-                'insurance_name'   => $seguroName,
-                'policy_number'    => $this->extractField($row, ['POLIZA', 'NUMERO POLIZA', 'policy_number']),
-                'coverage_type'    => $this->extractField($row, ['TIPO COBERTURA', 'coverage_type', 'PLAN']) ?? 'dental',
-                'valid_until'      => $validUntil,
+                'status'           => $result['status'],
+                'insurance_name'   => $result['seguro_name'] ?? $seguroName,
+                'policy_number'    => $this->extractField($row, ['POLIZA', 'NUMERO POLIZA', 'policy_number', 'CODIGO']),
+                'coverage_type'    => $this->extractField($row, ['COBERTURA ODONTOLOGICA', 'TIPO COBERTURA', 'coverage_type', 'PLAN']) ?? 'dental',
+                'valid_until'      => $this->extractField($row, ['VIGENCIA HASTA', 'VENCIMIENTO', 'valid_until']),
                 'covered_services' => $this->extractField($row, ['SERVICIOS', 'covered_services']) ?? [],
                 'patient_name'     => $this->extractField($row, ['NOMBRE COMPLETO', 'NOMBRE', 'Nombre', 'patient_name']),
                 'raw'              => $row,
             ]);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('[verifyForAgent] Webhook error', ['error' => $e->getMessage()]);
+            \Illuminate\Support\Facades\Log::error('[verifyForAgent] Error', ['error' => $e->getMessage()]);
             return response()->json(['has_insurance' => false, 'patient_found' => false], 200);
         }
     }
