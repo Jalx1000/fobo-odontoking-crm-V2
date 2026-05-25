@@ -10,6 +10,8 @@ Route::prefix('api')->group(function () {
     Route::post('specialties', [SpecialtyController::class, 'store'])->name('api.specialties.store');
     Route::get('doctors', [DoctorController::class, 'index'])->name('api.doctors.index');
     Route::get('doctors/{id}', [DoctorController::class, 'show'])->name('api.doctors.show');
+    Route::get('doctors/{id}/slots', [AvailabilityController::class, 'slots'])
+        ->name('api.doctors.slots');
     Route::get('doctors/{doctorId}/availability/{year}/{month}', [AvailabilityController::class, 'getForMonth'])
         ->name('api.doctors.availability');
 });

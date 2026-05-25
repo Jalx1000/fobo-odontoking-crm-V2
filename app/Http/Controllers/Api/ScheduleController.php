@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Webkul\User\Models\User;
 use Webkul\Activity\Models\Activity;
 use Illuminate\Support\Facades\Validator;
@@ -14,6 +15,10 @@ class ScheduleController extends Controller
 {
     public function getHorarios(Request $request)
     {
+        Log::warning('[DEPRECATED] GET /api/horarios — use GET /api/doctors/{id}/slots instead.', [
+            'caller_ip' => $request->ip(),
+        ]);
+
         $query = User::query()->whereNotNull('horario')->where('status', 1);
 
         if ($request->has('doctorId')) {
@@ -88,6 +93,11 @@ class ScheduleController extends Controller
      */
     public function getDisponibilidad(Request $request)
     {
+        Log::warning('[DEPRECATED] GET /api/disponibilidad — use GET /api/doctors/{id}/slots instead.', [
+            'caller_ip' => $request->ip(),
+            'doctorId'  => $request->input('doctorId'),
+        ]);
+
         $validator = Validator::make($request->all(), [
             'doctorId' => 'required|integer',
             'date'     => 'required|date_format:Y-m-d',

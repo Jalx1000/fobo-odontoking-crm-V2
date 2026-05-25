@@ -138,6 +138,95 @@ class DoctorAvailabilityService
     }
 
     /**
+     * Retorna slots por día para un doctor en un rango de fechas.
+     * Una sola pasada a la BD para shifts y bookings del rango completo.
+     *
+     * @return array<int, array{date: string, slots: array}>
+     */
+    public function slotsForRange(int $doctorId, Carbon $startDate, int $days, int $durationMinutes = self::SLOT_DURATION_MINUTES): array
+    {
+        $endDate = $startDate->copy()->addDays($days - 1);
+
+        $shifts = DB::table('doctor_shifts')
+            ->where('doctor_id', $doctorId)
+            ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->get()
+            ->groupBy('date');
+
+        $bookings = DB::table('activities')
+            ->join('doctor_activities', 'activities.id', '=', 'doctor_activities.activity_id')
+            ->where('doctor_activities.doctor_id', $doctorId)
+            ->whereBetween('activities.schedule_from', [
+                $startDate->format('Y-m-d 00:00:00'),
+                $endDate->format('Y-m-d 23:59:59'),
+            ])
+            ->select('activities.schedule_from', 'activities.schedule_to')
+            ->get()
+            ->groupBy(fn ($b) => Carbon::parse($b->schedule_from)->toDateString());
+
+        $result = [];
+        $cursor = $startDate->copy();
+
+        for ($i = 0; $i < $days; $i++) {
+            $dateStr     = $cursor->toDateString();
+            $dayShifts   = $shifts->get($dateStr, collect());
+            $dayBookings = $bookings->get($dateStr, collect());
+
+            $slots = $this->buildSlotsForDay($dateStr, $dayShifts, $dayBookings, $durationMinutes);
+
+            $result[] = [
+                'date'  => $dateStr,
+                'slots' => $slots,
+            ];
+
+            $cursor->addDay();
+        }
+
+        return $result;
+    }
+
+    protected function buildSlotsForDay(string $dateStr, \Illuminate\Support\Collection $dayShifts, \Illuminate\Support\Collection $dayBookings, int $durationMinutes): array
+    {
+        $slots = [];
+
+        foreach ($dayShifts as $shift) {
+            $cursor   = Carbon::parse($dateStr . ' ' . $shift->start_time);
+            $shiftEnd = Carbon::parse($dateStr . ' ' . $shift->end_time);
+
+            while (true) {
+                $slotEnd = $cursor->copy()->addMinutes($durationMinutes);
+
+                if ($slotEnd->gt($shiftEnd)) {
+                    break;
+                }
+
+                $status = 'available';
+                foreach ($dayBookings as $booking) {
+                    $bStart = Carbon::parse($booking->schedule_from);
+                    $bEnd   = Carbon::parse($booking->schedule_to);
+
+                    if ($cursor->lt($bEnd) && $slotEnd->gt($bStart)) {
+                        $status = 'booked';
+                        break;
+                    }
+                }
+
+                $slots[] = [
+                    'start_time' => $cursor->format('H:i'),
+                    'end_time'   => $slotEnd->format('H:i'),
+                    'status'     => $status,
+                ];
+
+                $cursor->addMinutes($durationMinutes);
+            }
+        }
+
+        usort($slots, fn ($a, $b) => strcmp($a['start_time'], $b['start_time']));
+
+        return $slots;
+    }
+
+    /**
      * Construye slots libres a partir de bloques de turno y citas existentes.
      */
     protected function buildSlots(Collection $shiftBlocks, Collection $doctorBookings): Collection
