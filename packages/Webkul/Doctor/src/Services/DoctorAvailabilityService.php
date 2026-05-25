@@ -70,7 +70,7 @@ class DoctorAvailabilityService
             ->where('doctor_activities.doctor_id', $doctorId)
             ->whereBetween('activities.schedule_from', [
                 $startDate->format('Y-m-d H:i:s'),
-                $endDate->endOfDay()->format('Y-m-d H:i:s'),
+                $endDate->copy()->endOfDay()->format('Y-m-d H:i:s'),
             ])
             ->select('activities.schedule_from', 'activities.schedule_to')
             ->get();
@@ -153,16 +153,20 @@ class DoctorAvailabilityService
             ->get()
             ->groupBy('date');
 
+        $tz = config('app.timezone', 'UTC');
+
         $bookings = DB::table('activities')
             ->join('doctor_activities', 'activities.id', '=', 'doctor_activities.activity_id')
             ->where('doctor_activities.doctor_id', $doctorId)
+            ->whereNotNull('activities.schedule_from')
+            ->whereNotNull('activities.schedule_to')
             ->whereBetween('activities.schedule_from', [
                 $startDate->format('Y-m-d 00:00:00'),
                 $endDate->format('Y-m-d 23:59:59'),
             ])
             ->select('activities.schedule_from', 'activities.schedule_to')
             ->get()
-            ->groupBy(fn ($b) => Carbon::parse($b->schedule_from)->toDateString());
+            ->groupBy(fn ($b) => Carbon::parse($b->schedule_from)->setTimezone($tz)->toDateString());
 
         $result = [];
         $cursor = $startDate->copy();
@@ -193,6 +197,17 @@ class DoctorAvailabilityService
             $cursor   = Carbon::parse($dateStr . ' ' . $shift->start_time);
             $shiftEnd = Carbon::parse($dateStr . ' ' . $shift->end_time);
 
+            // Turno corrupto o que cruza medianoche: ignorar con log
+            if (! $cursor->lt($shiftEnd)) {
+                \Illuminate\Support\Facades\Log::warning('[DoctorAvailability] turno inválido ignorado', [
+                    'shift_id'   => $shift->id ?? null,
+                    'date'       => $dateStr,
+                    'start_time' => $shift->start_time,
+                    'end_time'   => $shift->end_time,
+                ]);
+                continue;
+            }
+
             while (true) {
                 $slotEnd = $cursor->copy()->addMinutes($durationMinutes);
 
@@ -202,6 +217,11 @@ class DoctorAvailabilityService
 
                 $status = 'available';
                 foreach ($dayBookings as $booking) {
+                    // Cita con timestamps nulos: dato corrupto, ignorar
+                    if (! $booking->schedule_from || ! $booking->schedule_to) {
+                        continue;
+                    }
+
                     $bStart = Carbon::parse($booking->schedule_from);
                     $bEnd   = Carbon::parse($booking->schedule_to);
 
@@ -223,7 +243,14 @@ class DoctorAvailabilityService
 
         usort($slots, fn ($a, $b) => strcmp($a['start_time'], $b['start_time']));
 
-        return $slots;
+        // Deduplicar en caso de turnos solapados del mismo doctor
+        $unique = [];
+        foreach ($slots as $slot) {
+            $key = $slot['start_time'] . '-' . $slot['end_time'];
+            $unique[$key] = $slot;
+        }
+
+        return array_values($unique);
     }
 
     /**

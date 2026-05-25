@@ -28,6 +28,17 @@ class RouteServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
+        RateLimiter::for('doctor-availability', function (Request $request) {
+            return Limit::perMinute(20)
+                ->by('doctor-slots|' . $request->ip())
+                ->response(function () {
+                    return response()->json([
+                        'message'     => 'Too many requests.',
+                        'retry_after' => 60,
+                    ], 429);
+                });
+        });
+
         RateLimiter::for('insurance-agent', function (Request $request) {
             $tokenId = optional($request->user()?->currentAccessToken())->id ?? 'unauthenticated';
 

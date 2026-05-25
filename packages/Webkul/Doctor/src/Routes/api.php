@@ -11,7 +11,9 @@ Route::prefix('api')->group(function () {
     Route::get('doctors', [DoctorController::class, 'index'])->name('api.doctors.index');
     Route::get('doctors/{id}', [DoctorController::class, 'show'])->name('api.doctors.show');
     Route::get('doctors/{id}/slots', [AvailabilityController::class, 'slots'])
-        ->name('api.doctors.slots');
+        ->name('api.doctors.slots')
+        ->where('id', '[1-9][0-9]*')
+        ->middleware('throttle:doctor-availability');
     Route::get('doctors/{doctorId}/availability/{year}/{month}', [AvailabilityController::class, 'getForMonth'])
         ->name('api.doctors.availability');
 });

@@ -93,13 +93,20 @@ class AvailabilityController extends Controller
      */
     public function slots(Request $request, int $id): JsonResponse
     {
+        if ($id <= 0) {
+            return response()->json(['message' => 'Doctor not found.'], 404);
+        }
+
         $data = $request->validate([
-            'date'             => ['required', 'date_format:Y-m-d'],
+            'date'             => ['required', 'date', 'date_format:Y-m-d', 'after_or_equal:today', 'before:' . now()->addMonths(6)->toDateString()],
             'days'             => ['sometimes', 'integer', 'min:1', 'max:30'],
             'duration_minutes' => ['sometimes', 'integer', 'min:15', 'max:480'],
         ]);
 
-        $doctor = $this->doctorRepository->find($id);
+        $doctor = $this->doctorRepository->findWhere([
+            ['id', '=', $id],
+            ['is_active', '=', true],
+        ])->first();
 
         if (! $doctor) {
             return response()->json(['message' => 'Doctor not found.'], 404);
@@ -123,7 +130,11 @@ class AvailabilityController extends Controller
     public function getForMonth(Request $request, $doctorId, $year, $month): JsonResponse
     {
         // 1. Validation
-        if (! is_numeric($year) || ! is_numeric($month) || $month < 1 || $month > 12) {
+        $year        = (int) $year;
+        $month       = (int) $month;
+        $currentYear = (int) now()->format('Y');
+
+        if ($year < $currentYear - 1 || $year > $currentYear + 2 || $month < 1 || $month > 12) {
             return response()->json(['message' => 'Invalid year or month value'], 400);
         }
 
@@ -171,11 +182,6 @@ class AvailabilityController extends Controller
 
             while ($cursor->lte($endDate)) {
                 $dateStr = $cursor->toDateString();
-                $dayShifts = $shifts->where('date', $dateStr); // Collection check
-
-                // If using repository findWhere returns Collection of models.
-                // Shift model has 'date' (Carbon or string? likely cast to Date).
-                // Let's assume date is Carbon object in model.
 
                 $dayShifts = $shifts->filter(function ($shift) use ($dateStr) {
                     return $shift->date instanceof Carbon
@@ -242,7 +248,14 @@ class AvailabilityController extends Controller
             return response()->json($result);
 
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Internal Server Error: '.$e->getMessage()], 500);
+            \Illuminate\Support\Facades\Log::error('[AvailabilityController] getForMonth error', [
+                'doctor_id' => $doctorId,
+                'year'      => $year,
+                'month'     => $month,
+                'error'     => $e->getMessage(),
+            ]);
+
+            return response()->json(['message' => 'An error occurred. Please try again later.'], 500);
         }
     }
 }
