@@ -7,23 +7,22 @@ metadata:
 
 El plan de integración ShareMeData API v2 fue creado el 2026-05-19 en `planning/00-sharemedata-api-v2/00.agent-task.md`.
 
-**Endpoints nuevos (no integrados) de la API v2:**
-- `GET /api/patients` — buscar paciente por teléfono
-- `POST /api/patients/user` — crear paciente en SMD
-- `PATCH /api/patients/{id}` — actualizar paciente en SMD
-- Sincronización de citas via Dropbox (JSON por evento, carpeta por día)
+**TODO YA IMPLEMENTADO (verificado 2026-05-26):**
+- `GET /api/patients` — `ShareMeDataService::findPatientByPhone/Email/Name()` con `$patientsBaseUrl`
+- `POST /api/patients/user` — `ShareMeDataService::createPatient()`
+- `PATCH /api/patients/{id}` — `ShareMeDataService::updatePatient()`
+- `GET /api/patients/{id}` — `ShareMeDataService::getPatient()`
+- `$patientsBaseUrl` = `config('services.sharemedata.patients_url', 'https://gamma.sharemedata.com/api')` — variable separada ya resuelta
+- Sincronización Dropbox: `DropboxService`, `DropboxWebhookController`, `ProcessDropboxNotification`, `SyncDropboxAppointments`, `InitDropboxCursor`
+- `IncomingAppointmentService` — procesa citas entrantes desde Dropbox
 
-**Lo que ya está integrado (base URL `/api/calendar`):**
+**Lo que ya estaba integrado antes:**
 - `GET /api/calendar/specialties` → `getSpecialties()` / `syncSpecialties()`
 - `GET /api/calendar/schedule/availability` → `checkAvailability()`
 - `POST /api/calendar/schedule/createEvent` → `createEvent()`
 - Webhook entrante en `ShareMeDataWebhookController`
 
-**Riesgo crítico R1:** Los endpoints de patients usan base URL `https://gamma.sharemedata.com/api` (sin `/calendar`). El servicio actual tiene hardcodeado `/api/calendar`. Necesita `SHAREMEDATA_PATIENTS_URL` como variable separada.
-
-**Riesgo crítico R2:** El Webhook actual espera schema `physician/patient/slot`; el PDF Dropbox usa `attendances[]/owner`. Necesita refactor a `IncomingAppointmentService` antes de que SMD actualice su formato.
-
-**Acción externa bloqueante:** Crear cuenta Dropbox y que SMD la añada a carpeta compartida (para Fase 3).
+**Acción externa pendiente:** Que SMD añada la cuenta Dropbox del proyecto a su carpeta compartida (para activar la Fase 3 en producción).
 
 **Why:** Se detectaron estas brechas al analizar el PDF v2 vs el código existente en `ShareMeDataService.php`, `AppointmentService.php` y `ShareMeDataWebhookController.php`.
 

@@ -4,6 +4,7 @@ namespace Webkul\Admin\Http\Controllers\Api;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Webkul\Admin\Http\Controllers\Controller;
@@ -202,15 +203,36 @@ class InsuranceController extends Controller
 
         $ci         = trim($data['ci_paciente']);
         $seguroName = trim($data['seguro_paciente']);
+        $webhookUrl = env('SEGUROS_WEBHOOK_URL', 'https://n8n.sofopolis.com/webhook/seguros-verify');
 
         try {
-            // Delegar al driver correcto según la aseguradora:
-            //  - Alianza → AlianzaDriver (API propia devnet.alianza.com.bo)
-            //  - Nacional → NacionalVidaDriver (webhook n8n)
-            //  - Membresía Odontoking → OdontokingMembershipDriver (webhook n8n)
-            $result = $this->insuranceService->verifyWithParams($ci, $seguroName);
+            $webhookResponse = $this->rememberInsuranceRequest(
+                'insurance_verify_agent_' . md5($seguroName . '|' . $ci),
+                function () use ($webhookUrl, $seguroName, $ci) {
+                    $response = Http::timeout(30)->post($webhookUrl, [
+                        'empresa_seguro'   => $seguroName,
+                        'carnet_identidad' => $ci,
+                    ]);
 
-            $hasInsurance = in_array($result['status'] ?? '', ['VIGENTE', 'EN_MORA']);
+                    return [
+                        'failed' => $response->failed(),
+                        'data'   => $response->json(),
+                    ];
+                }
+            );
+
+            if ($webhookResponse['failed']) {
+                $this->logAudit($request, $ci, $seguroName, false);
+                return response()->json(['has_insurance' => false, 'patient_found' => false], 200);
+            }
+
+            $webhookData = $webhookResponse['data'];
+            $success     = $webhookData['success'] ?? false;
+            $results     = $webhookData['data'] ?? [];
+
+            $hasInsurance = $success
+                && ! empty($results)
+                && ! (is_string($results) && strtolower(trim($results)) === 'no registrado');
 
             $this->logAudit($request, $ci, $seguroName, $hasInsurance);
 
@@ -219,21 +241,21 @@ class InsuranceController extends Controller
                 return response()->json(['has_insurance' => false, 'patient_found' => false]);
             }
 
-            $row = $result['data'] ?? [];
+            $row        = is_array($results) ? ($results[0] ?? $results) : [];
+            $validUntil = $this->extractField($row, ['VIGENCIA HASTA', 'VENCIMIENTO', 'valid_until']);
 
             return response()->json([
                 'has_insurance'    => true,
-                'status'           => $result['status'],
-                'insurance_name'   => $result['seguro_name'] ?? $seguroName,
-                'policy_number'    => $this->extractField($row, ['POLIZA', 'NUMERO POLIZA', 'policy_number', 'CODIGO']),
-                'coverage_type'    => $this->extractField($row, ['COBERTURA ODONTOLOGICA', 'TIPO COBERTURA', 'coverage_type', 'PLAN']) ?? 'dental',
-                'valid_until'      => $this->extractField($row, ['VIGENCIA HASTA', 'VENCIMIENTO', 'valid_until']),
+                'insurance_name'   => $seguroName,
+                'policy_number'    => $this->extractField($row, ['POLIZA', 'NUMERO POLIZA', 'policy_number']),
+                'coverage_type'    => $this->extractField($row, ['TIPO COBERTURA', 'coverage_type', 'PLAN']) ?? 'dental',
+                'valid_until'      => $validUntil,
                 'covered_services' => $this->extractField($row, ['SERVICIOS', 'covered_services']) ?? [],
                 'patient_name'     => $this->extractField($row, ['NOMBRE COMPLETO', 'NOMBRE', 'Nombre', 'patient_name']),
                 'raw'              => $row,
             ]);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('[verifyForAgent] Error', ['error' => $e->getMessage()]);
+            \Illuminate\Support\Facades\Log::error('[verifyForAgent] Webhook error', ['error' => $e->getMessage()]);
             return response()->json(['has_insurance' => false, 'patient_found' => false], 200);
         }
     }
@@ -282,5 +304,19 @@ class InsuranceController extends Controller
         }
 
         return null;
+    }
+
+    private function rememberInsuranceRequest(string $key, \Closure $callback): array
+    {
+        if (! $this->insuranceRequestCacheEnabled()) {
+            return $callback();
+        }
+
+        return Cache::remember($key, (int) config('services.insurance.cache_ttl', 3600), $callback);
+    }
+
+    private function insuranceRequestCacheEnabled(): bool
+    {
+        return filter_var(config('services.insurance.cache_enabled', true), FILTER_VALIDATE_BOOLEAN);
     }
 }

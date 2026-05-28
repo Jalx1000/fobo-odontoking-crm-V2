@@ -37,4 +37,9 @@ return [
         'webhook_secret' => env('SHAREMEDATA_WEBHOOK_SECRET'),
     ],
 
+    'insurance' => [
+        'cache_enabled' => env('INSURANCE_VERIFY_CACHE_ENABLED', true),
+        'cache_ttl'     => env('INSURANCE_VERIFY_CACHE_TTL', 3600),
+    ],
+
 ];
