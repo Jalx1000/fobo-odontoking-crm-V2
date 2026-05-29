@@ -6,7 +6,7 @@ FROM node:20-alpine AS node_builder
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci --frozen-lockfile
+RUN if [ -f package-lock.json ]; then npm ci --frozen-lockfile; else npm install; fi
 
 COPY vite.config.js ./
 COPY resources/ ./resources/
