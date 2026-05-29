@@ -45,7 +45,7 @@ RUN composer dump-autoload \
 # =============================================================================
 # Stage 3: Imagen de producción final
 # =============================================================================
-FROM php:8.2-fpm-alpine AS production
+FROM php:8.2-fpm-alpine3.22 AS production
 
 LABEL description="Krayin CRM — optimizado para Railway"
 
@@ -65,28 +65,21 @@ RUN apk add --no-cache \
         # Utilidades
         curl \
         bash \
-        # Librerías para GD
+        # Librerías para GD (los -dev incluyen sus dependencias runtime)
         libpng-dev \
         libjpeg-turbo-dev \
         libwebp-dev \
         freetype-dev \
-        # Librerías runtime de GD
-        libpng \
-        libjpeg-turbo \
-        libwebp \
-        freetype \
         # Mbstring
         oniguruma-dev \
-        # ZIP
+        # ZIP (libzip-dev incluye libzip como dependencia)
         libzip-dev \
-        libzip \
         # Intl / ICU
         icu-dev \
         icu-libs \
-        # IMAP + SSL (webklex/laravel-imap usa imap_open en LegacyProtocol)
+        # IMAP + SSL (imap-dev incluye c-client como dependencia)
         imap-dev \
         openssl-dev \
-        c-client \
         krb5-dev \
         # XML stack (dompdf, phpspreadsheet)
         libxml2-dev \
