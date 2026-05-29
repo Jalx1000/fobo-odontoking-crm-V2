@@ -54,7 +54,7 @@ class Bouncer
     public function isPermissionsEmpty()
     {
         if (! $role = auth()->guard('user')->user()->role) {
-            abort(401, 'This action is unauthorized.');
+            abort(401, 'Esta acción no está autorizada.');
         }
 
         if ($role->permission_type === 'all') {

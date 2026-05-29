@@ -54,7 +54,7 @@ class Bouncer
     public static function allow($permission)
     {
         if (! bouncer()->hasPermission($permission)) {
-            abort(401, 'This action is unauthorized');
+            abort(401, 'Esta acción no está autorizada');
         }
     }
 

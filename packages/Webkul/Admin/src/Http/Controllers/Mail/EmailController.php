@@ -43,7 +43,7 @@ class EmailController extends Controller
         }
 
         if (! bouncer()->hasPermission('mail.'.request('route'))) {
-            abort(401, 'This action is unauthorized');
+            abort(401, 'Esta acción no está autorizada');
         }
 
         switch (request('route')) {
