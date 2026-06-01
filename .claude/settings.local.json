@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n 'getData\\\\|getLeads\\\\|$axios\\\\|axios\\\\|fetch\\\\|url\\\\|params\\\\|pipeline_id\\\\|search\\\\|query' /etc/easypanel/projects/heaven/kolberg_laravel/code/packages/Webkul/Admin/src/Resources/views/leads/index/kanban.blade.php)",
+      "Bash(php *)",
+      "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); queries=[q for q in data.get\\('queries',{}\\).get\\('statements',[]\\) if 'ciudad' in q.get\\('sql',''\\).lower\\(\\) or 'attribute' in q.get\\('sql',''\\).lower\\(\\)]; [print\\(q['sql'][:300]\\) for q in queries[:10]]\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('require',{}\\), indent=2\\)\\)\")",
+      "Bash(docker run *)"
+    ]
+  }
+}
