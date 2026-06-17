@@ -1,6 +1,11 @@
 <?php
 
 return [
+    // Si es false, AppointmentService::process() crea las citas 100% local
+    // (Lead + Activity) sin llamar a ShareMeData en absoluto: ni checkAvailability
+    // ni createEvent. Util si SMD esta caido o para doctores no integrados aun.
+    'validate_availability' => env('SMD_VALIDATE_AVAILABILITY', true),
+
     'stage_map' => [
         'confirmed' => env('SMD_STAGE_CONFIRMED', 7),
         'completed' => env('SMD_STAGE_COMPLETED', 5),

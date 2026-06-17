@@ -28,10 +28,10 @@ class AppointmentService
      *
      * Orden garantizado:
      *  1. Validar turno local (doctor_shifts)
-     *  2. Validar conflicto local (doctor_activities)
-     *  3. Descubrir unique_id del doctor en SMD si falta
-     *  4. Verificar disponibilidad en ShareMeData
-     *  5. Crear evento en ShareMeData PRIMERO
+     *  2. Validar conflicto local (doctor_activities) — un Lead cancelado no bloquea
+     *  3. Descubrir unique_id del doctor en SMD si falta            ┐
+     *  4. Verificar disponibilidad en ShareMeData                   │ se omiten si
+     *  5. Crear evento en ShareMeData PRIMERO                       ┘ smd.validate_availability=false
      *  6. Crear registros locales (Lead + Activity) en transacción
      *
      * @param  array  $data {
@@ -152,235 +152,246 @@ class AppointmentService
             );
         }
 
-        // ── 3. Auto-descubrir unique_id en SMD si falta ──────────────────────
-        if (empty($doctorExternalId) || empty($doctorEmail)) {
-            $doctorModel          = $this->doctorRepository->with('specialties')->find($doctorId);
-            $discoverySpecialties = $doctorModel->specialties->pluck('name')->toArray();
-
-            if (empty($discoverySpecialties)) {
-                $discoverySpecialties = $this->specialtyRepository->all()->pluck('name')->toArray();
-            }
-
-            if (empty($discoverySpecialties)) {
-                $discoverySpecialties = ['General'];
-            }
-
-            $found = false;
-            foreach ($discoverySpecialties as $spec) {
-                $this->shareMeDataService->checkAvailability(
-                    null, $spec, 'Santa Cruz',
-                    $scheduleFrom->format('Y-m-d H:i:s'),
-                    $scheduleTo->format('Y-m-d H:i:s')
-                );
-                $raw = $this->shareMeDataService->getLastResponse();
-
-                if ($raw && isset($raw['body']) && is_array($raw['body'])) {
-                    foreach ($raw['body'] as $item) {
-                        $smdName = trim(strtolower(
-                            ($item['physician']['name']     ?? '') . ' ' .
-                            ($item['physician']['lastName'] ?? '')
-                        ));
-                        if ($smdName === trim(strtolower($doctor->name))) {
-                            $doctorExternalId = $item['physician']['_id']    ?? null;
-                            $doctorEmail      = $item['physician']['email']  ?? null;
-                            if ($doctorExternalId) {
-                                $this->doctorRepository->update(
-                                    ['unique_id' => $doctorExternalId, 'email' => $doctorEmail],
-                                    $doctor->id
-                                );
-                                $found = true;
-                                break 2;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (! $found) {
-                throw new AppointmentException(
-                    "No se pudo vincular al doctor {$doctor->name} con ShareMeData. " .
-                    "Verifica que el nombre coincida exactamente."
-                );
-            }
-        }
-
-        // ── 4. Verificar disponibilidad en ShareMeData ───────────────────────
-        $doctorModel      = $this->doctorRepository->with('specialties')->find($doctorId);
-        $doctorSpecialties = $doctorModel->specialties->pluck('name')->toArray();
-
-        if (empty($doctorSpecialties)) {
-            $doctorSpecialties = $this->specialtyRepository->all()->pluck('name')->toArray();
-        }
-
-        if (empty($doctorSpecialties)) {
-            $doctorSpecialties = ['General'];
-        }
-
-        $isAvailableExternally = false;
-        $smdErrors             = [];
-
-        foreach ($doctorSpecialties as $specialty) {
-            $slots = $this->shareMeDataService->checkAvailability(
-                $doctorExternalId, $specialty, 'Santa Cruz',
-                $scheduleFrom->format('Y-m-d H:i:s'),
-                $scheduleTo->format('Y-m-d H:i:s')
-            );
-            $lastResponse = $this->shareMeDataService->getLastResponse();
-
-            if (! empty($slots)) {
-                $requiredIntervals = [];
-                $current = $scheduleFrom->copy();
-                while ($current->lessThan($scheduleTo)) {
-                    $requiredIntervals[] = [
-                        'start' => $current->timestamp,
-                        'end'   => $current->copy()->addMinutes(15)->timestamp,
-                    ];
-                    $current->addMinutes(15);
-                }
-
-                $foundCount = 0;
-                foreach ($requiredIntervals as $required) {
-                    foreach ($slots as $daySlots) {
-                        foreach ($daySlots as $date => $intervals) {
-                            foreach ($intervals as $interval) {
-                                if (
-                                    Carbon::parse($interval['start'])->timestamp === $required['start'] &&
-                                    Carbon::parse($interval['end'])->timestamp   === $required['end']
-                                ) {
-                                    $foundCount++;
-                                    continue 3;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if ($foundCount === count($requiredIntervals)) {
-                    $isAvailableExternally = true;
-                    break;
-                }
-
-                $smdErrors[$specialty] = "Solo se encontraron {$foundCount} de " . count($requiredIntervals) . " bloques de 15m libres.";
-            } else {
-                $smdErrors[$specialty] = $lastResponse['body']['message'] ?? 'Sin disponibilidad devuelta por SMD';
-            }
-        }
-
-        Log::debug('[SMD-DEBUG] Resultado check disponibilidad', [
-            'doctor_id'          => $doctorId,
-            'doctor_external_id' => $doctorExternalId,
-            'schedule_from'      => $scheduleFrom->format('Y-m-d H:i:s'),
-            'schedule_to'        => $scheduleTo->format('Y-m-d H:i:s'),
-            'schedule_from_tz'   => $scheduleFrom->setTimezone(config('app.timezone', 'America/La_Paz'))->format('Y-m-d\TH:i:sP'),
-            'schedule_to_tz'     => $scheduleTo->setTimezone(config('app.timezone', 'America/La_Paz'))->format('Y-m-d\TH:i:sP'),
-            'is_available'       => $isAvailableExternally,
-            'smd_errors'         => $smdErrors,
-            'specialties_tried'  => $doctorSpecialties,
-        ]);
-
-        if (! $isAvailableExternally) {
-            throw new AppointmentException(
-                "El doctor no tiene disponibilidad en SHAREMEDATA para el horario solicitado.",
-                ['smd_errors' => $smdErrors, 'doctor_external_id' => $doctorExternalId]
-            );
-        }
-
-        // ── 5. Crear evento en ShareMeData PRIMERO ───────────────────────────
+        // ── Resolver paciente y producto (siempre, sean locales) ─────────────
         $person = $this->personRepository->find($personData['id'] ?? null);
 
         if (! $person) {
             throw new AppointmentException("Paciente con ID {$personData['id']} no encontrado.");
         }
 
-        // Resolver producto antes de armar el título
         $product = $productId ? DB::table('products')->where('id', $productId)->first() : null;
 
-        $personPhone = '0';
-        if (! empty($person->contact_numbers)) {
-            $contactNumbers = is_array($person->contact_numbers)
-                ? $person->contact_numbers
-                : json_decode($person->contact_numbers, true);
-            if (is_array($contactNumbers) && ! empty($contactNumbers[0]['value'])) {
-                $personPhone = (string) $contactNumbers[0]['value'];
-            }
-        }
-
-        // ── 4.5 Sincronizar paciente con SMD para obtener personID ───────────
-        $smdPersonId = $person->smd_patient_id ?? null;
-
-        if (! $smdPersonId && $personPhone !== '0') {
-            $smdPatients = $this->shareMeDataService->searchPatient($personPhone);
-
-            if (! empty($smdPatients)) {
-                $smdPersonId = $smdPatients[0]['_id'] ?? null;
-            } else {
-                $nameParts_ = explode(' ', trim($person->name ?? 'Paciente'));
-                $ciAttr_    = app(\Webkul\Attribute\Repositories\AttributeRepository::class)
-                    ->findOneByField('code', 'ci_paciente');
-                $ci_        = $ciAttr_ ? $person->getCustomAttributeValue($ciAttr_) : null;
-
-                $result_ = $this->shareMeDataService->createPatient([
-                    'first_name' => $nameParts_[0]                                    ?? 'Paciente',
-                    'last_name'  => implode(' ', array_slice($nameParts_, 1)) ?: 'Externo',
-                    'phone'      => $personPhone,
-                    'ci'         => $ci_ ?: null,
-                ]);
-
-                if ($result_['success']) {
-                    $smdPersonId = $result_['data']['_id'] ?? null;
-                } elseif ($result_['duplicate'] ?? false) {
-                    $retry_      = $this->shareMeDataService->searchPatient($personPhone);
-                    $smdPersonId = $retry_[0]['_id'] ?? null;
-                }
-            }
-
-            if ($smdPersonId) {
-                DB::table('persons')->where('id', $person->id)->update(['smd_patient_id' => $smdPersonId]);
-                $person = $this->personRepository->find($person->id);
-            }
-        }
-
         $nameParts  = explode(' ', trim($person->name ?? 'Paciente'));
-        $firstName  = $nameParts[0] ?: 'Paciente';
-        $lastName   = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : 'Externo';
         $eventTitle = ($person->name ?? 'Paciente') . ' - ' . ($product->name ?? 'Consulta');
         $title      = $data['title'] ?? $eventTitle;
 
-        $smdPayload = [
-            'summary'   => 'CONSULTA: ' . $title,
-            'physician' => ['_id' => $doctorExternalId, 'email' => $doctorEmail ?: ''],
-            'patient'   => [
-                'name'     => (string) $firstName,
-                'lastName' => (string) $lastName,
-                'phone'    => (string) $personPhone,
-                'personID' => (string) ($smdPersonId ?? ''),
-                'birthday' => '',
-            ],
-            'slot' => [
-                'start' => $scheduleFrom->setTimezone(config('app.timezone', 'America/La_Paz'))->format('Y-m-d\TH:i:sP'),
-                'end'   => $scheduleTo->setTimezone(config('app.timezone', 'America/La_Paz'))->format('Y-m-d\TH:i:sP'),
-            ],
-        ];
+        $validateWithSmd = (bool) config('smd.validate_availability', true);
+        $smdResult        = null;
 
-        Log::debug('[SMD-DEBUG] Payload enviado a createEvent', [
-            'payload' => $smdPayload,
-        ]);
+        if ($validateWithSmd) {
+            // ── 3. Auto-descubrir unique_id en SMD si falta ──────────────────
+            if (empty($doctorExternalId) || empty($doctorEmail)) {
+                $doctorModel          = $this->doctorRepository->with('specialties')->find($doctorId);
+                $discoverySpecialties = $doctorModel->specialties->pluck('name')->toArray();
 
-        $smdResult = $this->shareMeDataService->createEvent($smdPayload);
+                if (empty($discoverySpecialties)) {
+                    $discoverySpecialties = $this->specialtyRepository->all()->pluck('name')->toArray();
+                }
 
-        if (! ($smdResult['success'] ?? false)) {
-            Log::warning('[SMD] createEvent FALLÓ', [
-                'patient_phone_suffix' => '***'.substr($smdPayload['patient']['phone'] ?? '', -4),
-                'physician_id'         => $smdPayload['physician']['_id'] ?? null,
-                'slot'                 => $smdPayload['slot'] ?? null,
-                'smd_status'           => $smdResult['status'] ?? null,
-                'smd_message'          => $smdResult['message'] ?? null,
+                if (empty($discoverySpecialties)) {
+                    $discoverySpecialties = ['General'];
+                }
+
+                $found = false;
+                foreach ($discoverySpecialties as $spec) {
+                    $this->shareMeDataService->checkAvailability(
+                        null, $spec, 'Santa Cruz',
+                        $scheduleFrom->format('Y-m-d H:i:s'),
+                        $scheduleTo->format('Y-m-d H:i:s')
+                    );
+                    $raw = $this->shareMeDataService->getLastResponse();
+
+                    if ($raw && isset($raw['body']) && is_array($raw['body'])) {
+                        foreach ($raw['body'] as $item) {
+                            $smdName = trim(strtolower(
+                                ($item['physician']['name']     ?? '') . ' ' .
+                                ($item['physician']['lastName'] ?? '')
+                            ));
+                            if ($smdName === trim(strtolower($doctor->name))) {
+                                $doctorExternalId = $item['physician']['_id']    ?? null;
+                                $doctorEmail      = $item['physician']['email']  ?? null;
+                                if ($doctorExternalId) {
+                                    $this->doctorRepository->update(
+                                        ['unique_id' => $doctorExternalId, 'email' => $doctorEmail],
+                                        $doctor->id
+                                    );
+                                    $found = true;
+                                    break 2;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (! $found) {
+                    throw new AppointmentException(
+                        "No se pudo vincular al doctor {$doctor->name} con ShareMeData. " .
+                        "Verifica que el nombre coincida exactamente."
+                    );
+                }
+            }
+
+            // ── 4. Verificar disponibilidad en ShareMeData ────────────────────
+            $doctorModel      = $this->doctorRepository->with('specialties')->find($doctorId);
+            $doctorSpecialties = $doctorModel->specialties->pluck('name')->toArray();
+
+            if (empty($doctorSpecialties)) {
+                $doctorSpecialties = $this->specialtyRepository->all()->pluck('name')->toArray();
+            }
+
+            if (empty($doctorSpecialties)) {
+                $doctorSpecialties = ['General'];
+            }
+
+            $isAvailableExternally = false;
+            $smdErrors             = [];
+
+            foreach ($doctorSpecialties as $specialty) {
+                $slots = $this->shareMeDataService->checkAvailability(
+                    $doctorExternalId, $specialty, 'Santa Cruz',
+                    $scheduleFrom->format('Y-m-d H:i:s'),
+                    $scheduleTo->format('Y-m-d H:i:s')
+                );
+                $lastResponse = $this->shareMeDataService->getLastResponse();
+
+                if (! empty($slots)) {
+                    $requiredIntervals = [];
+                    $current = $scheduleFrom->copy();
+                    while ($current->lessThan($scheduleTo)) {
+                        $requiredIntervals[] = [
+                            'start' => $current->timestamp,
+                            'end'   => $current->copy()->addMinutes(15)->timestamp,
+                        ];
+                        $current->addMinutes(15);
+                    }
+
+                    $foundCount = 0;
+                    foreach ($requiredIntervals as $required) {
+                        foreach ($slots as $daySlots) {
+                            foreach ($daySlots as $date => $intervals) {
+                                foreach ($intervals as $interval) {
+                                    if (
+                                        Carbon::parse($interval['start'])->timestamp === $required['start'] &&
+                                        Carbon::parse($interval['end'])->timestamp   === $required['end']
+                                    ) {
+                                        $foundCount++;
+                                        continue 3;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if ($foundCount === count($requiredIntervals)) {
+                        $isAvailableExternally = true;
+                        break;
+                    }
+
+                    $smdErrors[$specialty] = "Solo se encontraron {$foundCount} de " . count($requiredIntervals) . " bloques de 15m libres.";
+                } else {
+                    $smdErrors[$specialty] = $lastResponse['body']['message'] ?? 'Sin disponibilidad devuelta por SMD';
+                }
+            }
+
+            Log::debug('[SMD-DEBUG] Resultado check disponibilidad', [
+                'doctor_id'          => $doctorId,
+                'doctor_external_id' => $doctorExternalId,
+                'schedule_from'      => $scheduleFrom->format('Y-m-d H:i:s'),
+                'schedule_to'        => $scheduleTo->format('Y-m-d H:i:s'),
+                'schedule_from_tz'   => $scheduleFrom->setTimezone(config('app.timezone', 'America/La_Paz'))->format('Y-m-d\TH:i:sP'),
+                'schedule_to_tz'     => $scheduleTo->setTimezone(config('app.timezone', 'America/La_Paz'))->format('Y-m-d\TH:i:sP'),
+                'is_available'       => $isAvailableExternally,
+                'smd_errors'         => $smdErrors,
+                'specialties_tried'  => $doctorSpecialties,
             ]);
 
-            throw new AppointmentException(
-                "Error al registrar la cita en ShareMeData. La cita no fue creada.",
-                ['smd_response' => $smdResult]
-            );
+            if (! $isAvailableExternally) {
+                throw new AppointmentException(
+                    "El doctor no tiene disponibilidad en SHAREMEDATA para el horario solicitado.",
+                    ['smd_errors' => $smdErrors, 'doctor_external_id' => $doctorExternalId]
+                );
+            }
+
+            // ── 5. Crear evento en ShareMeData PRIMERO ────────────────────────
+            $personPhone = '0';
+            if (! empty($person->contact_numbers)) {
+                $contactNumbers = is_array($person->contact_numbers)
+                    ? $person->contact_numbers
+                    : json_decode($person->contact_numbers, true);
+                if (is_array($contactNumbers) && ! empty($contactNumbers[0]['value'])) {
+                    $personPhone = (string) $contactNumbers[0]['value'];
+                }
+            }
+
+            // ── 4.5 Sincronizar paciente con SMD para obtener personID ────────
+            $smdPersonId = $person->smd_patient_id ?? null;
+
+            if (! $smdPersonId && $personPhone !== '0') {
+                $smdPatients = $this->shareMeDataService->searchPatient($personPhone);
+
+                if (! empty($smdPatients)) {
+                    $smdPersonId = $smdPatients[0]['_id'] ?? null;
+                } else {
+                    $nameParts_ = explode(' ', trim($person->name ?? 'Paciente'));
+                    $ciAttr_    = app(\Webkul\Attribute\Repositories\AttributeRepository::class)
+                        ->findOneByField('code', 'ci_paciente');
+                    $ci_        = $ciAttr_ ? $person->getCustomAttributeValue($ciAttr_) : null;
+
+                    $result_ = $this->shareMeDataService->createPatient([
+                        'first_name' => $nameParts_[0]                                    ?? 'Paciente',
+                        'last_name'  => implode(' ', array_slice($nameParts_, 1)) ?: 'Externo',
+                        'phone'      => $personPhone,
+                        'ci'         => $ci_ ?: null,
+                    ]);
+
+                    if ($result_['success']) {
+                        $smdPersonId = $result_['data']['_id'] ?? null;
+                    } elseif ($result_['duplicate'] ?? false) {
+                        $retry_      = $this->shareMeDataService->searchPatient($personPhone);
+                        $smdPersonId = $retry_[0]['_id'] ?? null;
+                    }
+                }
+
+                if ($smdPersonId) {
+                    DB::table('persons')->where('id', $person->id)->update(['smd_patient_id' => $smdPersonId]);
+                    $person = $this->personRepository->find($person->id);
+                }
+            }
+
+            $firstName = $nameParts[0] ?: 'Paciente';
+            $lastName  = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : 'Externo';
+
+            $smdPayload = [
+                'summary'   => 'CONSULTA: ' . $title,
+                'physician' => ['_id' => $doctorExternalId, 'email' => $doctorEmail ?: ''],
+                'patient'   => [
+                    'name'     => (string) $firstName,
+                    'lastName' => (string) $lastName,
+                    'phone'    => (string) $personPhone,
+                    'personID' => (string) ($smdPersonId ?? ''),
+                    'birthday' => '',
+                ],
+                'slot' => [
+                    'start' => $scheduleFrom->setTimezone(config('app.timezone', 'America/La_Paz'))->format('Y-m-d\TH:i:sP'),
+                    'end'   => $scheduleTo->setTimezone(config('app.timezone', 'America/La_Paz'))->format('Y-m-d\TH:i:sP'),
+                ],
+            ];
+
+            Log::debug('[SMD-DEBUG] Payload enviado a createEvent', [
+                'payload' => $smdPayload,
+            ]);
+
+            $smdResult = $this->shareMeDataService->createEvent($smdPayload);
+
+            if (! ($smdResult['success'] ?? false)) {
+                Log::warning('[SMD] createEvent FALLÓ', [
+                    'patient_phone_suffix' => '***'.substr($smdPayload['patient']['phone'] ?? '', -4),
+                    'physician_id'         => $smdPayload['physician']['_id'] ?? null,
+                    'slot'                 => $smdPayload['slot'] ?? null,
+                    'smd_status'           => $smdResult['status'] ?? null,
+                    'smd_message'          => $smdResult['message'] ?? null,
+                ]);
+
+                throw new AppointmentException(
+                    "Error al registrar la cita en ShareMeData. La cita no fue creada.",
+                    ['smd_response' => $smdResult]
+                );
+            }
+        } else {
+            Log::info('[AppointmentService] Creando cita sin validar SMD (smd.validate_availability=false)', [
+                'doctor_id' => $doctorId,
+                'person_id' => $person->id,
+            ]);
         }
 
         // ── 6. Crear registros locales en transacción ────────────────────────
@@ -389,7 +400,7 @@ class AppointmentService
                 $data, $scheduleFrom, $scheduleTo,
                 $doctor, $doctorExternalId, $doctorEmail,
                 $person, $productId, $product, $title,
-                $existingLeadId, $smdResult
+                $existingLeadId, $smdResult, $validateWithSmd
             ) {
                 if ($existingLeadId) {
                     $lead = $this->leadRepository->find($existingLeadId);
@@ -449,7 +460,9 @@ class AppointmentService
                     'activity_id'  => $activity->id,
                     'product_id'   => $productId,
                     'product_name' => $product->name ?? null,
-                    'message'     => 'Cita creada y sincronizada correctamente.',
+                    'message'      => $validateWithSmd
+                        ? 'Cita creada y sincronizada correctamente.'
+                        : 'Cita creada localmente. No se validó disponibilidad en ShareMeData (smd.validate_availability=false).',
                 ];
             });
         } catch (AppointmentException $e) {
