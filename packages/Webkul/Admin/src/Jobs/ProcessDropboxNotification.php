@@ -49,6 +49,9 @@ class ProcessDropboxNotification implements ShouldQueue
                     $json = $dropbox->downloadJson($file['path_lower']);
 
                     if (! $json || ! isset($json['_id'])) {
+                        Log::warning('[DropboxWebhook] JSON sin _id o invalido', [
+                            'file' => $file['path_lower'] ?? '?',
+                        ]);
                         $errors++;
 
                         continue;

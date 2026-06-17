@@ -11,7 +11,7 @@ class DropboxService
     private string $folder;
 
     private const TOKEN_CACHE_KEY = 'dropbox_access_token';
-    private const TOKEN_TTL       = 13500; // 3h45m — refresca antes de las 4h de expiración
+    private const TOKEN_TTL       = 12600; // 3h30m — refresca antes de las 4h de expiración
 
     public function __construct()
     {
@@ -108,7 +108,7 @@ class DropboxService
                 }
 
                 return collect($response->json('entries', []))
-                    ->filter(fn ($e) => str_ends_with($e['name'] ?? '', '.json'))
+                    ->filter(fn ($e) => ($e['.tag'] ?? '') === 'file' && str_ends_with($e['name'] ?? '', '.json'))
                     ->values()
                     ->toArray();
 
