@@ -261,7 +261,7 @@
                         <div v-for="idx in 13" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
                         <!-- Events -->
-                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
+                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
                             <div class="dwc-event-content dwc-event-layout">
                                 <div class="dwc-event-info">
                                     <div class="dwc-event-row-primary">
@@ -328,7 +328,7 @@
 
                             <div v-for="idx in 13" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
-                            <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
+                            <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
                                 <div class="dwc-event-content dwc-event-layout">
                                     <div class="dwc-event-info">
                                         <div class="dwc-event-row-primary">
@@ -1841,7 +1841,7 @@
                     });
             },
             dayDoctorEvents(dateStr, doctorId) {
-                return this.appointments
+                const events = this.appointments
                     .filter(a => a.start.split(' ')[0] === dateStr && String(a.doctor_id) === String(doctorId))
                     .map(a => {
                         const dtStart = new Date(a.start);
@@ -1853,9 +1853,85 @@
                         return {
                             ...a,
                             top,
-                            height
+                            height,
+                            _startMin: startMin,
+                            _endMin: endMin
                         };
                     });
+
+                return this.layoutOverlappingEvents(events);
+            },
+            /**
+             * Asigna left/width a cada evento segun cuantas citas se solapan en su
+             * mismo horario, para que una persona vea de un vistazo cuantas citas
+             * reales hay en un slot (1 cita = 100% ancho, 2 = 50%/50%, etc.) en vez
+             * de que una tape visualmente a la otra. Recordar: para que dos citas
+             * coexistan en el mismo horario, la primera tuvo que cancelarse o el
+             * sistema lo permite explicitamente (ver AppointmentService::process()).
+             */
+            layoutOverlappingEvents(events) {
+                if (events.length < 2) {
+                    return events.map(ev => ({ ...ev, left: 0, width: 100 }));
+                }
+
+                const sorted = [...events].sort((a, b) => a._startMin - b._startMin);
+
+                // Agrupa eventos en "clusters" de solapamiento transitivo: si A se
+                // solapa con B y B con C, los tres comparten el mismo ancho de columna
+                // aunque A y C no se toquen directamente entre si.
+                const clusters = [];
+                let current = [];
+                let clusterEnd = -Infinity;
+
+                sorted.forEach(ev => {
+                    if (current.length === 0 || ev._startMin < clusterEnd) {
+                        current.push(ev);
+                        clusterEnd = Math.max(clusterEnd, ev._endMin);
+                    } else {
+                        clusters.push(current);
+                        current = [ev];
+                        clusterEnd = ev._endMin;
+                    }
+                });
+                if (current.length > 0) clusters.push(current);
+
+                const positioned = [];
+
+                clusters.forEach(cluster => {
+                    if (cluster.length === 1) {
+                        positioned.push({ ...cluster[0], left: 0, width: 100 });
+                        return;
+                    }
+
+                    // Greedy column assignment: cada evento ocupa la primera columna
+                    // donde no choca con lo ya asignado a esa columna.
+                    const columnEnds = [];
+                    const columnOf = [];
+
+                    cluster.forEach(ev => {
+                        let col = columnEnds.findIndex(end => ev._startMin >= end);
+                        if (col === -1) {
+                            col = columnEnds.length;
+                            columnEnds.push(ev._endMin);
+                        } else {
+                            columnEnds[col] = ev._endMin;
+                        }
+                        columnOf.push(col);
+                    });
+
+                    const totalColumns = columnEnds.length;
+                    const widthPct = 100 / totalColumns;
+
+                    cluster.forEach((ev, idx) => {
+                        positioned.push({
+                            ...ev,
+                            left: columnOf[idx] * widthPct,
+                            width: widthPct
+                        });
+                    });
+                });
+
+                return positioned;
             },
             totalCount(doctorId) {
                 return this.appointments.filter(a => String(a.doctor_id) === String(doctorId)).length;
