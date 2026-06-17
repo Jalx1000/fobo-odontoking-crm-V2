@@ -94,6 +94,10 @@ class AppointmentService
         }
 
         // ── 2. Validar conflicto local ────────────────────────────────────────
+        // Una Activity cuyo(s) Lead(s) están todos cerrados (cancelados/perdidos,
+        // sea manualmente o vía SMD) no debe bloquear el horario para una cita nueva.
+        // Si la Activity no tiene Lead vinculado, se sigue tratando como conflicto
+        // (comportamiento conservador ante datos inconsistentes).
         $localConflict = DB::table('activities')
             ->join('doctor_activities', 'activities.id', '=', 'doctor_activities.activity_id')
             ->where('doctor_activities.doctor_id', $doctorId)
@@ -107,6 +111,21 @@ class AppointmentService
                 })->orWhere(function ($q) use ($scheduleFrom, $scheduleTo) {
                     $q->where('schedule_from', '<=', $scheduleFrom)
                       ->where('schedule_to', '>=', $scheduleTo);
+                });
+            })
+            ->where(function ($query) {
+                $query->whereNotExists(function ($sub) {
+                    $sub->select('lead_activities.activity_id')
+                        ->from('lead_activities')
+                        ->whereColumn('lead_activities.activity_id', 'activities.id');
+                })->orWhereExists(function ($sub) {
+                    $sub->select('lead_activities.activity_id')
+                        ->from('lead_activities')
+                        ->join('leads', 'leads.id', '=', 'lead_activities.lead_id')
+                        ->whereColumn('lead_activities.activity_id', 'activities.id')
+                        ->where(function ($q) {
+                            $q->whereNull('leads.status')->orWhere('leads.status', '!=', 0);
+                        });
                 });
             })
             ->exists();
