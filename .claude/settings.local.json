@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker exec *)",
+      "Bash(php -l /etc/easypanel/projects/heaven/odontoking-crm/code/packages/Webkul/Doctor/src/Services/DoctorAvailabilityService.php)",
+      "Bash(php -l /etc/easypanel/projects/heaven/odontoking-crm/code/packages/Webkul/Doctor/src/Http/Controllers/Api/AvailabilityController.php)",
+      "Bash(php -l /etc/easypanel/projects/heaven/odontoking-crm/code/app/Providers/RouteServiceProvider.php)",
+      "WebFetch(domain:documenter.getpostman.com)",
+      "Bash(docker build *)",
+      "Bash(docker run *)",
+      "Bash(git *)",
+      "Bash(railway --version)",
+      "Bash(curl *)",
+      "Bash(DB_HOST=zephyr.proxy.rlwy.net DB_PORT=22344 DB_DATABASE=railway DB_USERNAME=root DB_PASSWORD=WFapcDviAlUZWyUJybiEIJJUCtfyDOws DB_CONNECTION=mysql APP_KEY=base64:tt00SMpWOV4dlJzMSKMJaIUOTVTkMf3RvgWe5bXA9zM= APP_ENV=production php artisan db:show --counts)",
+      "Bash(grep -E \"\\\\.\\(php|md\\)$\")"
+    ]
+  }
+}

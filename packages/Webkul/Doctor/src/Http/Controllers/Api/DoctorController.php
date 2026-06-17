@@ -55,7 +55,9 @@ class DoctorController extends Controller
             $availability = $this->availabilityService->forDoctors($doctorIds, $startDate, $endDate);
 
             $doctors->getCollection()->transform(function ($doctor) use ($availability) {
-                $doctor->availability = $availability[$doctor->id] ?? collect();
+                $doctorAvailability = $availability[$doctor->id] ?? collect();
+                $doctor->availability = $doctorAvailability;
+                $doctor->has_availability = $doctorAvailability->isNotEmpty();
 
                 return $doctor;
             });
