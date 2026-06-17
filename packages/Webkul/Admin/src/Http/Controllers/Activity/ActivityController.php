@@ -145,6 +145,7 @@ class ActivityController extends Controller
                     'doctor_activities.doctor_id',
                     'doctors.name as doctor_name',
                     'leads.id as lead_id',
+                    'leads.status as lead_status',
                     'leads.lead_pipeline_stage_id',
                     'products.id as product_id',
                     'products.name as product_name',
@@ -172,12 +173,33 @@ class ActivityController extends Controller
                     'doctor_activities.doctor_id',
                     'doctors.name',
                     'leads.id',
+                    'leads.status',
                     'leads.lead_pipeline_stage_id',
                     'products.id',
                     'products.name',
                 ])
                 ->orderBy('activities.schedule_from')
                 ->get();
+
+            // Misma regla de "cancelado" que usa AppointmentService::process() para
+            // liberar el slot: status=0 o stage en smd.stage_map.cancelled/no_show.
+            // Se calcula aqui (no en el query) porque solo aplica a la visualizacion.
+            $cancelledStageIds = array_filter([
+                (int) config('smd.stage_map.cancelled'),
+                (int) config('smd.stage_map.no_show'),
+            ]);
+
+            $appointments = $appointments->map(function ($appointment) use ($cancelledStageIds) {
+                // lead_status puede ser NULL (lead abierto): (int) null === 0 daría un
+                // falso positivo, por eso se compara contra el string/valor crudo primero.
+                $statusIsZero = $appointment->lead_status !== null && (int) $appointment->lead_status === 0;
+                $stageIsCancelled = $appointment->lead_pipeline_stage_id !== null
+                    && in_array((int) $appointment->lead_pipeline_stage_id, $cancelledStageIds, true);
+
+                $appointment->is_cancelled = (bool) $appointment->lead_id && ($statusIsZero || $stageIsCancelled);
+
+                return $appointment;
+            });
 
             $availability = DB::table('doctor_shifts')
                 ->select(['id', 'doctor_id', 'date', 'start_time', 'end_time'])

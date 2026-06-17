@@ -216,6 +216,7 @@
                     >
                         <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'wev-'+ev.id"
                              class="dwc-week-event"
+                             :class="{ 'dwc-event-cancelled': ev.is_cancelled }"
                              :title="ev.title || ev.type"
                              @click.stop="goToLead(ev.lead_id)"
                              @mouseenter="onEventMouseEnter($event, ev.id, ev)"
@@ -261,7 +262,7 @@
                         <div v-for="idx in 13" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
                         <!-- Events -->
-                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
+                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :class="{ 'dwc-event-cancelled': ev.is_cancelled }" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
                             <div class="dwc-event-content dwc-event-layout">
                                 <div class="dwc-event-info">
                                     <div class="dwc-event-row-primary">
@@ -328,7 +329,7 @@
 
                             <div v-for="idx in 13" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
-                            <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
+                            <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :class="{ 'dwc-event-cancelled': ev.is_cancelled }" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
                                 <div class="dwc-event-content dwc-event-layout">
                                     <div class="dwc-event-info">
                                         <div class="dwc-event-row-primary">
@@ -2972,6 +2973,19 @@
         z-index: 10;
     }
 
+    /* Cita cancelada (lead cerrado por status=0 o por stage cancelado/no-show,
+       ver AppointmentController::get() -> is_cancelled). Mismo rojo en light/dark. */
+    .dwc-event.dwc-event-cancelled {
+        border-left-color: #ef4444;
+        background: #fee2e2;
+        color: #7f1d1d;
+    }
+
+    .dark .dwc-event.dwc-event-cancelled {
+        background: #450a0a;
+        color: #fecaca;
+    }
+
     .dwc-event-content {
         display: flex;
         flex-direction: column;
@@ -3314,6 +3328,16 @@
     .dark .dwc-week-event {
         background: #075985;
         color: #e0f2fe;
+    }
+
+    .dwc-week-event.dwc-event-cancelled {
+        background: #fee2e2;
+        color: #7f1d1d;
+    }
+
+    .dark .dwc-week-event.dwc-event-cancelled {
+        background: #450a0a;
+        color: #fecaca;
     }
 
     @media (max-width: 768px) {
