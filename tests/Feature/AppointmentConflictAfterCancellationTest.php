@@ -77,9 +77,10 @@ function makePatient(): Person
 
 /**
  * Inserta una Activity existente para $doctorId en el rango dado, opcionalmente
- * vinculada a uno o más Leads (cada uno con su propio status).
+ * vinculada a uno o más Leads. Cada entrada de $leads es ['status' => ..., 'stage_id' => ...].
+ * 'status' y 'stage_id' aceptan null explícito (Lead::create() deja stage_id en NULL por defecto).
  */
-function makeExistingActivity(int $doctorId, Carbon $from, Carbon $to, array $leadStatuses = []): int
+function makeExistingActivity(int $doctorId, Carbon $from, Carbon $to, array $leads = []): int
 {
     $activityId = DB::table('activities')->insertGetId([
         'type'          => 'meeting',
@@ -96,14 +97,17 @@ function makeExistingActivity(int $doctorId, Carbon $from, Carbon $to, array $le
         'activity_id' => $activityId,
     ]);
 
-    foreach ($leadStatuses as $status) {
+    foreach ($leads as $leadSpec) {
         $lead = Lead::create([
             'title'       => 'Lead Previo '.uniqid(),
             'description' => 'Test',
             'entity_type' => 'leads',
         ]);
 
-        DB::table('leads')->where('id', $lead->id)->update(['status' => $status]);
+        DB::table('leads')->where('id', $lead->id)->update([
+            'status'                 => $leadSpec['status'] ?? null,
+            'lead_pipeline_stage_id' => $leadSpec['stage_id'] ?? null,
+        ]);
 
         DB::table('lead_activities')->insert([
             'lead_id'     => $lead->id,
@@ -149,6 +153,17 @@ function bindShareMeDataMock(?array $slots, bool $expectAvailabilityCheck = true
 beforeEach(function () {
     $this->from = Carbon::tomorrow()->setTime(9, 0);
     $this->to   = $this->from->copy()->addMinutes(30);
+
+    // Stages reales y distintos entre sí, igual que en producción: "cancelado" es
+    // el stage configurado en smd.stage_map, "abierto" es cualquier otro stage real.
+    $stages               = DB::table('lead_pipeline_stages')->orderBy('id')->pluck('id');
+    $this->openStage      = (int) $stages->first();
+    $this->cancelledStage = (int) ($stages->filter(fn ($id) => $id !== $this->openStage)->first() ?? $this->openStage);
+
+    config([
+        'smd.stage_map.cancelled' => $this->cancelledStage,
+        'smd.stage_map.no_show'   => $this->cancelledStage,
+    ]);
 });
 
 // ---------------------------------------------------------------------------
@@ -158,7 +173,9 @@ beforeEach(function () {
 it('permite crear una cita nueva cuando la unica cita previa pertenece a un lead cerrado y SMD confirma disponibilidad', function () {
     $doctor = makeAvailableDoctor();
     makeShift($doctor->id, $this->from, $this->to);
-    makeExistingActivity($doctor->id, $this->from, $this->to, [0]); // lead cerrado
+    makeExistingActivity($doctor->id, $this->from, $this->to, [
+        ['status' => 0, 'stage_id' => null], // cerrado vía status (cancelDropbox)
+    ]);
 
     bindShareMeDataMock(buildSmdSlots($this->from, $this->to));
 
@@ -184,7 +201,9 @@ it('permite crear una cita nueva cuando la unica cita previa pertenece a un lead
 it('sigue bloqueando cuando la cita previa pertenece a un lead abierto, sin consultar SMD', function () {
     $doctor = makeAvailableDoctor();
     makeShift($doctor->id, $this->from, $this->to);
-    makeExistingActivity($doctor->id, $this->from, $this->to, [null]); // lead abierto
+    makeExistingActivity($doctor->id, $this->from, $this->to, [
+        ['status' => null, 'stage_id' => $this->openStage],
+    ]);
 
     bindShareMeDataMock(null, expectAvailabilityCheck: false);
 
@@ -228,7 +247,10 @@ it('sigue bloqueando cuando la activity previa no tiene ningun lead vinculado', 
 it('sigue bloqueando si al menos uno de los leads vinculados a la activity esta abierto', function () {
     $doctor = makeAvailableDoctor();
     makeShift($doctor->id, $this->from, $this->to);
-    makeExistingActivity($doctor->id, $this->from, $this->to, [0, null]); // uno cerrado, uno abierto
+    makeExistingActivity($doctor->id, $this->from, $this->to, [
+        ['status' => 0, 'stage_id' => null],
+        ['status' => null, 'stage_id' => $this->openStage],
+    ]);
 
     bindShareMeDataMock(null, expectAvailabilityCheck: false);
 
@@ -250,7 +272,9 @@ it('sigue bloqueando si al menos uno de los leads vinculados a la activity esta 
 it('libera el slot localmente pero sigue rechazando si SMD no tiene disponibilidad real', function () {
     $doctor = makeAvailableDoctor();
     makeShift($doctor->id, $this->from, $this->to);
-    makeExistingActivity($doctor->id, $this->from, $this->to, [0]); // lead cerrado
+    makeExistingActivity($doctor->id, $this->from, $this->to, [
+        ['status' => 0, 'stage_id' => null],
+    ]);
 
     bindShareMeDataMock(null); // SMD sin slots disponibles
 
@@ -263,6 +287,34 @@ it('libera el slot localmente pero sigue rechazando si SMD no tiene disponibilid
         'schedule_from' => $this->from->format('Y-m-d H:i:s'),
         'schedule_to'   => $this->to->format('Y-m-d H:i:s'),
     ]))->toThrow(AppointmentException::class, 'no tiene disponibilidad en SHAREMEDATA');
+});
+
+// ---------------------------------------------------------------------------
+// 6b. Caso real de produccion — cancelacion manual que SOLO mueve el stage,
+// dejando leads.status en NULL (no en 0). Doctor 21 en produccion, 2026-06-17
+// 11:00-12:00: el lead quedo con stage "Cancelado" pero status nunca se tocó.
+// ---------------------------------------------------------------------------
+
+it('libera el slot cuando el lead se cancelo solo moviendo el stage, sin tocar status', function () {
+    $doctor = makeAvailableDoctor();
+    makeShift($doctor->id, $this->from, $this->to);
+    makeExistingActivity($doctor->id, $this->from, $this->to, [
+        ['status' => null, 'stage_id' => $this->cancelledStage], // status NULL, solo el stage indica cancelado
+    ]);
+
+    bindShareMeDataMock(buildSmdSlots($this->from, $this->to));
+
+    $person  = makePatient();
+    $service = app(AppointmentService::class);
+
+    $result = $service->process([
+        'doctor_id'     => $doctor->id,
+        'person'        => ['id' => $person->id],
+        'schedule_from' => $this->from->format('Y-m-d H:i:s'),
+        'schedule_to'   => $this->to->format('Y-m-d H:i:s'),
+    ]);
+
+    expect($result['activity_id'])->not->toBeNull();
 });
 
 // ---------------------------------------------------------------------------

@@ -94,10 +94,19 @@ class AppointmentService
         }
 
         // ── 2. Validar conflicto local ────────────────────────────────────────
-        // Una Activity cuyo(s) Lead(s) están todos cerrados (cancelados/perdidos,
-        // sea manualmente o vía SMD) no debe bloquear el horario para una cita nueva.
+        // Una Activity cuyo(s) Lead(s) están todos cerrados/cancelados no debe
+        // bloquear el horario para una cita nueva. "Cancelado" se detecta de dos
+        // formas, porque en este CRM la cancelación manual desde el pipeline solo
+        // mueve el stage (no necesariamente toca leads.status):
+        //   - leads.status = 0 (mecanismo estándar de Krayin, usado por cancelDropbox())
+        //   - leads.lead_pipeline_stage_id está en stage_map.cancelled/no_show (config/smd.php)
         // Si la Activity no tiene Lead vinculado, se sigue tratando como conflicto
         // (comportamiento conservador ante datos inconsistentes).
+        $cancelledStageIds = array_filter([
+            (int) config('smd.stage_map.cancelled'),
+            (int) config('smd.stage_map.no_show'),
+        ]);
+
         $localConflict = DB::table('activities')
             ->join('doctor_activities', 'activities.id', '=', 'doctor_activities.activity_id')
             ->where('doctor_activities.doctor_id', $doctorId)
@@ -113,18 +122,25 @@ class AppointmentService
                       ->where('schedule_to', '>=', $scheduleTo);
                 });
             })
-            ->where(function ($query) {
+            ->where(function ($query) use ($cancelledStageIds) {
                 $query->whereNotExists(function ($sub) {
                     $sub->select('lead_activities.activity_id')
                         ->from('lead_activities')
                         ->whereColumn('lead_activities.activity_id', 'activities.id');
-                })->orWhereExists(function ($sub) {
+                })->orWhereExists(function ($sub) use ($cancelledStageIds) {
                     $sub->select('lead_activities.activity_id')
                         ->from('lead_activities')
                         ->join('leads', 'leads.id', '=', 'lead_activities.lead_id')
                         ->whereColumn('lead_activities.activity_id', 'activities.id')
                         ->where(function ($q) {
                             $q->whereNull('leads.status')->orWhere('leads.status', '!=', 0);
+                        })
+                        ->where(function ($q) use ($cancelledStageIds) {
+                            // NULL stage_id no es "cancelado": en SQL "NULL NOT IN (...)" da
+                            // NULL (no true), así que hay que tratarlo aparte para que un lead
+                            // sin stage asignado siga contando como abierto/bloqueante.
+                            $q->whereNull('leads.lead_pipeline_stage_id')
+                              ->orWhereNotIn('leads.lead_pipeline_stage_id', $cancelledStageIds);
                         });
                 });
             })
