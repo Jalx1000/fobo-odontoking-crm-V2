@@ -188,15 +188,23 @@ class ActivityController extends Controller
                 (int) config('smd.stage_map.cancelled'),
                 (int) config('smd.stage_map.no_show'),
             ]);
+            $completedStageIds = array_filter([
+                (int) config('smd.stage_map.completed'),
+            ]);
 
-            $appointments = $appointments->map(function ($appointment) use ($cancelledStageIds) {
+            $appointments = $appointments->map(function ($appointment) use ($cancelledStageIds, $completedStageIds) {
                 // lead_status puede ser NULL (lead abierto): (int) null === 0 daría un
                 // falso positivo, por eso se compara contra el string/valor crudo primero.
                 $statusIsZero = $appointment->lead_status !== null && (int) $appointment->lead_status === 0;
                 $stageIsCancelled = $appointment->lead_pipeline_stage_id !== null
                     && in_array((int) $appointment->lead_pipeline_stage_id, $cancelledStageIds, true);
+                $stageIsCompleted = $appointment->lead_pipeline_stage_id !== null
+                    && in_array((int) $appointment->lead_pipeline_stage_id, $completedStageIds, true);
 
                 $appointment->is_cancelled = (bool) $appointment->lead_id && ($statusIsZero || $stageIsCancelled);
+                // Cancelado tiene prioridad visual sobre completado si por algún motivo
+                // coincidieran (no deberían, son stages distintos en stage_map).
+                $appointment->is_completed = (bool) $appointment->lead_id && $stageIsCompleted && ! $appointment->is_cancelled;
 
                 return $appointment;
             });

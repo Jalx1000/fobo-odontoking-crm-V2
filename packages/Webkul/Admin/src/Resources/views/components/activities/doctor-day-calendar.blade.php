@@ -216,7 +216,7 @@
                     >
                         <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'wev-'+ev.id"
                              class="dwc-week-event"
-                             :class="{ 'dwc-event-cancelled': ev.is_cancelled }"
+                             :class="{ 'dwc-event-cancelled': ev.is_cancelled, 'dwc-event-completed': ev.is_completed }"
                              :title="ev.title || ev.type"
                              @click.stop="goToLead(ev.lead_id)"
                              @mouseenter="onEventMouseEnter($event, ev.id, ev)"
@@ -262,7 +262,7 @@
                         <div v-for="idx in 13" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
                         <!-- Events -->
-                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :class="{ 'dwc-event-cancelled': ev.is_cancelled }" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
+                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :class="{ 'dwc-event-cancelled': ev.is_cancelled, 'dwc-event-completed': ev.is_completed }" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
                             <div class="dwc-event-content dwc-event-layout">
                                 <div class="dwc-event-info">
                                     <div class="dwc-event-row-primary">
@@ -329,7 +329,7 @@
 
                             <div v-for="idx in 13" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
-                            <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :class="{ 'dwc-event-cancelled': ev.is_cancelled }" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
+                            <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :class="{ 'dwc-event-cancelled': ev.is_cancelled, 'dwc-event-completed': ev.is_completed }" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
                                 <div class="dwc-event-content dwc-event-layout">
                                     <div class="dwc-event-info">
                                         <div class="dwc-event-row-primary">
@@ -2986,6 +2986,19 @@
         color: #fecaca;
     }
 
+    /* Cita en stage "Paciente (concretado)" (ver ActivityController::get() ->
+       is_completed). Cancelado tiene prioridad si ambas coincidieran. */
+    .dwc-event.dwc-event-completed {
+        border-left-color: #22c55e;
+        background: #dcfce7;
+        color: #14532d;
+    }
+
+    .dark .dwc-event.dwc-event-completed {
+        background: #052e16;
+        color: #bbf7d0;
+    }
+
     .dwc-event-content {
         display: flex;
         flex-direction: column;
@@ -3338,6 +3351,16 @@
     .dark .dwc-week-event.dwc-event-cancelled {
         background: #450a0a;
         color: #fecaca;
+    }
+
+    .dwc-week-event.dwc-event-completed {
+        background: #dcfce7;
+        color: #14532d;
+    }
+
+    .dark .dwc-week-event.dwc-event-completed {
+        background: #052e16;
+        color: #bbf7d0;
     }
 
     @media (max-width: 768px) {

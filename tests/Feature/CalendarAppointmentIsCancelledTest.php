@@ -8,13 +8,15 @@ use Webkul\Lead\Models\Lead;
 uses(DatabaseTransactions::class);
 
 beforeEach(function () {
-    $stages               = DB::table('lead_pipeline_stages')->orderBy('id')->pluck('id');
-    $this->openStage      = (int) $stages->first();
+    $stages               = DB::table('lead_pipeline_stages')->orderBy('id')->pluck('id')->values();
+    $this->openStage      = (int) $stages[0];
     $this->cancelledStage = (int) ($stages->filter(fn ($id) => $id !== $this->openStage)->first() ?? $this->openStage);
+    $this->completedStage = (int) ($stages->filter(fn ($id) => ! in_array($id, [$this->openStage, $this->cancelledStage], true))->first() ?? $this->cancelledStage);
 
     config([
         'smd.stage_map.cancelled' => $this->cancelledStage,
         'smd.stage_map.no_show'   => $this->cancelledStage,
+        'smd.stage_map.completed' => $this->completedStage,
     ]);
 });
 
@@ -161,4 +163,75 @@ it('marca is_cancelled=false cuando la activity no tiene ningun lead vinculado',
 
     expect($appointment)->not->toBeNull();
     expect($appointment['is_cancelled'])->toBeFalse();
+});
+
+it('marca is_completed=true cuando el lead esta en el stage Paciente (concretado)', function () {
+    $admin = getDefaultAdmin();
+    test()->actingAs($admin);
+
+    $doctorId = DB::table('doctors')->insertGetId([
+        'name' => 'Dr. Calendario Concretado '.uniqid(),
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $from = Carbon::tomorrow()->setTime(13, 0);
+    $to   = $from->copy()->addHour();
+
+    $activityId = makeCalendarActivity($doctorId, $from, $to);
+
+    $lead = Lead::create(['title' => 'Lead Concretado Calendario', 'description' => 't', 'entity_type' => 'leads']);
+    DB::table('leads')->where('id', $lead->id)->update([
+        'status'                 => null,
+        'lead_pipeline_stage_id' => $this->completedStage,
+    ]);
+    DB::table('lead_activities')->insert(['lead_id' => $lead->id, 'activity_id' => $activityId]);
+
+    $response = test()->get(route('admin.activities.get', [
+        'view_type'     => 'calendar',
+        'calendar_mode' => 'doctor',
+        'calendar_view' => 'day',
+        'start'         => $from->toDateString(),
+    ]));
+
+    $appointment = collect($response->json('appointments'))->firstWhere('id', $activityId);
+
+    expect($appointment['is_completed'])->toBeTrue();
+    expect($appointment['is_cancelled'])->toBeFalse();
+});
+
+it('is_cancelled tiene prioridad sobre is_completed si ambos stages coincidieran', function () {
+    $admin = getDefaultAdmin();
+    test()->actingAs($admin);
+
+    // Caso borde: si por config ambos stage_map apuntaran al mismo id
+    config(['smd.stage_map.completed' => $this->cancelledStage]);
+
+    $doctorId = DB::table('doctors')->insertGetId([
+        'name' => 'Dr. Calendario Prioridad '.uniqid(),
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $from = Carbon::tomorrow()->setTime(14, 0);
+    $to   = $from->copy()->addHour();
+
+    $activityId = makeCalendarActivity($doctorId, $from, $to);
+
+    $lead = Lead::create(['title' => 'Lead Prioridad Calendario', 'description' => 't', 'entity_type' => 'leads']);
+    DB::table('leads')->where('id', $lead->id)->update([
+        'status'                 => null,
+        'lead_pipeline_stage_id' => $this->cancelledStage,
+    ]);
+    DB::table('lead_activities')->insert(['lead_id' => $lead->id, 'activity_id' => $activityId]);
+
+    $response = test()->get(route('admin.activities.get', [
+        'view_type'     => 'calendar',
+        'calendar_mode' => 'doctor',
+        'calendar_view' => 'day',
+        'start'         => $from->toDateString(),
+    ]));
+
+    $appointment = collect($response->json('appointments'))->firstWhere('id', $activityId);
+
+    expect($appointment['is_cancelled'])->toBeTrue();
+    expect($appointment['is_completed'])->toBeFalse();
 });
