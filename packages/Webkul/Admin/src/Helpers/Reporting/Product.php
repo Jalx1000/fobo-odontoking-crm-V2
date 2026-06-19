@@ -392,7 +392,7 @@ class Product extends AbstractReporting
     {
         return match ($period) {
             'day'   => $date->format('Y-m-d'),
-            'week'  => clone $date->startOfWeek()->format('Y-m-d'),
+            'week'  => $date->copy()->startOfWeek(\Carbon\CarbonInterface::SUNDAY)->format('Y-m-d'),
             'month' => $date->format('Y-m'),
             'year'  => $date->format('Y'),
             default => $date->format('Y-m-d'),
@@ -403,7 +403,7 @@ class Product extends AbstractReporting
     {
         return match ($period) {
             'day'   => $date->format('d M'),
-            'week'  => clone $date->startOfWeek()->format('d M').' - '.clone $date->endOfWeek()->format('d M'),
+            'week'  => $date->copy()->startOfWeek(\Carbon\CarbonInterface::SUNDAY)->format('d M').' - '.$date->copy()->endOfWeek(\Carbon\CarbonInterface::SATURDAY)->format('d M'),
             'month' => $date->format('M Y'),
             'year'  => $date->format('Y'),
             default => $date->format('d M'),
