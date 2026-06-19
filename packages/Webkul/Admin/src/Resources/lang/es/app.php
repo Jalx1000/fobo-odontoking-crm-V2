@@ -1745,10 +1745,10 @@ return [
         ],
     ],
     'leads' => [
-        'create-success'  => 'Paciente creado exitosamente.',
-        'update-success'  => 'Paciente actualizado exitosamente.',
+        'create-success'  => 'Creado exitosamente.',
+        'update-success'  => 'Actualizado exitosamente.',
         'update-failed'   => 'No se pueden eliminar los clientes potenciales.',
-        'destroy-success' => 'Paciente eliminado exitosamente.',
+        'destroy-success' => 'Eliminado exitosamente.',
         'destroy-failed'  => 'No se puede eliminar el lead.',
         'file'            => [
             'data-not-found'         => 'Datos no encontrados.',

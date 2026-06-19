@@ -11,12 +11,12 @@ use Webkul\Activity\Models\ActivityProxy;
 use Webkul\Activity\Traits\LogsActivity;
 use Webkul\Attribute\Traits\CustomAttribute;
 use Webkul\Contact\Models\PersonProxy;
+use Webkul\Doctor\Models\DoctorProxy;
 use Webkul\Email\Models\EmailProxy;
 use Webkul\Lead\Contracts\Lead as LeadContract;
 use Webkul\Quote\Models\QuoteProxy;
 use Webkul\Tag\Models\TagProxy;
 use Webkul\User\Models\UserProxy;
-use Webkul\Doctor\Models\DoctorProxy;
 
 class Lead extends Model implements LeadContract
 {
@@ -35,6 +35,7 @@ class Lead extends Model implements LeadContract
         'lost_reason',
         'expected_close_date',
         'closed_at',
+        'confirmed_at',
         'user_id',
         'person_id',
         'lead_source_id',
@@ -51,6 +52,7 @@ class Lead extends Model implements LeadContract
      */
     protected $casts = [
         'closed_at'           => 'datetime:D M d, Y H:i A',
+        'confirmed_at'        => 'datetime:D M d, Y H:i A',
         'expected_close_date' => 'date:D M d, Y',
     ];
 

@@ -164,7 +164,7 @@ class Product extends AbstractReporting
             )
             ->addSelect(DB::raw('SUM('.$tablePrefix.'lead_products.quantity) as total_qty_ordered'))
             ->whereIn('leads.lead_pipeline_stage_id', $this->wonStageIds)
-            ->whereBetween('leads.closed_at', [$this->startDate, $this->endDate])
+            ->whereRaw('COALESCE('.$tablePrefix.'leads.confirmed_at, '.$tablePrefix.'leads.created_at) BETWEEN ? AND ?', [$this->startDate, $this->endDate])
             ->having(DB::raw('SUM('.$tablePrefix.'lead_products.quantity)'), '>', 0)
             ->groupBy('products.id', 'products.name', 'products.price')
             ->orderBy('total_qty_ordered', 'DESC')
