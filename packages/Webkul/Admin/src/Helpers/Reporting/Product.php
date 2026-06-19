@@ -270,9 +270,10 @@ class Product extends AbstractReporting
     {
         $intervals = $this->generateTimeIntervals($startDate, $endDate, $period);
 
-        $groupColumn = $this->getGroupColumn('leads.closed_at', $period);
-
         $tablePrefix = DB::getTablePrefix();
+
+        // Raw expression: qualify with the real (prefixed) table name since this is a joined query.
+        $groupColumn = $this->getGroupColumn($tablePrefix.'leads.closed_at', $period);
 
         $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
