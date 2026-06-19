@@ -48,6 +48,7 @@
             {{-- @include('admin::dashboard.index.revenue') --}}
             @include('admin::dashboard.index.over-all')
             @include('admin::dashboard.index.total-leads')
+            @include('admin::dashboard.index.evolution')
 
             @if ($isAdminRole)
                 <div class="grid grid-cols-3 gap-4 w-full">

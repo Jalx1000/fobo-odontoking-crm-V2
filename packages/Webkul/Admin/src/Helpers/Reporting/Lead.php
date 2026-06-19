@@ -130,6 +130,76 @@ class Lead extends AbstractReporting
         return $this->getOverTimeStats($this->startDate, $this->endDate, 'leads.id', 'closed_at', $period);
     }
 
+    /**
+     * Returns the evolution payload for a lead-based metric: the current period
+     * series per bucket plus the previous period's average per bucket as a baseline.
+     *
+     * @param  string  $metric  ventas | valor-ventas | pedidos-creados
+     */
+    public function getEvolution(string $metric): array
+    {
+        switch ($metric) {
+            case 'valor-ventas':
+                $this->stageIds = $this->wonStageIds;
+                $dateColumn = 'closed_at';
+                $valueColumn = 'leads.lead_value';
+                $key = 'total';
+                $format = 'currency';
+                break;
+
+            case 'pedidos-creados':
+                $this->stageIds = $this->allStageIds;
+                $dateColumn = 'created_at';
+                $valueColumn = 'leads.id';
+                $key = 'count';
+                $format = 'number';
+                break;
+
+            case 'ventas':
+            default:
+                $this->stageIds = $this->wonStageIds;
+                $dateColumn = 'closed_at';
+                $valueColumn = 'leads.id';
+                $key = 'count';
+                $format = 'number';
+                break;
+        }
+
+        $period = $this->determinePeriod('auto');
+
+        $current = $this->getOverTimeStats($this->startDate, $this->endDate, $valueColumn, $dateColumn, $period);
+        $previous = $this->getOverTimeStats($this->lastStartDate, $this->lastEndDate, $valueColumn, $dateColumn, $period);
+
+        return $this->buildEvolutionPayload($current, $previous, $key, $format);
+    }
+
+    /**
+     * Builds the evolution payload (labels, series, current/previous averages,
+     * progress and number format) from current and previous over-time buckets.
+     */
+    public function buildEvolutionPayload(array $current, array $previous, string $key, string $format): array
+    {
+        $labels = array_map(fn ($row) => $row['label'], $current);
+
+        $data = array_map(fn ($row) => $key === 'total' ? round((float) $row['total'], 2) : (int) $row['count'], $current);
+
+        $previousValues = array_map(fn ($row) => $key === 'total' ? (float) $row['total'] : (int) $row['count'], $previous);
+
+        $currentAverage = count($data) ? array_sum($data) / count($data) : 0;
+        $previousAverage = count($previousValues) ? array_sum($previousValues) / count($previousValues) : 0;
+
+        return [
+            'labels'                     => $labels,
+            'data'                       => $data,
+            'current_average'            => round($currentAverage, 2),
+            'previous_average'           => round($previousAverage, 2),
+            'current_average_formatted'  => $format === 'currency' ? core()->formatBasePrice($currentAverage) : (string) round($currentAverage, 1),
+            'previous_average_formatted' => $format === 'currency' ? core()->formatBasePrice($previousAverage) : (string) round($previousAverage, 1),
+            'progress'                   => $this->getPercentageChange($previousAverage, $currentAverage),
+            'format'                     => $format,
+        ];
+    }
+
     public function getVendedoresStats($limit = null)
     {
         $tablePrefix = DB::getTablePrefix();

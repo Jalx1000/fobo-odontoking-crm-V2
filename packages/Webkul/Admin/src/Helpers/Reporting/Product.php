@@ -258,6 +258,71 @@ class Product extends AbstractReporting
     }
 
     /**
+     * Returns units sold (quantity) per bucket for delivered orders (won stage),
+     * filtered by closed_at and the optional pipeline (ciudad). Used by the
+     * dashboard evolution card. Returns the same shape as Lead::getOverTimeStats
+     * so the evolution payload can be built consistently.
+     *
+     * @param  \Carbon\Carbon  $startDate
+     * @param  \Carbon\Carbon  $endDate
+     */
+    public function getUnitsSoldOverTime($startDate, $endDate, string $period): array
+    {
+        $intervals = $this->generateTimeIntervals($startDate, $endDate, $period);
+
+        $groupColumn = $this->getGroupColumn('leads.closed_at', $period);
+
+        $tablePrefix = DB::getTablePrefix();
+
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
+
+        $results = $this->productRepository
+            ->resetModel()
+            ->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
+            ->when($pipelineId, function ($q) use ($pipelineId) {
+                $q->where('leads.lead_pipeline_id', $pipelineId);
+            })
+            ->select(
+                DB::raw("$groupColumn AS date"),
+                DB::raw('SUM('.$tablePrefix.'lead_products.quantity) AS count')
+            )
+            ->whereIn('leads.lead_pipeline_stage_id', $this->wonStageIds)
+            ->whereBetween('leads.closed_at', [$startDate, $endDate])
+            ->groupBy(DB::raw($groupColumn))
+            ->orderBy(DB::raw($groupColumn))
+            ->get()
+            ->keyBy('date');
+
+        $stats = [];
+
+        foreach ($intervals as $interval) {
+            $result = $results->get($interval['key']);
+
+            $stats[] = [
+                'label' => $interval['label'],
+                'count' => $result ? (int) $result->count : 0,
+                'total' => 0,
+            ];
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Returns the current and previous period units-sold buckets (same period
+     * granularity) for the dashboard evolution card.
+     */
+    public function getUnitsSoldEvolution(): array
+    {
+        $period = $this->determinePeriod('auto');
+
+        return [
+            'current'  => $this->getUnitsSoldOverTime($this->startDate, $this->endDate, $period),
+            'previous' => $this->getUnitsSoldOverTime($this->lastStartDate, $this->lastEndDate, $period),
+        ];
+    }
+
+    /**
      * Generate time intervals based on period
      */
     protected function generateTimeIntervals(\Carbon\Carbon $startDate, \Carbon\Carbon $endDate, string $period): array

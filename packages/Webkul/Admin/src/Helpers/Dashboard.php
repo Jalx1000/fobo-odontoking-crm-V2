@@ -191,6 +191,22 @@ class Dashboard
     }
 
     /**
+     * Returns the evolution statistics for all metrics: each one carries the
+     * current period series plus the previous period's daily average as baseline.
+     */
+    public function getEvolutionStats(): array
+    {
+        $units = $this->productReporting->getUnitsSoldEvolution();
+
+        return [
+            'ventas'             => $this->leadReporting->getEvolution('ventas'),
+            'valor-ventas'       => $this->leadReporting->getEvolution('valor-ventas'),
+            'pedidos-creados'    => $this->leadReporting->getEvolution('pedidos-creados'),
+            'productos-vendidos' => $this->leadReporting->buildEvolutionPayload($units['current'], $units['previous'], 'count', 'number'),
+        ];
+    }
+
+    /**
      * Returns total leads by pipeline stages counts.
      */
     public function getTotalLeadsByStages(): array
