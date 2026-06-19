@@ -1,14 +1,6 @@
 {!! view_render_event('admin.dashboard.index.open_leads_by_states_fixed.before') !!}
 
-@inject('pipelineRepository', 'Webkul\Lead\Repositories\PipelineRepository')
-
-@php
-    $pipelines = $pipelineRepository->all();
-@endphp
-
-<v-dashboard-open-leads-by-states-fixed
-    :pipelines='@json($pipelines)'
->
+<v-dashboard-open-leads-by-states-fixed>
     <x-admin::shimmer.dashboard.index.open-leads-by-states />
 </v-dashboard-open-leads-by-states-fixed>
 
@@ -26,17 +18,6 @@
                     <p class="text-base font-semibold dark:text-gray-300">
                         Vista por etapa
                     </p>
-
-                    <div class="flex gap-2">
-                        <select
-                            class="custom-select flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
-                            v-model="filters.pipeline_id"
-                            @change="getStats(filters)"
-                        >
-                            <option value="">Todas las ciudades</option>
-                            <option v-for="pipeline in pipelines" :value="pipeline.id">@{{ pipeline.name }}</option>
-                        </select>
-                    </div>
                 </div>
 
                 <div class="relative flex w-full max-w-full flex-col gap-4" v-if="report.statistics.length">
@@ -66,8 +47,6 @@
     <script type="module">
         app.component('v-dashboard-open-leads-by-states-fixed', {
             template: '#v-dashboard-open-leads--by-states-fixed-template',
-
-            props: ['pipelines'],
 
             data() {
                 return {

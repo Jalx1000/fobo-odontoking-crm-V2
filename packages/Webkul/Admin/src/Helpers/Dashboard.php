@@ -123,10 +123,18 @@ class Dashboard
     {
         return $this->productReporting->getTopSellingProductsByRevenue(5);
     }
-    
+
     public function getTopSellingProductsByQuantity(): Collection
     {
         return $this->productReporting->getTopSellingProductsByQuantity(5);
+    }
+
+    /**
+     * Returns most sold products (Won/Ganado stage, i.e. delivered) statistics.
+     */
+    public function getTopSellingProductsByQuantitySold(): Collection
+    {
+        return $this->productReporting->getTopSellingProductsByQuantitySold(5);
     }
 
     /**

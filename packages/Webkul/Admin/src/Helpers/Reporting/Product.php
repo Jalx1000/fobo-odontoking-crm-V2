@@ -5,17 +5,34 @@ namespace Webkul\Admin\Helpers\Reporting;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Webkul\Lead\Repositories\ProductRepository;
+use Webkul\Lead\Repositories\StageRepository;
 
 class Product extends AbstractReporting
 {
+    /**
+     * The won (delivered/sold) stage ids. Matches the same convention used in Reporting\Lead.
+     */
+    protected array $wonStageIds;
+
     /**
      * Create a helper instance.
      *
      * @return void
      */
     public function __construct(
-        protected ProductRepository $productRepository
+        protected ProductRepository $productRepository,
+        protected StageRepository $stageRepository,
     ) {
+        $this->wonStageIds = $this->stageRepository
+            ->resetModel()
+            ->where('code', 'won')
+            ->orWhere('code', 'pedido-entregado')
+            ->orWhereRaw("LOWER(name) LIKE '%won%'")
+            ->orWhereRaw("LOWER(name) LIKE '%ganado%'")
+            ->orWhereRaw("LOWER(name) LIKE '%entregado%'")
+            ->pluck('id')
+            ->toArray();
+
         parent::__construct();
     }
 
@@ -33,11 +50,11 @@ class Product extends AbstractReporting
             ->with('product')
             ->when(request('user_id'), function ($q) {
                 $q->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
-                  ->where('leads.user_id', request('user_id'));
+                    ->where('leads.user_id', request('user_id'));
             })
             ->when(request('organization_id'), function ($q) {
                 $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
-                  ->where('persons.organization_id', request('organization_id'));
+                    ->where('persons.organization_id', request('organization_id'));
             })
             ->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
             ->leftJoin('products', 'lead_products.product_id', '=', 'products.id')
@@ -76,16 +93,18 @@ class Product extends AbstractReporting
         $items = $this->productRepository
             ->resetModel()
             ->with('product')
+            ->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
+            ->leftJoin('products', 'lead_products.product_id', '=', 'products.id')
             ->when(request('user_id'), function ($q) {
-                $q->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
-                  ->where('leads.user_id', request('user_id'));
+                $q->where('leads.user_id', request('user_id'));
             })
             ->when(request('organization_id'), function ($q) {
                 $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
-                  ->where('persons.organization_id', request('organization_id'));
+                    ->where('persons.organization_id', request('organization_id'));
             })
-            ->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
-            ->leftJoin('products', 'lead_products.product_id', '=', 'products.id')
+            ->when(is_numeric(request('pipeline_id')) ? request('pipeline_id') : null, function ($q, $pipelineId) {
+                $q->where('leads.lead_pipeline_id', $pipelineId);
+            })
             ->select(
                 'products.id as product_id',
                 'products.name',
@@ -113,6 +132,57 @@ class Product extends AbstractReporting
     }
 
     /**
+     * Gets the most sold products by quantity, considering only leads in the
+     * Won/Ganado stage (i.e. delivered orders) and an optional pipeline (ciudad) filter.
+     *
+     * @param  int  $limit
+     */
+    public function getTopSellingProductsByQuantitySold($limit = null): Collection
+    {
+        $tablePrefix = DB::getTablePrefix();
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
+
+        $items = $this->productRepository
+            ->resetModel()
+            ->with('product')
+            ->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
+            ->leftJoin('products', 'lead_products.product_id', '=', 'products.id')
+            ->when(request('user_id'), function ($q) {
+                $q->where('leads.user_id', request('user_id'));
+            })
+            ->when(request('organization_id'), function ($q) {
+                $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
+                    ->where('persons.organization_id', request('organization_id'));
+            })
+            ->when($pipelineId, function ($q) use ($pipelineId) {
+                $q->where('leads.lead_pipeline_id', $pipelineId);
+            })
+            ->select(
+                'products.id as product_id',
+                'products.name',
+                'products.price'
+            )
+            ->addSelect(DB::raw('SUM('.$tablePrefix.'lead_products.quantity) as total_qty_ordered'))
+            ->whereIn('leads.lead_pipeline_stage_id', $this->wonStageIds)
+            ->whereBetween('leads.closed_at', [$this->startDate, $this->endDate])
+            ->having(DB::raw('SUM('.$tablePrefix.'lead_products.quantity)'), '>', 0)
+            ->groupBy('products.id', 'products.name', 'products.price')
+            ->orderBy('total_qty_ordered', 'DESC')
+            ->limit($limit)
+            ->get();
+
+        return $items->map(function ($item) {
+            return [
+                'id'                => $item->product_id,
+                'name'              => $item->name,
+                'price'             => $item->product?->price,
+                'formatted_price'   => core()->formatBasePrice($item->price),
+                'total_qty_ordered' => $item->total_qty_ordered,
+            ];
+        });
+    }
+
+    /**
      * Retrieves total services (products sold) and their progress.
      */
     public function getTotalServicesProgress(): array
@@ -137,6 +207,9 @@ class Product extends AbstractReporting
         return (int) $this->productRepository
             ->resetModel()
             ->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
+            ->when(is_numeric(request('pipeline_id')) ? request('pipeline_id') : null, function ($q, $pipelineId) {
+                $q->where('leads.lead_pipeline_id', $pipelineId);
+            })
             ->whereBetween('leads.created_at', [$startDate, $endDate])
             ->sum(DB::raw($tablePrefix.'lead_products.quantity'));
     }
@@ -264,7 +337,7 @@ class Product extends AbstractReporting
     {
         return match ($period) {
             'day'   => $date->format('d M'),
-            'week'  => clone $date->startOfWeek()->format('d M') . ' - ' . clone $date->endOfWeek()->format('d M'),
+            'week'  => clone $date->startOfWeek()->format('d M').' - '.clone $date->endOfWeek()->format('d M'),
             'month' => $date->format('M Y'),
             'year'  => $date->format('Y'),
             default => $date->format('d M'),

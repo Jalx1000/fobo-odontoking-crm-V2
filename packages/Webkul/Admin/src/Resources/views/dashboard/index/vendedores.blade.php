@@ -34,6 +34,18 @@
                                 <p class="font-normal text-gray-800 dark:text-white">
                                     @{{ item.total_leads }}
                                 </p>
+                                <div class="flex items-center gap-0.5" v-if="typeof item.progress === 'number'">
+                                    <span
+                                        class="text-sm !font-semibold"
+                                        :class="[item.progress < 0 ? 'icon-stats-down text-red-500 dark:!text-red-500' : 'icon-stats-up text-green-500 dark:!text-green-500']"
+                                    ></span>
+                                    <p
+                                        class="text-xs font-semibold"
+                                        :class="[item.progress < 0 ? 'text-red-500' : 'text-green-500']"
+                                    >
+                                        @{{ Math.round(Math.abs(item.progress)) }}%
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>

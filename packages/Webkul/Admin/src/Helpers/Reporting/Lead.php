@@ -6,8 +6,8 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\Lead\Repositories\LeadRepository;
-use Webkul\Lead\Repositories\StageRepository;
 use Webkul\Lead\Repositories\PipelineRepository;
+use Webkul\Lead\Repositories\StageRepository;
 use Webkul\User\Repositories\UserRepository;
 
 class Lead extends AbstractReporting
@@ -33,6 +33,11 @@ class Lead extends AbstractReporting
     protected array $lostStageIds;
 
     /**
+     * Role names excluded from vendor/sales statistics. Must match `roles.name` in the database exactly.
+     */
+    protected array $ignoredRoleNames = ['Supervisores', 'Administrador'];
+
+    /**
      * Create a helper instance.
      *
      * @return void
@@ -49,20 +54,38 @@ class Lead extends AbstractReporting
         $this->wonStageIds = $this->stageRepository
             ->resetModel()
             ->where('code', 'won')
+            ->orWhere('code', 'pedido-entregado')
             ->orWhereRaw("LOWER(name) LIKE '%won%'")
             ->orWhereRaw("LOWER(name) LIKE '%ganado%'")
+            ->orWhereRaw("LOWER(name) LIKE '%entregado%'")
             ->pluck('id')
             ->toArray();
 
         $this->lostStageIds = $this->stageRepository
             ->resetModel()
             ->where('code', 'lost')
+            ->orWhere('code', 'pedidos-cancelado')
             ->orWhereRaw("LOWER(name) LIKE '%lost%'")
             ->orWhereRaw("LOWER(name) LIKE '%perdido%'")
+            ->orWhereRaw("LOWER(name) LIKE '%cancelado%'")
             ->pluck('id')
             ->toArray();
 
         parent::__construct();
+    }
+
+    /**
+     * Excludes users whose role is in $ignoredRoleNames (e.g. Supervisores, Administrador)
+     * from a query, via subquery to avoid join collisions with already-joined tables.
+     */
+    private function excludeIgnoredRoles($query, string $userIdColumn = 'users.id')
+    {
+        return $query->whereNotIn($userIdColumn, function ($sub) {
+            $sub->select('users.id')
+                ->from('users')
+                ->join('roles', 'users.role_id', '=', 'roles.id')
+                ->whereIn('roles.name', $this->ignoredRoleNames);
+        });
     }
 
     /**
@@ -111,34 +134,56 @@ class Lead extends AbstractReporting
     {
         $tablePrefix = DB::getTablePrefix();
 
-        $items = $this->leadRepository
-            ->resetModel()
-            ->when(request('user_id'), function ($q) {
-                $q->where('leads.user_id', request('user_id'));
-            })
-            ->when(request('organization_id'), function ($q) {
-                $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
-                  ->where('persons.organization_id', request('organization_id'));
-            })
-            ->leftJoin('users', 'leads.user_id', '=', 'users.id')
-            ->where('users.email', '!=', 'jmogro@sofopolis.com')
-            ->leftJoin('lead_activities', 'leads.id', '=', 'lead_activities.lead_id')
-            ->leftJoin('activities', 'lead_activities.activity_id', '=', 'activities.id')
-            ->select(
-                'users.id as user_id',
-                'users.name as vendedor_name'
-            )
-            ->addSelect(DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) as total_leads'))
-            ->addSelect(DB::raw('SUM(CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN 1 ELSE 0 END) as sales_count'))
-            ->addSelect(DB::raw('SUM(CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.lead_value ELSE 0 END) as total_sales_amount'))
-            ->addSelect(DB::raw('AVG(CASE WHEN '.$tablePrefix.'activities.created_at IS NOT NULL THEN TIMESTAMPDIFF(SECOND, '.$tablePrefix.'leads.created_at, '.$tablePrefix.'activities.created_at) END) as average_response_time_seconds'))
-            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
-            ->groupBy('users.id', 'users.name')
-            ->orderBy('total_sales_amount', 'DESC')
-            ->limit($limit)
-            ->get();
+        $userId = is_numeric(request('user_id')) ? request('user_id') : null;
+        $organizationId = is_numeric(request('organization_id')) ? request('organization_id') : null;
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
-        $items = $items->map(function ($item) {
+        $buildQuery = function ($startDate, $endDate) use ($tablePrefix, $userId, $organizationId, $pipelineId) {
+            $query = $this->leadRepository
+                ->resetModel()
+                ->when($userId, function ($q) use ($userId) {
+                    $q->where('leads.user_id', $userId);
+                })
+                ->when($organizationId, function ($q) use ($organizationId) {
+                    $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
+                        ->where('persons.organization_id', $organizationId);
+                })
+                ->when($pipelineId, function ($q) use ($pipelineId) {
+                    $q->where('leads.lead_pipeline_id', $pipelineId);
+                })
+                ->leftJoin('users', 'leads.user_id', '=', 'users.id')
+                ->leftJoin('lead_activities', 'leads.id', '=', 'lead_activities.lead_id')
+                ->leftJoin('activities', 'lead_activities.activity_id', '=', 'activities.id')
+                ->select(
+                    'users.id as user_id',
+                    'users.name as vendedor_name'
+                )
+                ->addSelect(DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) as total_leads'))
+                ->addSelect(DB::raw('SUM(CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN 1 ELSE 0 END) as sales_count'))
+                ->addSelect(DB::raw('SUM(CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.lead_value ELSE 0 END) as total_sales_amount'))
+                ->addSelect(DB::raw('AVG(CASE WHEN '.$tablePrefix.'activities.created_at IS NOT NULL THEN TIMESTAMPDIFF(SECOND, '.$tablePrefix.'leads.created_at, '.$tablePrefix.'activities.created_at) END) as average_response_time_seconds'))
+                ->whereBetween('leads.created_at', [$startDate, $endDate])
+                ->groupBy('users.id', 'users.name');
+
+            $query = $this->excludeIgnoredRoles($query, 'users.id');
+
+            // bouncer()->getAuthorizedUserIds() returns null for global access (no restriction needed);
+            // it returns an array (possibly empty) when access must be scoped, and an empty array must
+            // still be applied so it correctly yields zero rows rather than silently skipping the filter.
+            if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
+                $query->whereIn('users.id', $userIds);
+            }
+
+            return $query->get()->keyBy('user_id');
+        };
+
+        $current = $buildQuery($this->startDate, $this->endDate);
+        $previous = $buildQuery($this->lastStartDate, $this->lastEndDate);
+
+        $items = $current->map(function ($item) use ($previous) {
+            $prev = $previous->get($item->user_id);
+            $prevSalesAmount = $prev ? (float) $prev->total_sales_amount : 0;
+
             return [
                 'user_id'                       => $item->user_id,
                 'name'                          => $item->vendedor_name,
@@ -147,8 +192,14 @@ class Lead extends AbstractReporting
                 'total_sales_amount'            => (float) $item->total_sales_amount,
                 'formatted_total_sales_amount'  => core()->formatBasePrice($item->total_sales_amount),
                 'average_response_time_seconds' => $item->average_response_time_seconds ? (int) $item->average_response_time_seconds : null,
+                'previous_total_sales_amount'   => $prevSalesAmount,
+                'progress'                      => $this->getPercentageChange($prevSalesAmount, (float) $item->total_sales_amount),
             ];
-        });
+        })->sortByDesc('total_sales_amount')->values();
+
+        if ($limit) {
+            $items = $items->take($limit);
+        }
 
         return $items;
     }
@@ -163,6 +214,8 @@ class Lead extends AbstractReporting
 
         $tablePrefix = DB::getTablePrefix();
 
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
+
         $query = $this->leadRepository
             ->resetModel()
             ->leftJoin('users', 'leads.user_id', '=', 'users.id')
@@ -172,10 +225,18 @@ class Lead extends AbstractReporting
                 DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.id END) AS count')
             )
             ->whereIn('leads.lead_pipeline_stage_id', $this->wonStageIds)
-            ->where('users.email', '!=', 'jmogro@sofopolis.com')
             ->whereBetween('closed_at', [$this->startDate, $this->endDate])
+            ->when($pipelineId, function ($q) use ($pipelineId) {
+                $q->where('leads.lead_pipeline_id', $pipelineId);
+            })
             ->groupBy(DB::raw($groupColumn), 'users.id', 'users.name')
             ->orderBy(DB::raw($groupColumn));
+
+        $query = $this->excludeIgnoredRoles($query, 'users.id');
+
+        if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
+            $query->whereIn('users.id', $userIds);
+        }
 
         $results = $query->get();
 
@@ -188,9 +249,10 @@ class Lead extends AbstractReporting
             $byDate[$key][$user] = (int) $row->count;
         }
 
-        $usersQuery = $this->userRepository->resetModel()->select('name')->where('email', '!=', 'jmogro@sofopolis.com');
+        $usersQuery = $this->userRepository->resetModel()->select('id', 'name');
+        $usersQuery = $this->excludeIgnoredRoles($usersQuery, 'id');
 
-        if (function_exists('bouncer') && ($userIds = bouncer()->getAuthorizedUserIds())) {
+        if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
             $usersQuery->whereIn('id', $userIds);
         }
 
@@ -223,336 +285,440 @@ class Lead extends AbstractReporting
     public function getLeadsCountByUsers(): array
     {
         $tablePrefix = DB::getTablePrefix();
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
-        $query = $this->leadRepository
-            ->resetModel()
-            ->leftJoin('users', 'leads.user_id', '=', 'users.id')
-            ->select(
-                'users.id as user_id',
-                'users.name as user_name',
-                DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) AS count')
-            )
-            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
-            ->whereNotIn('leads.lead_pipeline_stage_id', $this->lostStageIds)
-            ->where('users.email', '!=', 'jmogro@sofopolis.com')
-            ->groupBy('users.id', 'users.name')
-            ->orderBy('user_name');
+        $buildCounts = function ($startDate, $endDate) use ($tablePrefix, $pipelineId) {
+            $query = $this->leadRepository
+                ->resetModel()
+                ->leftJoin('users', 'leads.user_id', '=', 'users.id')
+                ->select(
+                    'users.id as user_id',
+                    'users.name as user_name',
+                    DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) AS count')
+                )
+                ->whereBetween('leads.created_at', [$startDate, $endDate])
+                ->whereNotIn('leads.lead_pipeline_stage_id', $this->lostStageIds)
+                ->when($pipelineId, function ($q) use ($pipelineId) {
+                    $q->where('leads.lead_pipeline_id', $pipelineId);
+                })
+                ->groupBy('users.id', 'users.name');
 
-        $results = $query->get();
+            $query = $this->excludeIgnoredRoles($query, 'users.id');
 
-        $countsByUser = [];
+            if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
+                $query->whereIn('users.id', $userIds);
+            }
 
-        foreach ($results as $row) {
-            $countsByUser[$row->user_name ?? '—'] = (int) $row->count;
-        }
+            $countsByUser = [];
 
-        $usersQuery = $this->userRepository->resetModel()->select('name')->where('email', '!=', 'jmogro@sofopolis.com');
+            foreach ($query->get() as $row) {
+                $countsByUser[$row->user_name ?? '—'] = (int) $row->count;
+            }
 
-        if (function_exists('bouncer') && ($userIds = bouncer()->getAuthorizedUserIds())) {
+            return $countsByUser;
+        };
+
+        $currentCounts = $buildCounts($this->startDate, $this->endDate);
+        $previousCounts = $buildCounts($this->lastStartDate, $this->lastEndDate);
+
+        $usersQuery = $this->userRepository->resetModel()->select('id', 'name');
+        $usersQuery = $this->excludeIgnoredRoles($usersQuery, 'id');
+
+        if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
             $usersQuery->whereIn('id', $userIds);
         }
 
-        $users = $usersQuery->pluck('name')->toArray();
+        $users = $usersQuery->orderBy('name')->pluck('name')->toArray();
 
-        $labels = $users;
         $data = [];
+        $previousData = [];
         foreach ($users as $u) {
-            $data[] = $countsByUser[$u] ?? 0;
+            $data[] = $currentCounts[$u] ?? 0;
+            $previousData[] = $previousCounts[$u] ?? 0;
         }
 
         return [
-            'labels' => $labels,
-            'data'   => $data,
-            'users'  => $users,
+            'labels'        => $users,
+            'data'          => $data,
+            'previous_data' => $previousData,
+            'users'         => $users,
         ];
     }
 
     public function getLeadsCountByBranches(): array
     {
         $tablePrefix = DB::getTablePrefix();
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
         $attribute = $this->attributeRepository->findWhere([
             'code'        => 'sucursal',
             'entity_type' => 'persons',
         ])->first();
 
-        $query = $this->leadRepository
-            ->resetModel()
-            ->leftJoin('users', 'leads.user_id', '=', 'users.id')
-            ->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
-            ->leftJoin('attribute_values as av', function ($join) use ($attribute, $tablePrefix) {
-                $join->on('persons.id', '=', 'av.entity_id')
-                     ->where('av.entity_type', '=', 'persons')
-                     ->when($attribute, fn ($j) => $j->where('av.attribute_id', '=', $attribute->id));
-            })
-            ->select(
-                DB::raw($tablePrefix.'av.integer_value as branch_id'),
-                DB::raw($tablePrefix.'av.text_value as branch_text'),
-                DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) AS count')
-            )
-            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
-            ->whereNotIn('leads.lead_pipeline_stage_id', $this->lostStageIds)
-            ->groupBy('branch_id', 'branch_text');
+        $buildCounts = function ($startDate, $endDate) use ($tablePrefix, $pipelineId, $attribute) {
+            $query = $this->leadRepository
+                ->resetModel()
+                ->leftJoin('users', 'leads.user_id', '=', 'users.id')
+                ->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
+                ->leftJoin('attribute_values as av', function ($join) use ($attribute) {
+                    $join->on('persons.id', '=', 'av.entity_id')
+                        ->where('av.entity_type', '=', 'persons')
+                        ->when($attribute, fn ($j) => $j->where('av.attribute_id', '=', $attribute->id));
+                })
+                ->select(
+                    DB::raw($tablePrefix.'av.integer_value as branch_id'),
+                    DB::raw($tablePrefix.'av.text_value as branch_text'),
+                    DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) AS count')
+                )
+                ->whereBetween('leads.created_at', [$startDate, $endDate])
+                ->whereNotIn('leads.lead_pipeline_stage_id', $this->lostStageIds)
+                ->when($pipelineId, function ($q) use ($pipelineId) {
+                    $q->where('leads.lead_pipeline_id', $pipelineId);
+                })
+                ->groupBy('branch_id', 'branch_text');
 
-        if (function_exists('bouncer') && ($userIds = bouncer()->getAuthorizedUserIds())) {
-            $query->whereIn('users.id', $userIds);
-        }
+            $query = $this->excludeIgnoredRoles($query, 'users.id');
 
-        $results = $query->get();
-
-        $countsByName = [];
-
-        foreach ($results as $row) {
-            $name = null;
-
-            if ($attribute && $attribute->lookup_type && $row->branch_id) {
-                $entity = $this->attributeRepository->getLookUpEntity($attribute->lookup_type, $row->branch_id, ['id', 'name']);
-                $name = $entity?->name;
+            if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
+                $query->whereIn('users.id', $userIds);
             }
 
-            $name = $name ?? ($row->branch_text ?: 'Sin sucursal');
+            $countsByName = [];
 
-            $countsByName[$name] = ($countsByName[$name] ?? 0) + (int) $row->count;
-        }
+            foreach ($query->get() as $row) {
+                $name = null;
 
-        $labels = array_keys($countsByName);
+                if ($attribute && $attribute->lookup_type && $row->branch_id) {
+                    $entity = $this->attributeRepository->getLookUpEntity($attribute->lookup_type, $row->branch_id, ['id', 'name']);
+                    $name = $entity?->name;
+                }
+
+                $name = $name ?? ($row->branch_text ?: 'Sin sucursal');
+
+                $countsByName[$name] = ($countsByName[$name] ?? 0) + (int) $row->count;
+            }
+
+            return $countsByName;
+        };
+
+        $currentCounts = $buildCounts($this->startDate, $this->endDate);
+        $previousCounts = $buildCounts($this->lastStartDate, $this->lastEndDate);
+
+        $labels = array_unique(array_merge(array_keys($currentCounts), array_keys($previousCounts)));
         sort($labels, SORT_NATURAL | SORT_FLAG_CASE);
 
         $data = [];
+        $previousData = [];
         foreach ($labels as $label) {
-            $data[] = $countsByName[$label];
+            $data[] = $currentCounts[$label] ?? 0;
+            $previousData[] = $previousCounts[$label] ?? 0;
         }
 
         return [
-            'labels' => $labels,
-            'data'   => $data,
+            'labels'        => $labels,
+            'data'          => $data,
+            'previous_data' => $previousData,
         ];
     }
 
     public function getVentasCountByUsers(): array
     {
         $tablePrefix = DB::getTablePrefix();
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
-        $query = $this->leadRepository
-            ->resetModel()
-            ->leftJoin('users', 'leads.user_id', '=', 'users.id')
-            ->select(
-                'users.id as user_id',
-                'users.name as user_name',
-                DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.id END) AS count')
-            )
-            ->whereBetween('leads.closed_at', [$this->startDate, $this->endDate])
-            ->where('users.email', '!=', 'jmogro@sofopolis.com')
-            ->groupBy('users.id', 'users.name')
-            ->orderBy('user_name');
+        $buildCounts = function ($startDate, $endDate) use ($tablePrefix, $pipelineId) {
+            $query = $this->leadRepository
+                ->resetModel()
+                ->leftJoin('users', 'leads.user_id', '=', 'users.id')
+                ->select(
+                    'users.id as user_id',
+                    'users.name as user_name',
+                    DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.id END) AS count')
+                )
+                ->whereBetween('leads.closed_at', [$startDate, $endDate])
+                ->when($pipelineId, function ($q) use ($pipelineId) {
+                    $q->where('leads.lead_pipeline_id', $pipelineId);
+                })
+                ->groupBy('users.id', 'users.name');
 
-        $results = $query->get();
+            $query = $this->excludeIgnoredRoles($query, 'users.id');
 
-        $countsByUser = [];
+            if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
+                $query->whereIn('users.id', $userIds);
+            }
 
-        foreach ($results as $row) {
-            $countsByUser[$row->user_name ?? '—'] = (int) $row->count;
-        }
+            $countsByUser = [];
 
-        $usersQuery = $this->userRepository->resetModel()->select('name')->where('email', '!=', 'jmogro@sofopolis.com');
+            foreach ($query->get() as $row) {
+                $countsByUser[$row->user_name ?? '—'] = (int) $row->count;
+            }
 
-        if (function_exists('bouncer') && ($userIds = bouncer()->getAuthorizedUserIds())) {
+            return $countsByUser;
+        };
+
+        $currentCounts = $buildCounts($this->startDate, $this->endDate);
+        $previousCounts = $buildCounts($this->lastStartDate, $this->lastEndDate);
+
+        $usersQuery = $this->userRepository->resetModel()->select('id', 'name');
+        $usersQuery = $this->excludeIgnoredRoles($usersQuery, 'id');
+
+        if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
             $usersQuery->whereIn('id', $userIds);
         }
 
-        $users = $usersQuery->pluck('name')->toArray();
+        $users = $usersQuery->orderBy('name')->pluck('name')->toArray();
 
-        $labels = $users;
         $data = [];
+        $previousData = [];
         foreach ($users as $u) {
-            $data[] = $countsByUser[$u] ?? 0;
+            $data[] = $currentCounts[$u] ?? 0;
+            $previousData[] = $previousCounts[$u] ?? 0;
         }
 
         return [
-            'labels' => $labels,
-            'data'   => $data,
-            'users'  => $users,
+            'labels'        => $users,
+            'data'          => $data,
+            'previous_data' => $previousData,
+            'users'         => $users,
         ];
     }
 
     public function getAverageResponseTimeByUsers(): array
     {
         $tablePrefix = DB::getTablePrefix();
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
-        $query = $this->leadRepository
-            ->resetModel()
-            ->leftJoin('users', 'leads.user_id', '=', 'users.id')
-            ->leftJoin('lead_activities', 'leads.id', '=', 'lead_activities.lead_id')
-            ->leftJoin('activities', 'lead_activities.activity_id', '=', 'activities.id')
-            ->select(
-                'users.id as user_id',
-                'users.name as user_name',
-                DB::raw('AVG(CASE WHEN '.$tablePrefix.'activities.created_at IS NOT NULL THEN TIMESTAMPDIFF(SECOND, '.$tablePrefix.'leads.created_at, '.$tablePrefix.'activities.created_at) END) as avg_response_seconds')
-            )
-            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
-            ->where('users.email', '!=', 'jmogro@sofopolis.com')
-            ->groupBy('users.id', 'users.name')
-            ->orderBy('user_name');
+        $buildAverages = function ($startDate, $endDate) use ($tablePrefix, $pipelineId) {
+            $query = $this->leadRepository
+                ->resetModel()
+                ->leftJoin('users', 'leads.user_id', '=', 'users.id')
+                ->leftJoin('lead_activities', 'leads.id', '=', 'lead_activities.lead_id')
+                ->leftJoin('activities', 'lead_activities.activity_id', '=', 'activities.id')
+                ->select(
+                    'users.id as user_id',
+                    'users.name as user_name',
+                    DB::raw('AVG(CASE WHEN '.$tablePrefix.'activities.created_at IS NOT NULL THEN TIMESTAMPDIFF(SECOND, '.$tablePrefix.'leads.created_at, '.$tablePrefix.'activities.created_at) END) as avg_response_seconds')
+                )
+                ->whereBetween('leads.created_at', [$startDate, $endDate])
+                ->when($pipelineId, function ($q) use ($pipelineId) {
+                    $q->where('leads.lead_pipeline_id', $pipelineId);
+                })
+                ->groupBy('users.id', 'users.name');
 
-        $results = $query->get();
+            $query = $this->excludeIgnoredRoles($query, 'users.id');
 
-        $avgByUser = [];
+            if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
+                $query->whereIn('users.id', $userIds);
+            }
 
-        foreach ($results as $row) {
-            $avgByUser[$row->user_name ?? '—'] = $row->avg_response_seconds ? (int) $row->avg_response_seconds : 0;
-        }
+            $avgByUser = [];
 
-        $usersQuery = $this->userRepository->resetModel()->select('name')->where('email', '!=', 'jmogro@sofopolis.com');
+            foreach ($query->get() as $row) {
+                $avgByUser[$row->user_name ?? '—'] = $row->avg_response_seconds ? (int) $row->avg_response_seconds : 0;
+            }
 
-        if (function_exists('bouncer') && ($userIds = bouncer()->getAuthorizedUserIds())) {
+            return $avgByUser;
+        };
+
+        $currentAverages = $buildAverages($this->startDate, $this->endDate);
+        $previousAverages = $buildAverages($this->lastStartDate, $this->lastEndDate);
+
+        $usersQuery = $this->userRepository->resetModel()->select('id', 'name');
+        $usersQuery = $this->excludeIgnoredRoles($usersQuery, 'id');
+
+        if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
             $usersQuery->whereIn('id', $userIds);
         }
 
-        $users = $usersQuery->pluck('name')->toArray();
+        $users = $usersQuery->orderBy('name')->pluck('name')->toArray();
 
-        $labels = $users;
         $data = [];
+        $previousData = [];
         foreach ($users as $u) {
-            $data[] = $avgByUser[$u] ?? 0;
+            $data[] = $currentAverages[$u] ?? 0;
+            $previousData[] = $previousAverages[$u] ?? 0;
         }
 
         return [
-            'labels' => $labels,
-            'data'   => $data,
-            'users'  => $users,
+            'labels'        => $users,
+            'data'          => $data,
+            'previous_data' => $previousData,
+            'users'         => $users,
         ];
     }
 
     public function getVentasCountByBranches(): array
     {
         $tablePrefix = DB::getTablePrefix();
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
         $attribute = $this->attributeRepository->findWhere([
             'code'        => 'sucursal',
             'entity_type' => 'persons',
         ])->first();
 
-        $query = $this->leadRepository
-            ->resetModel()
-            ->leftJoin('users', 'leads.user_id', '=', 'users.id')
-            ->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
-            ->leftJoin('attribute_values as av', function ($join) use ($attribute, $tablePrefix) {
-                $join->on('persons.id', '=', 'av.entity_id')
-                     ->where('av.entity_type', '=', 'persons')
-                     ->when($attribute, fn ($j) => $j->where('av.attribute_id', '=', $attribute->id));
-            })
-            ->select(
-                DB::raw($tablePrefix.'av.integer_value as branch_id'),
-                DB::raw($tablePrefix.'av.text_value as branch_text'),
-                DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.id END) AS count')
-            )
-            ->whereBetween('leads.closed_at', [$this->startDate, $this->endDate])
-            ->groupBy('branch_id', 'branch_text');
+        $buildCounts = function ($startDate, $endDate) use ($tablePrefix, $pipelineId, $attribute) {
+            $query = $this->leadRepository
+                ->resetModel()
+                ->leftJoin('users', 'leads.user_id', '=', 'users.id')
+                ->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
+                ->leftJoin('attribute_values as av', function ($join) use ($attribute) {
+                    $join->on('persons.id', '=', 'av.entity_id')
+                        ->where('av.entity_type', '=', 'persons')
+                        ->when($attribute, fn ($j) => $j->where('av.attribute_id', '=', $attribute->id));
+                })
+                ->select(
+                    DB::raw($tablePrefix.'av.integer_value as branch_id'),
+                    DB::raw($tablePrefix.'av.text_value as branch_text'),
+                    DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.id END) AS count')
+                )
+                ->whereBetween('leads.closed_at', [$startDate, $endDate])
+                ->when($pipelineId, function ($q) use ($pipelineId) {
+                    $q->where('leads.lead_pipeline_id', $pipelineId);
+                })
+                ->groupBy('branch_id', 'branch_text');
 
-        if (function_exists('bouncer') && ($userIds = bouncer()->getAuthorizedUserIds())) {
-            $query->whereIn('users.id', $userIds);
-        }
+            $query = $this->excludeIgnoredRoles($query, 'users.id');
 
-        $results = $query->get();
-
-        $countsByName = [];
-
-        foreach ($results as $row) {
-            $name = null;
-
-            if ($attribute && $attribute->lookup_type && $row->branch_id) {
-                $entity = $this->attributeRepository->getLookUpEntity($attribute->lookup_type, $row->branch_id, ['id', 'name']);
-                $name = $entity?->name;
+            if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
+                $query->whereIn('users.id', $userIds);
             }
 
-            $name = $name ?? ($row->branch_text ?: 'Sin sucursal');
+            $countsByName = [];
 
-            $countsByName[$name] = ($countsByName[$name] ?? 0) + (int) $row->count;
-        }
+            foreach ($query->get() as $row) {
+                $name = null;
 
-        $labels = array_keys($countsByName);
+                if ($attribute && $attribute->lookup_type && $row->branch_id) {
+                    $entity = $this->attributeRepository->getLookUpEntity($attribute->lookup_type, $row->branch_id, ['id', 'name']);
+                    $name = $entity?->name;
+                }
+
+                $name = $name ?? ($row->branch_text ?: 'Sin sucursal');
+
+                $countsByName[$name] = ($countsByName[$name] ?? 0) + (int) $row->count;
+            }
+
+            return $countsByName;
+        };
+
+        $currentCounts = $buildCounts($this->startDate, $this->endDate);
+        $previousCounts = $buildCounts($this->lastStartDate, $this->lastEndDate);
+
+        $labels = array_unique(array_merge(array_keys($currentCounts), array_keys($previousCounts)));
         sort($labels, SORT_NATURAL | SORT_FLAG_CASE);
 
         $data = [];
+        $previousData = [];
         foreach ($labels as $label) {
-            $data[] = $countsByName[$label];
+            $data[] = $currentCounts[$label] ?? 0;
+            $previousData[] = $previousCounts[$label] ?? 0;
         }
 
         return [
-            'labels' => $labels,
-            'data'   => $data,
+            'labels'        => $labels,
+            'data'          => $data,
+            'previous_data' => $previousData,
         ];
     }
 
     public function getLeadsCountByPipelines(): array
     {
         $tablePrefix = DB::getTablePrefix();
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
         $pipelines = $this->pipelineRepository->all();
 
-        $query = $this->leadRepository
-            ->resetModel()
-            ->leftJoin('users', 'leads.user_id', '=', 'users.id')
-            ->select(
-                'leads.lead_pipeline_id as pipeline_id',
-                DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) AS count')
-            )
-            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
-            ->groupBy('leads.lead_pipeline_id');
+        $buildCounts = function ($startDate, $endDate) use ($tablePrefix, $pipelineId) {
+            $query = $this->leadRepository
+                ->resetModel()
+                ->leftJoin('users', 'leads.user_id', '=', 'users.id')
+                ->select(
+                    'leads.lead_pipeline_id as pipeline_id',
+                    DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) AS count')
+                )
+                ->whereBetween('leads.created_at', [$startDate, $endDate])
+                ->when($pipelineId, function ($q) use ($pipelineId) {
+                    $q->where('leads.lead_pipeline_id', $pipelineId);
+                })
+                ->groupBy('leads.lead_pipeline_id');
 
-        if (function_exists('bouncer') && ($userIds = bouncer()->getAuthorizedUserIds())) {
-            $query->whereIn('users.id', $userIds);
-        }
+            $query = $this->excludeIgnoredRoles($query, 'users.id');
 
-        $results = $query->get()->keyBy('pipeline_id');
+            if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
+                $query->whereIn('users.id', $userIds);
+            }
+
+            return $query->get()->keyBy('pipeline_id');
+        };
+
+        $currentResults = $buildCounts($this->startDate, $this->endDate);
+        $previousResults = $buildCounts($this->lastStartDate, $this->lastEndDate);
 
         $labels = [];
         $data = [];
+        $previousData = [];
 
         foreach ($pipelines as $pipeline) {
             $labels[] = $pipeline->name;
-            $data[] = (int) ($results->get($pipeline->id)->count ?? 0);
+            $data[] = (int) ($currentResults->get($pipeline->id)->count ?? 0);
+            $previousData[] = (int) ($previousResults->get($pipeline->id)->count ?? 0);
         }
 
         return [
-            'labels' => $labels,
-            'data'   => $data,
+            'labels'        => $labels,
+            'data'          => $data,
+            'previous_data' => $previousData,
         ];
     }
 
     public function getVentasCountByPipelines(): array
     {
         $tablePrefix = DB::getTablePrefix();
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
         $pipelines = $this->pipelineRepository->all();
 
-        $query = $this->leadRepository
-            ->resetModel()
-            ->leftJoin('users', 'leads.user_id', '=', 'users.id')
-            ->select(
-                'leads.lead_pipeline_id as pipeline_id',
-                DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.id END) AS count')
-            )
-            ->whereBetween('leads.closed_at', [$this->startDate, $this->endDate])
-            ->groupBy('leads.lead_pipeline_id');
+        $buildCounts = function ($startDate, $endDate) use ($tablePrefix, $pipelineId) {
+            $query = $this->leadRepository
+                ->resetModel()
+                ->leftJoin('users', 'leads.user_id', '=', 'users.id')
+                ->select(
+                    'leads.lead_pipeline_id as pipeline_id',
+                    DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.id END) AS count')
+                )
+                ->whereBetween('leads.closed_at', [$startDate, $endDate])
+                ->when($pipelineId, function ($q) use ($pipelineId) {
+                    $q->where('leads.lead_pipeline_id', $pipelineId);
+                })
+                ->groupBy('leads.lead_pipeline_id');
 
-        if (function_exists('bouncer') && ($userIds = bouncer()->getAuthorizedUserIds())) {
-            $query->whereIn('users.id', $userIds);
-        }
+            $query = $this->excludeIgnoredRoles($query, 'users.id');
 
-        $results = $query->get()->keyBy('pipeline_id');
+            if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
+                $query->whereIn('users.id', $userIds);
+            }
+
+            return $query->get()->keyBy('pipeline_id');
+        };
+
+        $currentResults = $buildCounts($this->startDate, $this->endDate);
+        $previousResults = $buildCounts($this->lastStartDate, $this->lastEndDate);
 
         $labels = [];
         $data = [];
+        $previousData = [];
 
         foreach ($pipelines as $pipeline) {
             $labels[] = $pipeline->name;
-            $data[] = (int) ($results->get($pipeline->id)->count ?? 0);
+            $data[] = (int) ($currentResults->get($pipeline->id)->count ?? 0);
+            $previousData[] = (int) ($previousResults->get($pipeline->id)->count ?? 0);
         }
 
         return [
-            'labels' => $labels,
-            'data'   => $data,
+            'labels'        => $labels,
+            'data'          => $data,
+            'previous_data' => $previousData,
         ];
     }
 
@@ -604,6 +770,9 @@ class Lead extends AbstractReporting
     {
         return $this->leadRepository
             ->resetModel()
+            ->when(is_numeric(request('pipeline_id')) ? request('pipeline_id') : null, function ($q, $pipelineId) {
+                $q->where('lead_pipeline_id', $pipelineId);
+            })
             ->whereBetween('created_at', [$startDate, $endDate])
             ->count();
     }
@@ -660,6 +829,9 @@ class Lead extends AbstractReporting
     {
         return $this->leadRepository
             ->resetModel()
+            ->when(is_numeric(request('pipeline_id')) ? request('pipeline_id') : null, function ($q, $pipelineId) {
+                $q->where('lead_pipeline_id', $pipelineId);
+            })
             ->whereBetween('created_at', [$startDate, $endDate])
             ->sum('lead_value');
     }
@@ -687,6 +859,9 @@ class Lead extends AbstractReporting
     {
         return $this->leadRepository
             ->resetModel()
+            ->when(is_numeric(request('pipeline_id')) ? request('pipeline_id') : null, function ($q, $pipelineId) {
+                $q->where('lead_pipeline_id', $pipelineId);
+            })
             ->whereBetween('created_at', [$startDate, $endDate])
             ->avg('lead_value') ?? 0;
     }
@@ -715,6 +890,9 @@ class Lead extends AbstractReporting
     {
         return $this->leadRepository
             ->resetModel()
+            ->when(is_numeric(request('pipeline_id')) ? request('pipeline_id') : null, function ($q, $pipelineId) {
+                $q->where('lead_pipeline_id', $pipelineId);
+            })
             ->whereIn('lead_pipeline_stage_id', $this->wonStageIds)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->sum('lead_value');
@@ -746,6 +924,9 @@ class Lead extends AbstractReporting
     {
         return $this->leadRepository
             ->resetModel()
+            ->when(is_numeric(request('pipeline_id')) ? request('pipeline_id') : null, function ($q, $pipelineId) {
+                $q->where('lead_pipeline_id', $pipelineId);
+            })
             ->whereIn('lead_pipeline_stage_id', $this->wonStageIds)
             ->whereBetween('closed_at', [$startDate, $endDate])
             ->count('id');
@@ -762,6 +943,9 @@ class Lead extends AbstractReporting
     {
         return $this->leadRepository
             ->resetModel()
+            ->when(is_numeric(request('pipeline_id')) ? request('pipeline_id') : null, function ($q, $pipelineId) {
+                $q->where('lead_pipeline_id', $pipelineId);
+            })
             ->whereIn('lead_pipeline_stage_id', $this->lostStageIds)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->sum('lead_value');
@@ -774,12 +958,15 @@ class Lead extends AbstractReporting
     {
         return $this->leadRepository
             ->resetModel()
-            ->when(request('user_id'), function ($q) {
-                $q->where('leads.user_id', request('user_id'));
+            ->when(is_numeric(request('user_id')) ? request('user_id') : null, function ($q, $userId) {
+                $q->where('leads.user_id', $userId);
             })
-            ->when(request('organization_id'), function ($q) {
+            ->when(is_numeric(request('organization_id')) ? request('organization_id') : null, function ($q, $organizationId) {
                 $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
-                  ->where('persons.organization_id', request('organization_id'));
+                    ->where('persons.organization_id', $organizationId);
+            })
+            ->when(is_numeric(request('pipeline_id')) ? request('pipeline_id') : null, function ($q, $pipelineId) {
+                $q->where('leads.lead_pipeline_id', $pipelineId);
             })
             ->select(
                 'lead_sources.name',
@@ -799,12 +986,15 @@ class Lead extends AbstractReporting
     {
         return $this->leadRepository
             ->resetModel()
-            ->when(request('user_id'), function ($q) {
-                $q->where('leads.user_id', request('user_id'));
+            ->when(is_numeric(request('user_id')) ? request('user_id') : null, function ($q, $userId) {
+                $q->where('leads.user_id', $userId);
             })
-            ->when(request('organization_id'), function ($q) {
+            ->when(is_numeric(request('organization_id')) ? request('organization_id') : null, function ($q, $organizationId) {
                 $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
-                  ->where('persons.organization_id', request('organization_id'));
+                    ->where('persons.organization_id', $organizationId);
+            })
+            ->when(is_numeric(request('pipeline_id')) ? request('pipeline_id') : null, function ($q, $pipelineId) {
+                $q->where('leads.lead_pipeline_id', $pipelineId);
             })
             ->select(
                 'lead_types.name',
@@ -824,12 +1014,15 @@ class Lead extends AbstractReporting
     {
         return $this->leadRepository
             ->resetModel()
-            ->when(request('user_id'), function ($q) {
-                $q->where('leads.user_id', request('user_id'));
+            ->when(is_numeric(request('user_id')) ? request('user_id') : null, function ($q, $userId) {
+                $q->where('leads.user_id', $userId);
             })
-            ->when(request('organization_id'), function ($q) {
+            ->when(is_numeric(request('organization_id')) ? request('organization_id') : null, function ($q, $organizationId) {
                 $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
-                  ->where('persons.organization_id', request('organization_id'));
+                    ->where('persons.organization_id', $organizationId);
+            })
+            ->when(is_numeric(request('pipeline_id')) ? request('pipeline_id') : null, function ($q, $pipelineId) {
+                $q->where('leads.lead_pipeline_id', $pipelineId);
             })
             ->select(
                 'lead_pipeline_stages.name',
@@ -851,7 +1044,7 @@ class Lead extends AbstractReporting
     public function getOpenLeadsByStatesFixed()
     {
         $tablePrefix = DB::getTablePrefix();
-        $pipelineId = request('pipeline_id');
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
         // 1. Obtener las etapas de referencia para el orden y nombres
         if ($pipelineId) {
@@ -866,20 +1059,20 @@ class Lead extends AbstractReporting
 
         $referenceStages = $referencePipeline->stages()->orderBy('sort_order')->get();
 
-        // 2. Sumatoria total de leads por nombre de etapa
-        // Eliminamos el filtro de fecha para obtener la "cantidad total de personas" como se solicitó
+        // 2. Sumatoria de leads por nombre de etapa dentro del rango de fechas seleccionado
         $query = $this->leadRepository
             ->resetModel()
-            ->when(request('user_id'), function ($q) {
-                $q->where('leads.user_id', request('user_id'));
+            ->when(is_numeric(request('user_id')) ? request('user_id') : null, function ($q, $userId) {
+                $q->where('leads.user_id', $userId);
             })
-            ->when(request('organization_id'), function ($q) {
+            ->when(is_numeric(request('organization_id')) ? request('organization_id') : null, function ($q, $organizationId) {
                 $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
-                  ->where('persons.organization_id', request('organization_id'));
+                    ->where('persons.organization_id', $organizationId);
             })
             ->when($pipelineId, function ($q) use ($pipelineId) {
                 $q->where('leads.lead_pipeline_id', $pipelineId);
             })
+            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
             ->select(
                 'lead_pipeline_stages.name as stage_name',
                 DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) as total')
@@ -906,30 +1099,33 @@ class Lead extends AbstractReporting
      */
     public function getTotalLeadsByStages(): array
     {
-        $pipeline = $this->pipelineRepository->getDefaultPipeline();
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
+        $pipeline = $pipelineId ? $this->pipelineRepository->find($pipelineId) : $this->pipelineRepository->getDefaultPipeline();
         $tablePrefix = DB::getTablePrefix();
 
         $stages = $pipeline->stages()->get();
 
-        $wonCodes = ['won'];
-        $lostCodes = ['lost'];
+        $wonCodes = ['won', 'pedido-entregado'];
+        $lostCodes = ['lost', 'pedidos-cancelado'];
 
         $normalStages = $stages->filter(fn ($s) => ! in_array($s->code, array_merge($wonCodes, $lostCodes)))->values();
         $wonStage = $stages->first(fn ($s) => in_array($s->code, $wonCodes));
         $lostStage = $stages->first(fn ($s) => in_array($s->code, $lostCodes));
 
         $orderedStages = $normalStages;
-        if ($wonStage) { $orderedStages = $orderedStages->push($wonStage); }
+        if ($wonStage) {
+            $orderedStages = $orderedStages->push($wonStage);
+        }
         // Excluir la etapa Perdido de la vista "Etapas por fecha"
 
         $counts = $this->leadRepository
             ->resetModel()
-            ->when(request('user_id'), function ($q) {
-                $q->where('leads.user_id', request('user_id'));
+            ->when(is_numeric(request('user_id')) ? request('user_id') : null, function ($q, $userId) {
+                $q->where('leads.user_id', $userId);
             })
-            ->when(request('organization_id'), function ($q) {
+            ->when(is_numeric(request('organization_id')) ? request('organization_id') : null, function ($q, $organizationId) {
                 $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
-                  ->where('persons.organization_id', request('organization_id'));
+                    ->where('persons.organization_id', $organizationId);
             })
             ->select(
                 'lead_pipeline_stages.id',
@@ -946,6 +1142,7 @@ class Lead extends AbstractReporting
 
         return $orderedStages->map(function ($stage) use ($counts) {
             $stat = $counts->get($stage->id);
+
             return [
                 'name'  => $stage->name,
                 'total' => $stat ? (int) $stat->total : 0,
@@ -961,32 +1158,37 @@ class Lead extends AbstractReporting
         $period = $this->determinePeriod('auto');
         $tablePrefix = DB::getTablePrefix();
 
-        $pipeline = $this->pipelineRepository->getDefaultPipeline();
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
+        $pipeline = $pipelineId ? $this->pipelineRepository->find($pipelineId) : $this->pipelineRepository->getDefaultPipeline();
 
         $stages = $pipeline->stages()->get();
 
-        $wonCodes = ['won'];
-        $lostCodes = ['lost'];
+        $wonCodes = ['won', 'pedido-entregado'];
+        $lostCodes = ['lost', 'pedidos-cancelado'];
 
         $normalStages = $stages->filter(fn ($s) => ! in_array($s->code, array_merge($wonCodes, $lostCodes)))->values();
         $wonStage = $stages->first(fn ($s) => in_array($s->code, $wonCodes));
         $lostStage = $stages->first(fn ($s) => in_array($s->code, $lostCodes));
 
         $orderedStages = $normalStages;
-        if ($wonStage) { $orderedStages = $orderedStages->push($wonStage); }
-        if ($lostStage) { $orderedStages = $orderedStages->push($lostStage); }
+        if ($wonStage) {
+            $orderedStages = $orderedStages->push($wonStage);
+        }
+        if ($lostStage) {
+            $orderedStages = $orderedStages->push($lostStage);
+        }
 
         $intervals = $this->generateTimeIntervals($this->startDate, $this->endDate, $period);
         $groupColumn = $this->getGroupColumn('leads.created_at', $period);
 
         $results = $this->leadRepository
             ->resetModel()
-            ->when(request('user_id'), function ($q) {
-                $q->where('leads.user_id', request('user_id'));
+            ->when(is_numeric(request('user_id')) ? request('user_id') : null, function ($q, $userId) {
+                $q->where('leads.user_id', $userId);
             })
-            ->when(request('organization_id'), function ($q) {
+            ->when(is_numeric(request('organization_id')) ? request('organization_id') : null, function ($q, $organizationId) {
                 $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
-                  ->where('persons.organization_id', request('organization_id'));
+                    ->where('persons.organization_id', $organizationId);
             })
             ->leftJoin('lead_pipeline_stages', 'leads.lead_pipeline_stage_id', '=', 'lead_pipeline_stages.id')
             ->where('leads.lead_pipeline_id', $pipeline->id)
@@ -1025,7 +1227,9 @@ class Lead extends AbstractReporting
 
         $total = 0;
         foreach ($datasets as $ds) {
-            foreach ($ds['data'] as $v) { $total += $v; }
+            foreach ($ds['data'] as $v) {
+                $total += $v;
+            }
         }
 
         return [
@@ -1059,6 +1263,9 @@ class Lead extends AbstractReporting
                 DB::raw('COUNT(DISTINCT id) AS count'),
                 DB::raw('SUM('.\DB::getTablePrefix()."$valueColumn) AS total")
             )
+            ->when(is_numeric(request('pipeline_id')) ? request('pipeline_id') : null, function ($q, $pipelineId) {
+                $q->where('lead_pipeline_id', $pipelineId);
+            })
             ->whereIn('lead_pipeline_stage_id', $this->stageIds)
             ->whereBetween($dateColumn, [$startDate, $endDate])
             ->groupBy(DB::raw($groupColumn))
@@ -1181,14 +1388,15 @@ class Lead extends AbstractReporting
     /**
      * Calculates the average time it takes for a receptionist to move a patient between Kanban workflow stages.
      *
-     * @param array $filters Optional filters for the calculation.
-     *   - `start_date` (string): Start date for the analysis (YYYY-MM-DD HH:II:SS).
-     *   - `end_date` (string): End date for the analysis (YYYY-MM-DD HH:II:SS).
-     *   - `user_id` (int): ID of a specific receptionist to filter by.
-     *   - `stage_id` (int): ID of a specific stage to filter by.
+     * @param  array  $filters  Optional filters for the calculation.
+     *                          - `start_date` (string): Start date for the analysis (YYYY-MM-DD HH:II:SS).
+     *                          - `end_date` (string): End date for the analysis (YYYY-MM-DD HH:II:SS).
+     *                          - `user_id` (int): ID of a specific receptionist to filter by.
+     *                          - `stage_id` (int): ID of a specific stage to filter by.
      * @return array An array containing the average time in seconds and a formatted time string (HH:MM).
-     *   - `average_time` (float): The average time in seconds.
-     *   - `formatted_time` (string): The average time formatted as HH:MM.
+     *               - `average_time` (float): The average time in seconds.
+     *               - `formatted_time` (string): The average time formatted as HH:MM.
+     *
      * @throws \Exception If there is an error during the calculation.
      *
      * @example
@@ -1245,7 +1453,7 @@ class Lead extends AbstractReporting
 
         if (empty($timeDifferences)) {
             return [
-                'average_time' => 0,
+                'average_time'   => 0,
                 'formatted_time' => '00:00',
             ];
         }
@@ -1253,7 +1461,7 @@ class Lead extends AbstractReporting
         $averageTimeInSeconds = array_sum($timeDifferences) / count($timeDifferences);
 
         return [
-            'average_time' => $averageTimeInSeconds,
+            'average_time'   => $averageTimeInSeconds,
             'formatted_time' => $this->formatTime($averageTimeInSeconds),
         ];
     }

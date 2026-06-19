@@ -225,8 +225,8 @@ class LeadRepository extends Repository
 
             $name = strtolower($stage->name ?? '');
             $code = strtolower($stage->code ?? '');
-            $isWon = ($code === 'won') || str_contains($name, 'won') || str_contains($name, 'ganado');
-            $isLost = ($code === 'lost') || str_contains($name, 'lost') || str_contains($name, 'perdido');
+            $isWon = ($code === 'won') || ($code === 'pedido-entregado') || str_contains($name, 'won') || str_contains($name, 'ganado') || str_contains($name, 'entregado');
+            $isLost = ($code === 'lost') || ($code === 'pedidos-cancelado') || str_contains($name, 'lost') || str_contains($name, 'perdido') || str_contains($name, 'cancelado');
 
             if ($isWon || $isLost) {
                 $data['closed_at'] = $data['closed_at'] ?? Carbon::now();

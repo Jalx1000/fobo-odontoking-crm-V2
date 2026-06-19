@@ -38,6 +38,20 @@ class Person extends AbstractReporting
      */
     public function getTotalPersons($startDate, $endDate): int
     {
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
+
+        // Persons aren't owned by a single pipeline, so when filtering by ciudad we count
+        // distinct persons that have at least one lead in that pipeline within the date range.
+        if ($pipelineId) {
+            return $this->personRepository
+                ->resetModel()
+                ->join('leads', 'persons.id', '=', 'leads.person_id')
+                ->where('leads.lead_pipeline_id', $pipelineId)
+                ->whereBetween('leads.created_at', [$startDate, $endDate])
+                ->distinct('persons.id')
+                ->count('persons.id');
+        }
+
         return $this->personRepository
             ->resetModel()
             ->whereBetween('created_at', [$startDate, $endDate])
@@ -57,7 +71,7 @@ class Person extends AbstractReporting
             ->resetModel()
             ->when(request('user_id'), function ($q) {
                 $q->leftJoin('leads', 'persons.id', '=', 'leads.person_id')
-                  ->where('leads.user_id', request('user_id'));
+                    ->where('leads.user_id', request('user_id'));
             })
             ->when(request('organization_id'), function ($q) {
                 $q->where('persons.organization_id', request('organization_id'));

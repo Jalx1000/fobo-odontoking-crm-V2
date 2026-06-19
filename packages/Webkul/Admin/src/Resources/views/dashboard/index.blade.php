@@ -88,6 +88,8 @@
 
             @include('admin::dashboard.index.quantity-products-pie')
 
+            @include('admin::dashboard.index.quantity-products-sold-pie')
+
             @include('admin::dashboard.index.leads-por-ciudad-pie')
         </div>
 
@@ -107,7 +109,55 @@
         >
             {!! view_render_event('admin.dashboard.index.date_filters.before') !!}
 
-            <div class="flex gap-1.5">
+            <div class="flex flex-wrap items-center gap-1.5">
+                <select
+                    class="flex min-h-[39px] w-[160px] rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                    v-model="filters.pipeline_id"
+                >
+                    <option value="">Todas las ciudades</option>
+                    <option
+                        v-for="pipeline in pipelines"
+                        :key="pipeline.id"
+                        :value="pipeline.id"
+                    >
+                        @{{ pipeline.name }}
+                    </option>
+                </select>
+
+                <div class="flex gap-1">
+                    <button
+                        type="button"
+                        class="flex min-h-[39px] items-center rounded-md border px-3 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                        @click="setQuickRange(7)"
+                    >
+                        7 días
+                    </button>
+
+                    <button
+                        type="button"
+                        class="flex min-h-[39px] items-center rounded-md border px-3 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                        @click="setQuickRange(30)"
+                    >
+                        30 días
+                    </button>
+
+                    <button
+                        type="button"
+                        class="flex min-h-[39px] items-center rounded-md border px-3 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                        @click="setQuickRange(90)"
+                    >
+                        90 días
+                    </button>
+
+                    <button
+                        type="button"
+                        class="flex min-h-[39px] items-center rounded-md border px-3 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                        @click="setCurrentMonth()"
+                    >
+                        Este mes
+                    </button>
+                </div>
+
                 <x-admin::flat-picker.date
                     class="!w-[140px]"
                     ::allow-input="false"
@@ -131,7 +181,6 @@
                         placeholder="@lang('admin::app.dashboard.index.end-date')"
                     />
                 </x-admin::flat-picker.date>
-                
             </div>
 
             {!! view_render_event('admin.dashboard.index.date_filters.after') !!}
@@ -143,8 +192,12 @@
 
                 data() {
                     return {
+                        pipelines: @json($pipelines->map(fn ($pipeline) => ['id' => $pipeline->id, 'name' => $pipeline->name])),
+
                         filters: {
                             channel: '',
+
+                            pipeline_id: '',
 
                             start: "{{ $startDate->format('Y-m-d') }}",
 
@@ -163,7 +216,33 @@
                     }
                 },
 
+                methods: {
+                    formatDate(date) {
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
 
+                        return `${year}-${month}-${day}`;
+                    },
+
+                    setQuickRange(days) {
+                        const end = new Date();
+                        const start = new Date();
+
+                        start.setDate(end.getDate() - (days - 1));
+
+                        this.filters.start = this.formatDate(start);
+                        this.filters.end = this.formatDate(end);
+                    },
+
+                    setCurrentMonth() {
+                        const end = new Date();
+                        const start = new Date(end.getFullYear(), end.getMonth(), 1);
+
+                        this.filters.start = this.formatDate(start);
+                        this.filters.end = this.formatDate(end);
+                    },
+                },
             });
         </script>
     @endPushOnce

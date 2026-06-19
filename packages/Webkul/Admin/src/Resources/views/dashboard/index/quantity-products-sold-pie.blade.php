@@ -1,13 +1,13 @@
-{!! view_render_event('admin.dashboard.index.quantity_products_pie.before') !!}
+{!! view_render_event('admin.dashboard.index.quantity_products_sold_pie.before') !!}
 
-<v-dashboard-quantity-products-pie>
+<v-dashboard-quantity-products-sold-pie>
     <x-admin::shimmer.dashboard.index.top-selling-products />
-</v-dashboard-quantity-products-pie>
+</v-dashboard-quantity-products-sold-pie>
 
-{!! view_render_event('admin.dashboard.index.quantity_products_pie.after') !!}
+{!! view_render_event('admin.dashboard.index.quantity_products_sold_pie.after') !!}
 
 @pushOnce('scripts')
-    <script type="text/x-template" id="v-dashboard-quantity-products-pie-template">
+    <script type="text/x-template" id="v-dashboard-quantity-products-sold-pie-template">
         <template v-if="isLoading">
             <x-admin::shimmer.dashboard.index.top-selling-products />
         </template>
@@ -16,7 +16,7 @@
             <div class="w-full rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
                 <div class="flex items-center justify-between p-4">
                     <p class="text-base font-semibold text-gray-600 dark:text-gray-300">
-                        Productos más solicitados
+                        Productos más vendidos
                     </p>
                 </div>
 
@@ -50,8 +50,8 @@
     </script>
 
     <script type="module">
-        app.component('v-dashboard-quantity-products-pie', {
-            template: '#v-dashboard-quantity-products-pie-template',
+        app.component('v-dashboard-quantity-products-sold-pie', {
+            template: '#v-dashboard-quantity-products-sold-pie-template',
 
             data() {
                 return {
@@ -73,7 +73,6 @@
                 },
 
                 chartDatasets() {
-                    // this.colors = this.chartLabels.map((l) => this.$admin.getLabelColor(l));
                     return [{
                         data: this.report.statistics.map(({
                             total_qty_ordered
@@ -92,7 +91,7 @@
                 getStats(filters) {
                     this.isLoading = true;
                     var filters = Object.assign({}, filters);
-                    filters.type = 'quantity-products';
+                    filters.type = 'quantity-products-sold';
                     this.$axios.get("{{ route('admin.dashboard.stats') }}", {
                             params: filters
                         })

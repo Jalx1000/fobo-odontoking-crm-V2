@@ -25,6 +25,17 @@
                         ::datasets="chartDatasets"
                     />
 
+                    <div class="flex flex-wrap justify-center gap-4 text-xs dark:text-gray-300">
+                        <div class="flex items-center gap-1.5">
+                            <span class="h-3 w-3 rounded-sm bg-gray-700 dark:bg-gray-300"></span>
+                            <span>Periodo actual</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="h-3 w-3 rounded-sm bg-gray-700/40 dark:bg-gray-300/40"></span>
+                            <span>Periodo anterior</span>
+                        </div>
+                    </div>
+
                     <div class="flex flex-wrap justify-center gap-5">
                         <div class="flex items-center gap-2" v-for="(color, index) in colors" :key="index">
                             <span class="h-3.5 w-3.5 rounded-sm" :style="{ backgroundColor: color }"></span>
@@ -58,21 +69,38 @@
                 chartDatasets() {
                     const labels = this.report.statistics?.labels ?? [];
                     const data = this.dataMinutesPerLead;
+                    const previousData = this.previousMinutesPerLead;
                     this.colors = labels.map((l) => this.getColorForLabel(l));
                     this.legendLabels = labels;
-                    return [{
-                        data: data,
-                        backgroundColor: this.colors,
-                    }];
+                    return [
+                        {
+                            label: 'Periodo actual',
+                            data: data,
+                            backgroundColor: this.colors,
+                        },
+                        {
+                            label: 'Periodo anterior',
+                            data: previousData,
+                            backgroundColor: this.colors.map((c) => c + '66'),
+                        },
+                    ];
                 },
                 dataMinutesPerLead() {
                     const labels = this.report.statistics?.labels ?? [];
                     const dataSeconds = this.report.statistics?.data ?? [];
-                    console.log('Statistics Data (dataSeconds):', dataSeconds);
                     return labels.map((label, i) => {
                         const seconds = typeof dataSeconds[i] === 'number' ? dataSeconds[i] : 0;
                         if (!seconds) return 0;
                         // El controlador ya devuelve el promedio en segundos, solo convertimos a minutos
+                        return Number((seconds / 3600).toFixed(1));
+                    });
+                },
+                previousMinutesPerLead() {
+                    const labels = this.report.statistics?.labels ?? [];
+                    const dataSeconds = this.report.statistics?.previous_data ?? [];
+                    return labels.map((label, i) => {
+                        const seconds = typeof dataSeconds[i] === 'number' ? dataSeconds[i] : 0;
+                        if (!seconds) return 0;
                         return Number((seconds / 3600).toFixed(1));
                     });
                 },
