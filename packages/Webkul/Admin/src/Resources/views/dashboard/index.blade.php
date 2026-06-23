@@ -47,7 +47,7 @@
         <div class="flex flex-1 flex-col gap-4 max-xl:flex-auto">
             {{-- @include('admin::dashboard.index.revenue') --}}
             @include('admin::dashboard.index.over-all')
-            @include('admin::dashboard.index.total-leads')
+            @include('admin::dashboard.index.total-leads-vs-entregados')
             @include('admin::dashboard.index.evolution')
 
             @if ($isAdminRole)
@@ -194,32 +194,79 @@
                 template: '#v-dashboard-filters-template',
 
                 data() {
+                    // Read the shared global filter cookies (kept in sync with the
+                    // Pedidos module). City: 'all'/empty => "Todas". Date: "from|to".
+                    const savedCity = (document.cookie.match(/(?:^|;\s*)global_pipeline_id=([^;]*)/) || [])[1];
+                    const savedDate = (document.cookie.match(/(?:^|;\s*)global_date_range=([^;]*)/) || [])[1];
+
+                    let savedFrom = '';
+                    let savedTo = '';
+
+                    if (savedDate) {
+                        const parts = decodeURIComponent(savedDate).split('|');
+                        savedFrom = parts[0] || '';
+                        savedTo = parts[1] || '';
+                    }
+
                     return {
                         pipelines: @json($pipelines->map(fn ($pipeline) => ['id' => $pipeline->id, 'name' => $pipeline->name])),
 
                         filters: {
                             channel: '',
 
-                            pipeline_id: '',
+                            pipeline_id: (! savedCity || savedCity === 'all') ? '' : decodeURIComponent(savedCity),
 
-                            start: "{{ $startDate->format('Y-m-d') }}",
+                            start: savedFrom || "{{ $startDate->format('Y-m-d') }}",
 
-                            end: "{{ $endDate->format('Y-m-d') }}"
+                            end: savedTo || "{{ $endDate->format('Y-m-d') }}"
                         }
                     }
                 },
 
                 watch: {
+                    // Emit on any filter change so the cards reload.
                     filters: {
                         handler() {
                             this.$emitter.emit('reporting-filter-updated', this.filters);
                         },
 
                         deep: true
-                    }
+                    },
+
+                    // Persist each part to its own cookie ONLY when it actually changes,
+                    // so e.g. changing the city doesn't accidentally seed a date range.
+                    'filters.pipeline_id'(value) {
+                        this.setCityCookie(value);
+                    },
+
+                    'filters.start'() {
+                        this.setDateCookie(this.filters.start, this.filters.end);
+                    },
+
+                    'filters.end'() {
+                        this.setDateCookie(this.filters.start, this.filters.end);
+                    },
                 },
 
                 methods: {
+                    setCityCookie(pipelineId) {
+                        const value = pipelineId === '' ? 'all' : pipelineId;
+
+                        const maxAge = 60 * 60 * 24 * 365;
+
+                        document.cookie = `global_pipeline_id=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+                    },
+
+                    setDateCookie(from, to) {
+                        if (! from || ! to) {
+                            return;
+                        }
+
+                        const maxAge = 60 * 60 * 24 * 365;
+
+                        document.cookie = `global_date_range=${encodeURIComponent(from + '|' + to)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+                    },
+
                     formatDate(date) {
                         const year = date.getFullYear();
                         const month = String(date.getMonth() + 1).padStart(2, '0');

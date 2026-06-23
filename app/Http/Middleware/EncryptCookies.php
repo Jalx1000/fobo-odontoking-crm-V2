@@ -13,5 +13,7 @@ class EncryptCookies extends Middleware
      */
     protected $except = [
         'dark_mode',
+        'global_pipeline_id',
+        'global_date_range',
     ];
 }

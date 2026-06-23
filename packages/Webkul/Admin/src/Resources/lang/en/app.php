@@ -2240,10 +2240,16 @@ return [
             ],
 
             'total-leads' => [
-                'title' => 'Leads',
-                'total' => 'Total Leads',
-                'won'   => 'Won Leads',
-                'lost'  => 'Lost Leads',
+                'title' => 'Prospects',
+                'total' => 'Prospects',
+                'won'   => 'Delivered Orders',
+                'lost'  => 'Cancelled Orders',
+            ],
+
+            'leads-vs-entregados' => [
+                'title'     => 'Prospects vs. Delivered Orders',
+                'prospects' => 'Prospects',
+                'delivered' => 'Delivered Orders',
             ],
 
             'revenue-by-sources' => [

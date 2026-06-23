@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
@@ -65,6 +66,64 @@ class LeadController extends Controller
             return datagrid(LeadDataGrid::class)->process();
         }
 
+        /**
+         * Global city filter: shared (via the "global_pipeline_id" cookie) with the
+         * dashboard so selecting a city persists across the whole app.
+         *
+         * - If the URL has no explicit pipeline_id but a global filter is saved,
+         *   redirect to the same URL with that pipeline_id so every existing
+         *   request('pipeline_id')-based view (kanban, table, datagrid, switcher)
+         *   keeps working unchanged.
+         * - If the URL has an explicit pipeline_id, persist it as the global filter.
+         */
+        if (request()->query('pipeline_id') === null) {
+            $savedPipelineId = request()->cookie('global_pipeline_id');
+
+            if ($savedPipelineId) {
+                return redirect()->route('admin.leads.index', array_merge(
+                    request()->except('pipeline_id'),
+                    ['pipeline_id' => $savedPipelineId]
+                ));
+            }
+        } elseif (request()->query('pipeline_id') !== '') {
+            // httpOnly=false so the dashboard's JS can read the same cookie.
+            Cookie::queue('global_pipeline_id', request()->query('pipeline_id'), 60 * 24 * 365, '/', null, false, false, false, 'Lax');
+        }
+
+        /**
+         * Global date filter: shared (via the "global_date_range" cookie) with the
+         * dashboard, normalized to an explicit start/end range (date_from/date_to).
+         *
+         * - "date_filter=none" is an explicit clear: forget the cookie and strip
+         *   the date params from the URL.
+         * - No date params + saved range => redirect applying it as a custom range.
+         * - Any date params => resolve to an explicit range and persist it.
+         */
+        if (request()->query('date_filter') === 'none') {
+            Cookie::queue(Cookie::forget('global_date_range'));
+
+            return redirect()->route('admin.leads.index', request()->except(['date_filter', 'date_from', 'date_to']));
+        }
+
+        $hasDateParam = request()->query('date_filter') !== null
+            || request()->query('date_from') !== null
+            || request()->query('date_to') !== null;
+
+        if (! $hasDateParam) {
+            if ($savedRange = request()->cookie('global_date_range')) {
+                [$from, $to] = array_pad(explode('|', $savedRange), 2, null);
+
+                if ($from && $to) {
+                    return redirect()->route('admin.leads.index', array_merge(
+                        request()->all(),
+                        ['date_filter' => 'custom', 'date_from' => $from, 'date_to' => $to]
+                    ));
+                }
+            }
+        } elseif ($range = $this->resolveGlobalDateRange()) {
+            Cookie::queue('global_date_range', $range['from'].'|'.$range['to'], 60 * 24 * 365, '/', null, false, false, false, 'Lax');
+        }
+
         $allPipelines = request('pipeline_id') === 'all';
 
         if (! $allPipelines && request('pipeline_id')) {
@@ -75,11 +134,62 @@ class LeadController extends Controller
             $pipeline = $this->pipelineRepository->getDefaultPipeline();
         }
 
+        // Guard against a stale/invalid saved city (e.g. a deleted pipeline).
+        if (! $pipeline) {
+            Cookie::queue(Cookie::forget('global_pipeline_id'));
+
+            $pipeline = $this->pipelineRepository->getDefaultPipeline();
+        }
+
         return view('admin::leads.index', [
             'pipeline'     => $pipeline,
             'columns'      => $this->getKanbanColumns(),
             'allPipelines' => $allPipelines,
         ]);
+    }
+
+    /**
+     * Resolve the current request's date filter into an explicit
+     * [from, to] range (Y-m-d) for the shared global_date_range cookie.
+     */
+    private function resolveGlobalDateRange(): ?array
+    {
+        switch (request()->query('date_filter')) {
+            case 'today':
+                $from = Carbon::today();
+                $to = Carbon::today();
+                break;
+
+            case 'week':
+                $from = Carbon::now()->startOfWeek();
+                $to = Carbon::now()->endOfWeek();
+                break;
+
+            case 'month':
+                $from = Carbon::now()->startOfMonth();
+                $to = Carbon::now()->endOfMonth();
+                break;
+
+            default:
+                $from = request()->query('date_from');
+                $to = request()->query('date_to');
+
+                if (! $from || ! $to) {
+                    return null;
+                }
+
+                try {
+                    $from = Carbon::parse($from);
+                    $to = Carbon::parse($to);
+                } catch (\Exception $e) {
+                    return null;
+                }
+        }
+
+        return [
+            'from' => $from->format('Y-m-d'),
+            'to'   => $to->format('Y-m-d'),
+        ];
     }
 
     /**

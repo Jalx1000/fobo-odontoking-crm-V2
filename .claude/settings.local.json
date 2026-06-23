@@ -29,7 +29,8 @@
       "Bash(cd *)",
       "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Http/Controllers/Lead/LeadController.php packages/Webkul/Admin/src/DataGrids/Lead/LeadDataGrid.php)",
       "Bash(grep -vE \"\\\\.claude/|\\\\.sh$\")",
-      "Bash(git commit -q -m ' *)"
+      "Bash(git commit -q -m ' *)",
+      "Bash(grep -iA8 \"error\\\\|exception\")"
     ]
   }
 }

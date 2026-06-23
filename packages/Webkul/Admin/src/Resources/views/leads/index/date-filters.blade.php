@@ -67,7 +67,9 @@
             methods: {
                 getClearUrl() {
                     const url = new URL(window.location.href);
-                    url.searchParams.delete('date_filter');
+                    // "none" tells the server to forget the shared global_date_range
+                    // cookie instead of falling back to it on the next load.
+                    url.searchParams.set('date_filter', 'none');
                     url.searchParams.delete('date_from');
                     url.searchParams.delete('date_to');
                     return url.toString();

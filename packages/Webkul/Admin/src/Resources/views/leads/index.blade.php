@@ -25,7 +25,7 @@
         <div class="flex items-center gap-x-2.5">
             <!-- Quick Date Filters -->
             @php
-                $clearDateUrl = request()->fullUrlWithQuery(['date_filter' => null, 'date_from' => null, 'date_to' => null]);
+                $clearDateUrl = request()->fullUrlWithQuery(['date_filter' => 'none', 'date_from' => null, 'date_to' => null]);
             @endphp
             <div class="flex gap-2">
                 <a

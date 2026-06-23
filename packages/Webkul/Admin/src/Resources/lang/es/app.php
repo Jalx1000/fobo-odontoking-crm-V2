@@ -1828,7 +1828,7 @@ return [
             ],
             'view-switcher' => [
                 'all-pipelines'       => 'Todos los Canales',
-                'all-prospects'       => 'Todos los prospectos',
+                'all-prospects'       => 'Todos los ciudades',
                 'create-new-pipeline' => 'Crear Nuevo Canal',
             ],
             'upload' => [
@@ -2058,9 +2058,14 @@ return [
             ],
             'total-leads' => [
                 'title' => 'Prospectos',
-                'total' => 'Total de Prospectos',
-                'won'   => 'Prospectos Ganados',
-                'lost'  => 'Prospectos Perdidos',
+                'total' => 'Prospectos',
+                'won'   => 'Pedidos entregados',
+                'lost'  => 'Pedidos cancelados',
+            ],
+            'leads-vs-entregados' => [
+                'title'     => 'Prospectos vs. Pedidos entregados',
+                'prospects' => 'Prospectos',
+                'delivered' => 'Pedidos entregados',
             ],
             'revenue-by-sources' => [
                 'title'       => 'Ingresos por Fuentes',
