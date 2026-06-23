@@ -10,9 +10,9 @@
                 class="flex cursor-pointer appearance-none items-center justify-between gap-x-2 rounded-md border bg-white px-2.5 py-[7px] text-center leading-6 text-gray-600 transition-all marker:shadow hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
             >
                 <span class="whitespace-nowrap">
-                    {{ $pipeline->name }}
+                    {{ request('pipeline_id') === 'all' ? __('admin::app.leads.index.view-switcher.all-prospects') : $pipeline->name }}
                 </span>
-                
+
                 <span class="icon-down-arrow text-2xl"></span>
             </button>
 
@@ -31,6 +31,17 @@
 
             {!! view_render_event('admin.leads.index.view_switcher.pipeline.content.header.after') !!}
             
+            <!-- All prospects (across every pipeline/city) -->
+            <a
+                href="{{ route('admin.leads.index', [
+                    'pipeline_id' => 'all',
+                    'view_type'   => request('view_type'),
+                ]) }}"
+                class="block border-b border-gray-200 px-3 py-2.5 pl-4 font-medium text-gray-700 transition-all hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-gray-950 {{ request('pipeline_id') === 'all' ? 'bg-gray-100 dark:bg-gray-950' : '' }}"
+            >
+                @lang('admin::app.leads.index.view-switcher.all-prospects')
+            </a>
+
             <!-- Pipeline Links -->
             @foreach (app('Webkul\Lead\Repositories\PipelineRepository')->all() as $tempPipeline)
                 {!! view_render_event('admin.leads.index.view_switcher.pipeline.content.before', ['tempPipeline' => $tempPipeline]) !!}
@@ -40,7 +51,7 @@
                         'pipeline_id' => $tempPipeline->id,
                         'view_type'   => request('view_type')
                     ]) }}"
-                    class="block px-3 py-2.5 pl-4 text-gray-600 transition-all hover:bg-gray-100 dark:hover:bg-gray-950 dark:text-gray-300 {{ $pipeline->id == $tempPipeline->id ? 'bg-gray-100 dark:bg-gray-950' : '' }}"
+                    class="block px-3 py-2.5 pl-4 text-gray-600 transition-all hover:bg-gray-100 dark:hover:bg-gray-950 dark:text-gray-300 {{ request('pipeline_id') !== 'all' && $pipeline->id == $tempPipeline->id ? 'bg-gray-100 dark:bg-gray-950' : '' }}"
                 >
                     {{ $tempPipeline->name }}
                 </a>
@@ -71,7 +82,7 @@
         @if (request('view_type'))
             <a
                 class="flex"
-                href="{{ route('admin.leads.index') }}"
+                href="{{ route('admin.leads.index', ['pipeline_id' => request('pipeline_id')]) }}"
             >
                 <span class="icon-kanban p-2 text-2xl"></span>
             </a>
@@ -81,7 +92,7 @@
             <span class="icon-kanban rounded-md bg-white p-2 text-2xl dark:bg-gray-900"></span>
 
             <a
-                href="{{ route('admin.leads.index', ['view_type' => 'table']) }}"
+                href="{{ route('admin.leads.index', ['view_type' => 'table', 'pipeline_id' => request('pipeline_id')]) }}"
                 class="flex"
             >
                 <span class="icon-list p-2 text-2xl"></span>

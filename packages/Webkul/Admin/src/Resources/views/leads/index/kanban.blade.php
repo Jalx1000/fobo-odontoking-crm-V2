@@ -173,6 +173,16 @@
                                     {!! view_render_event('admin.leads.index.kanban.content.stage.body.card.title.after') !!}
 
                                     <div class="flex flex-wrap gap-1">
+                                        <!-- City badge (only in "all pipelines" mode) -->
+                                        <div
+                                            class="flex items-center gap-1 rounded-xl bg-violet-100 px-2 py-1 text-xs font-semibold text-violet-700 dark:bg-violet-900 dark:text-violet-200"
+                                            v-if="allPipelines && element.pipeline"
+                                        >
+                                            <span class="icon-location text-sm"></span>
+
+                                            @{{ element.pipeline?.name || '' }}
+                                        </div>
+
                                         <div
                                             class="flex items-center gap-1 rounded-xl bg-gray-200 px-2 py-1 text-xs font-medium dark:bg-gray-800 dark:text-white"
                                             v-if="element.user"
@@ -341,6 +351,8 @@
                     },
 
                     stages: @json($pipeline->stages->toArray()),
+
+                    allPipelines: @json($allPipelines ?? false),
 
                     stageLeads: {},
 

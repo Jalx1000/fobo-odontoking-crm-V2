@@ -65,15 +65,20 @@ class LeadController extends Controller
             return datagrid(LeadDataGrid::class)->process();
         }
 
-        if (request('pipeline_id')) {
+        $allPipelines = request('pipeline_id') === 'all';
+
+        if (! $allPipelines && request('pipeline_id')) {
             $pipeline = $this->pipelineRepository->find(request('pipeline_id'));
         } else {
+            // In "all pipelines" mode we use the default pipeline as the canonical
+            // stage template (every pipeline/city shares the same stage codes).
             $pipeline = $this->pipelineRepository->getDefaultPipeline();
         }
 
         return view('admin::leads.index', [
-            'pipeline' => $pipeline,
-            'columns'  => $this->getKanbanColumns(),
+            'pipeline'     => $pipeline,
+            'columns'      => $this->getKanbanColumns(),
+            'allPipelines' => $allPipelines,
         ]);
     }
 
@@ -82,7 +87,9 @@ class LeadController extends Controller
      */
     public function get(): JsonResponse
     {
-        if (request()->query('pipeline_id')) {
+        $allPipelines = request()->query('pipeline_id') === 'all';
+
+        if (! $allPipelines && request()->query('pipeline_id')) {
             $pipeline = $this->pipelineRepository->find(request()->query('pipeline_id'));
         } else {
             $pipeline = $this->pipelineRepository->getDefaultPipeline();
@@ -117,7 +124,7 @@ class LeadController extends Controller
 
                     // Remove the created_at from search so RequestCriteria doesn't try to filter it as a literal string
                     if ($dateRange) {
-                        $search = str_replace($part . ';', '', $search);
+                        $search = str_replace($part.';', '', $search);
                         $search = str_replace($part, '', $search);
                         request()->merge(['search' => $search]);
                     }
@@ -137,12 +144,12 @@ class LeadController extends Controller
                 $dateRange = [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()];
             } elseif ($dateFilter === 'custom') {
                 $from = request()->query('date_from');
-                $to   = request()->query('date_to');
+                $to = request()->query('date_to');
 
                 if ($from && $to) {
                     try {
                         $dateRange = [Carbon::parse($from)->startOfDay(), Carbon::parse($to)->endOfDay()];
-                        
+
                         if ($dateRange[0]->gt($dateRange[1])) {
                             $dateRange = null;
                         }
@@ -159,11 +166,23 @@ class LeadController extends Controller
              * why we're not using the injected one.
              */
             $query = app(LeadRepository::class)
-                ->pushCriteria(app(RequestCriteria::class))
-                ->where([
+                ->pushCriteria(app(RequestCriteria::class));
+
+            if ($allPipelines) {
+                /**
+                 * In "all pipelines" mode we merge same-coded stages across every
+                 * city, so the column gathers leads from all pipelines whose stage
+                 * shares this stage's code.
+                 */
+                $stageIds = $this->stageRepository->findWhere(['code' => $stage->code])->pluck('id')->toArray();
+
+                $query->whereIn('leads.lead_pipeline_stage_id', $stageIds);
+            } else {
+                $query->where([
                     'lead_pipeline_id'       => $pipeline->id,
                     'lead_pipeline_stage_id' => $stage->id,
                 ]);
+            }
 
             if ($userIds = bouncer()->getAuthorizedUserIds()) {
                 $query->whereIn('leads.user_id', $userIds);
@@ -176,6 +195,14 @@ class LeadController extends Controller
             $stage->lead_value = (clone $query)->sum('lead_value');
 
             $data[$stage->sort_order] = (new StageResource($stage))->jsonSerialize();
+
+            /**
+             * Keep the "all" context so kanban pagination (append) keeps requesting
+             * across all pipelines instead of the canonical pipeline only.
+             */
+            if ($allPipelines) {
+                $data[$stage->sort_order]['lead_pipeline_id'] = 'all';
+            }
 
             $data[$stage->sort_order]['leads'] = [
                 'data' => LeadResource::collection($paginator = $query->with([
@@ -384,9 +411,20 @@ class LeadController extends Controller
 
         $lead = $this->leadRepository->findOrFail($id);
 
-        $stage = $lead->pipeline->stages()
-            ->where('id', request()->input('lead_pipeline_stage_id'))
-            ->firstOrFail();
+        /**
+         * Resolve the target stage within the lead's OWN pipeline. When dragging in
+         * "all pipelines" mode the incoming stage id belongs to the canonical pipeline,
+         * so we match by code to keep the lead inside its own city; otherwise the stage
+         * already belongs to the lead's pipeline and resolves to itself.
+         */
+        $requestedStage = $this->stageRepository->find(request()->input('lead_pipeline_stage_id'));
+
+        $stage = ($requestedStage
+            ? $lead->pipeline->stages()->where('code', $requestedStage->code)->first()
+            : null)
+            ?? $lead->pipeline->stages()
+                ->where('id', request()->input('lead_pipeline_stage_id'))
+                ->firstOrFail();
 
         Event::dispatch('lead.update.before', $id);
 

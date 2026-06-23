@@ -1776,6 +1776,7 @@ return [
                 'tag-name'       => 'Nombre de la etiqueta',
                 'contact-person' => 'Contacto del Prospecto',
                 'stage'          => 'Etapa',
+                'city'           => 'Ciudad',
                 'description'    => 'Descripción',
                 'rotten-lead'    => 'Pedido Estancado',
                 'date-to'        => 'Fecha Hasta',
@@ -1827,6 +1828,7 @@ return [
             ],
             'view-switcher' => [
                 'all-pipelines'       => 'Todos los Canales',
+                'all-prospects'       => 'Todos los prospectos',
                 'create-new-pipeline' => 'Crear Nuevo Canal',
             ],
             'upload' => [

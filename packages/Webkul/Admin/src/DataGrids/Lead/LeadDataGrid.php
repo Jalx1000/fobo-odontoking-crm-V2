@@ -4,15 +4,15 @@ namespace Webkul\Admin\DataGrids\Lead;
 
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
+use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\DataGrid\DataGrid;
+use Webkul\Lead\Repositories\LeadRepository;
 use Webkul\Lead\Repositories\PipelineRepository;
 use Webkul\Lead\Repositories\SourceRepository;
 use Webkul\Lead\Repositories\StageRepository;
 use Webkul\Lead\Repositories\TypeRepository;
 use Webkul\Tag\Repositories\TagRepository;
 use Webkul\User\Repositories\UserRepository;
-use Webkul\Attribute\Repositories\AttributeRepository;
-use Webkul\Lead\Repositories\LeadRepository;
 
 class LeadDataGrid extends DataGrid
 {
@@ -22,6 +22,13 @@ class LeadDataGrid extends DataGrid
      * @var \Webkul\Contract\Repositories\Pipeline
      */
     protected $pipeline;
+
+    /**
+     * Whether the grid is showing leads across all pipelines (cities).
+     *
+     * @var bool
+     */
+    protected $allPipelines = false;
 
     /**
      * Create data grid instance.
@@ -38,7 +45,9 @@ class LeadDataGrid extends DataGrid
         protected AttributeRepository $attributeRepository,
         protected LeadRepository $leadRepository,
     ) {
-        if (request('pipeline_id')) {
+        $this->allPipelines = request('pipeline_id') === 'all';
+
+        if (! $this->allPipelines && request('pipeline_id')) {
             $this->pipeline = $this->pipelineRepository->find(request('pipeline_id'));
         } else {
             $this->pipeline = $this->pipelineRepository->getDefaultPipeline();
@@ -71,6 +80,7 @@ class LeadDataGrid extends DataGrid
                 'persons.name as person_name',
                 'tags.name as tag_name',
                 'lead_pipelines.rotten_days as pipeline_rotten_days',
+                'lead_pipelines.name as pipeline_name',
                 'lead_pipeline_stages.code as stage_code',
                 DB::raw('CASE WHEN DATEDIFF(NOW(),'.$tablePrefix.'leads.created_at) >='.$tablePrefix.'lead_pipelines.rotten_days THEN 1 ELSE 0 END as rotten_lead'),
             )
@@ -82,8 +92,15 @@ class LeadDataGrid extends DataGrid
             ->leftJoin('lead_pipelines', 'leads.lead_pipeline_id', '=', 'lead_pipelines.id')
             ->leftJoin('lead_tags', 'leads.id', '=', 'lead_tags.lead_id')
             ->leftJoin('tags', 'tags.id', '=', 'lead_tags.tag_id')
-            ->groupBy('leads.id')
-            ->where('leads.lead_pipeline_id', $this->pipeline->id);
+            ->groupBy('leads.id');
+
+        /**
+         * In "all pipelines" mode we list leads from every city, so we skip the
+         * pipeline scoping filter applied for a single pipeline view.
+         */
+        if (! $this->allPipelines) {
+            $queryBuilder->where('leads.lead_pipeline_id', $this->pipeline->id);
+        }
 
         if ($userIds = bouncer()->getAuthorizedUserIds()) {
             $queryBuilder->whereIn('leads.user_id', $userIds);
@@ -194,7 +211,6 @@ class LeadDataGrid extends DataGrid
             'closure'    => fn ($row) => core()->formatBasePrice($row->lead_value, 2),
         ]);
 
-
         $this->addColumn([
             'index'              => 'tag_name',
             'label'              => trans('admin::app.leads.index.datagrid.tag-name'),
@@ -250,6 +266,23 @@ class LeadDataGrid extends DataGrid
                 ->values()
                 ->all(),
         ]);
+
+        /**
+         * City (pipeline) column, only shown when listing across all pipelines so
+         * each lead can be told apart by city.
+         */
+        if ($this->allPipelines) {
+            $this->addColumn([
+                'index'      => 'pipeline_name',
+                'label'      => trans('admin::app.leads.index.datagrid.city'),
+                'type'       => 'string',
+                'searchable' => false,
+                'sortable'   => true,
+                'closure'    => function ($row) {
+                    return '<span class="label-active">'.$row->pipeline_name.'</span>';
+                },
+            ]);
+        }
 
         $this->addColumn([
             'index'      => 'rotten_lead',
@@ -371,7 +404,7 @@ class LeadDataGrid extends DataGrid
                     }
 
                     if ($attribute->type == 'lookup') {
-                        $lookUpEntity = config('attribute_lookups.' . $attribute->lookup_type);
+                        $lookUpEntity = config('attribute_lookups.'.$attribute->lookup_type);
 
                         if (! $lookUpEntity) {
                             return $value;

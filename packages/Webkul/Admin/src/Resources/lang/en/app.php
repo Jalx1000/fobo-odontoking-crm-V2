@@ -1931,6 +1931,7 @@ return [
                 'tag-name'            => 'Tag Name',
                 'contact-person'      => 'Contact Person',
                 'stage'               => 'Stage',
+                'city'                => 'City',
                 'rotten-lead'         => 'Rotten Lead',
                 'date-to'             => 'Date To',
                 'created-at'          => 'Created At',
@@ -1979,6 +1980,7 @@ return [
 
             'view-switcher' => [
                 'all-pipelines'       => 'All Pipelines',
+                'all-prospects'       => 'All prospects',
                 'create-new-pipeline' => 'Create New Pipeline',
             ],
 
