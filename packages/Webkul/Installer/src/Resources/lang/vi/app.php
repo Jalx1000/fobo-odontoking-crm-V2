@@ -226,7 +226,7 @@ return [
             'installation-completed' => [
                 'admin-panel'                => 'Painel de Administração',
                 'krayin-forums'              => 'Fórum do Krayin',
-                'customer-panel'             => 'Painel do Cliente',
+                'customer-panel'             => 'Painel do Prospecto',
                 'explore-krayin-extensions'  => 'Explorar Extensões do Krayin',
                 'title'                      => 'Instalação Concluída',
                 'title-info'                 => 'O Krayin foi instalado com sucesso no seu sistema.',

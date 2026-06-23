@@ -3,7 +3,7 @@
 return [
     'importers' => [
         'persons' => [
-            'title' => 'Clientes',
+            'title' => 'Prospectos',
 
             'validation' => [
                 'errors' => [
@@ -25,7 +25,7 @@ return [
         ],
 
         'leads' => [
-            'title' => 'Clientes Potenciales',
+            'title' => 'Prospectos Potenciales',
 
             'validation' => [
                 'errors' => [

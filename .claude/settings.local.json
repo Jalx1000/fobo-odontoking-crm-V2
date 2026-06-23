@@ -6,7 +6,27 @@
       "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); queries=[q for q in data.get\\('queries',{}\\).get\\('statements',[]\\) if 'ciudad' in q.get\\('sql',''\\).lower\\(\\) or 'attribute' in q.get\\('sql',''\\).lower\\(\\)]; [print\\(q['sql'][:300]\\) for q in queries[:10]]\")",
       "Bash(python3 -c ' *)",
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('require',{}\\), indent=2\\)\\)\")",
-      "Bash(docker run *)"
+      "Bash(docker run *)",
+      "Bash(docker exec *)",
+      "Bash(docker cp *)",
+      "Bash(xargs -I{} basename {})",
+      "Bash(mysql --version)",
+      "Bash(grep -n 'role_id\\\\|protected $fillable' packages/Webkul/User/src/Models/User.php)",
+      "Bash(grep -n '&& \\($userIds = bouncer' packages/Webkul/Admin/src/Helpers/Reporting/Lead.php)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Http/Controllers/DashboardController.php packages/Webkul/Admin/src/Helpers/Reporting/Lead.php)",
+      "Bash(grep -c 'is_null\\($userIds = bouncer' packages/Webkul/Admin/src/Helpers/Reporting/Lead.php)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Helpers/Reporting/Lead.php)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Helpers/Reporting/Product.php packages/Webkul/Admin/src/Helpers/Dashboard.php packages/Webkul/Admin/src/Http/Controllers/DashboardController.php)",
+      "Bash(awk -F'[][]' '{print $2}')",
+      "Read(//etc/**)",
+      "Bash(getent hosts *)",
+      "Bash(ping -c1 heaven_kohlberg)",
+      "Bash(git add *)",
+      "Bash(./vendor/bin/pint packages/Webkul/Lead/src/Repositories/LeadRepository.php packages/Webkul/Lead/src/Models/Lead.php packages/Webkul/Admin/src/Helpers/Reporting/Product.php packages/Webkul/Lead/src/Database/Migrations/2026_06_19_000000_add_confirmed_at_to_leads_table.php)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Helpers/Reporting/Product.php)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Helpers/Reporting/Lead.php packages/Webkul/Admin/src/Helpers/Reporting/Product.php packages/Webkul/Admin/src/Helpers/Dashboard.php packages/Webkul/Admin/src/Http/Controllers/DashboardController.php)",
+      "Bash(grep -vE \"\\\\.claude/|Bouncer|\\\\.sh$\")",
+      "Bash(cd *)"
     ]
   }
 }

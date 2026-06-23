@@ -107,7 +107,7 @@ class ShareMeDataWebhookController extends Controller
                 
                 $kommoEmail = $cleanPhone . '@s.kommo-whatsapp.net';
                 
-                // Buscamos si existe una cliente con ese email de Kommo
+                // Buscamos si existe una prospecto con ese email de Kommo
                 $person = $this->personRepository
                     ->whereJsonContains('emails', [['value' => $kommoEmail]])
                     ->first();

@@ -31,7 +31,7 @@ class Bouncer
         }
 
         // Fallback: Si estamos en actividades o etiquetas, permitir si tiene algún acceso a Leads
-        if (str_contains($permission, 'activities') || str_contains($permission, 'tags')) {
+        if (str_contains($permission, 'activities.') || str_contains($permission, 'tags.')) {
             // Buscamos cualquier permiso que empiece por "leads" en el array de permisos del rol
             $rolePermissions = $user->role->permissions ?? [];
 

@@ -46,7 +46,7 @@ return [
                 'discount-percent'  => 'Porcentaje de Descuento',
                 'expired-at'        => 'Expira el',
                 'grand-total'       => 'Total General',
-                'person'            => 'Cliente',
+                'person'            => 'Prospecto',
                 'sales-owner'       => 'Propietario de Ventas',
                 'shipping-address'  => 'Dirección de Envío',
                 'sub-total'         => 'Subtotal',
@@ -227,7 +227,7 @@ return [
             'installation-completed' => [
                 'admin-panel'                => 'Panel de Administración',
                 'krayin-forums'              => 'Foro de Sofopolis',
-                'customer-panel'             => 'Panel de Clientes',
+                'customer-panel'             => 'Panel de Prospectos',
                 'explore-krayin-extensions'  => 'Explorar Extensiones de Sofopolis',
                 'title'                      => 'Instalación Completada',
                 'title-info'                 => 'Sofopolis se ha instalado correctamente en su sistema.',

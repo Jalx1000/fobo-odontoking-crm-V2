@@ -2174,7 +2174,7 @@ return [
                 'create-subject'  => 'Você foi adicionado como membro.',
                 'create-body'     => 'Parabéns! Agora você é um membro da nossa equipe.',
                 'forget-password' => [
-                    'subject'        => 'Redefinir Senha do Cliente',
+                    'subject'        => 'Redefinir Senha do Prospecto',
                     'dear'           => 'Prezado(a) :username',
                     'reset-password' => 'Redefinir Senha',
                     'info'           => 'Você está recebendo este e-mail porque recebemos uma solicitação de redefinição de senha para sua conta.',
