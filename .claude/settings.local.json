@@ -26,7 +26,10 @@
       "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Helpers/Reporting/Product.php)",
       "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Helpers/Reporting/Lead.php packages/Webkul/Admin/src/Helpers/Reporting/Product.php packages/Webkul/Admin/src/Helpers/Dashboard.php packages/Webkul/Admin/src/Http/Controllers/DashboardController.php)",
       "Bash(grep -vE \"\\\\.claude/|Bouncer|\\\\.sh$\")",
-      "Bash(cd *)"
+      "Bash(cd *)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Http/Controllers/Lead/LeadController.php packages/Webkul/Admin/src/DataGrids/Lead/LeadDataGrid.php)",
+      "Bash(grep -vE \"\\\\.claude/|\\\\.sh$\")",
+      "Bash(git commit -q -m ' *)"
     ]
   }
 }

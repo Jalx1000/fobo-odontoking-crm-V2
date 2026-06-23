@@ -176,9 +176,9 @@ class LeadController extends Controller
                  */
                 $stageIds = $this->stageRepository->findWhere(['code' => $stage->code])->pluck('id')->toArray();
 
-                $query->whereIn('leads.lead_pipeline_stage_id', $stageIds);
+                $query = $query->whereIn('leads.lead_pipeline_stage_id', $stageIds);
             } else {
-                $query->where([
+                $query = $query->where([
                     'lead_pipeline_id'       => $pipeline->id,
                     'lead_pipeline_stage_id' => $stage->id,
                 ]);
@@ -191,6 +191,13 @@ class LeadController extends Controller
             if ($dateRange) {
                 $query->whereBetween('leads.created_at', $dateRange);
             }
+
+            /**
+             * Deterministic ordering so infinite-scroll pagination never duplicates
+             * or drops leads across pages (especially in "all pipelines" mode where
+             * the column aggregates leads from every city).
+             */
+            $query->orderBy('leads.id', 'desc');
 
             $stage->lead_value = (clone $query)->sum('lead_value');
 

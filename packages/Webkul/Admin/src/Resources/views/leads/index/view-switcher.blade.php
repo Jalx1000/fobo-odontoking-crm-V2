@@ -1,5 +1,11 @@
 {!! view_render_event('admin.leads.index.view_switcher.before') !!}
 
+@php
+    // Preserve the active date filter across pipeline/view navigation so it
+    // stays applied until the user explicitly clears it.
+    $dateParams = request()->only(['date_filter', 'date_from', 'date_to']);
+@endphp
+
 <div class="flex items-center gap-4 max-md:w-full max-md:!justify-between">
     <x-admin::dropdown>
         <x-slot:toggle>
@@ -33,10 +39,10 @@
             
             <!-- All prospects (across every pipeline/city) -->
             <a
-                href="{{ route('admin.leads.index', [
+                href="{{ route('admin.leads.index', array_merge($dateParams, [
                     'pipeline_id' => 'all',
                     'view_type'   => request('view_type'),
-                ]) }}"
+                ])) }}"
                 class="block border-b border-gray-200 px-3 py-2.5 pl-4 font-medium text-gray-700 transition-all hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-gray-950 {{ request('pipeline_id') === 'all' ? 'bg-gray-100 dark:bg-gray-950' : '' }}"
             >
                 @lang('admin::app.leads.index.view-switcher.all-prospects')
@@ -47,10 +53,10 @@
                 {!! view_render_event('admin.leads.index.view_switcher.pipeline.content.before', ['tempPipeline' => $tempPipeline]) !!}
 
                 <a
-                    href="{{ route('admin.leads.index', [
+                    href="{{ route('admin.leads.index', array_merge($dateParams, [
                         'pipeline_id' => $tempPipeline->id,
-                        'view_type'   => request('view_type')
-                    ]) }}"
+                        'view_type'   => request('view_type'),
+                    ])) }}"
                     class="block px-3 py-2.5 pl-4 text-gray-600 transition-all hover:bg-gray-100 dark:hover:bg-gray-950 dark:text-gray-300 {{ request('pipeline_id') !== 'all' && $pipeline->id == $tempPipeline->id ? 'bg-gray-100 dark:bg-gray-950' : '' }}"
                 >
                     {{ $tempPipeline->name }}
@@ -82,7 +88,7 @@
         @if (request('view_type'))
             <a
                 class="flex"
-                href="{{ route('admin.leads.index', ['pipeline_id' => request('pipeline_id')]) }}"
+                href="{{ route('admin.leads.index', array_merge($dateParams, ['pipeline_id' => request('pipeline_id')])) }}"
             >
                 <span class="icon-kanban p-2 text-2xl"></span>
             </a>
@@ -92,7 +98,7 @@
             <span class="icon-kanban rounded-md bg-white p-2 text-2xl dark:bg-gray-900"></span>
 
             <a
-                href="{{ route('admin.leads.index', ['view_type' => 'table', 'pipeline_id' => request('pipeline_id')]) }}"
+                href="{{ route('admin.leads.index', array_merge($dateParams, ['view_type' => 'table', 'pipeline_id' => request('pipeline_id')])) }}"
                 class="flex"
             >
                 <span class="icon-list p-2 text-2xl"></span>

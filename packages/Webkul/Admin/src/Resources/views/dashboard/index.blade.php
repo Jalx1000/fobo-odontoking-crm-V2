@@ -83,8 +83,10 @@
             {{-- Funel actual --}}
             @include('admin::dashboard.index.open-leads-by-states-fixed')
 
+            <!-- Ingresos por fuentes -->
             {{-- @include('admin::dashboard.index.revenue-by-sources') --}}
-
+            
+            <!-- Ingresos por tipo -->
             {{-- @include('admin::dashboard.index.revenue-by-types') --}}
 
             @include('admin::dashboard.index.quantity-products-pie')

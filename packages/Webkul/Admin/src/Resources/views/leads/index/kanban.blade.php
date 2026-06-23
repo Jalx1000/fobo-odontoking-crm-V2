@@ -338,6 +338,12 @@
                         columns: @json($columns),
                     },
 
+                    /**
+                     * Per-pipeline storage key so applied filters never bleed across
+                     * pipelines (cities) or the "all prospects" view.
+                     */
+                    src: "{{ request('pipeline_id') ?: 'default' }}",
+
                     applied: {
                         filters: {
                             columns: [],

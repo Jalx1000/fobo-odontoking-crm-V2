@@ -58,7 +58,10 @@
 
             @if ((request()->view_type ?? "kanban") == "table")
                 <!-- Export Modal -->
-                <x-admin::datagrid.export :src="route('admin.leads.index')" />
+                <x-admin::datagrid.export :src="route('admin.leads.index', array_merge(
+                    request()->only(['date_filter', 'date_from', 'date_to']),
+                    ['pipeline_id' => request('pipeline_id')]
+                ))" />
             @endif
 
             <!-- Create button for Leads -->
