@@ -8,11 +8,15 @@ use Illuminate\Support\Facades\Log;
 use Webkul\Admin\Services\Insurance\Contracts\InsuranceDriverInterface;
 
 /**
- * Driver para Alianza Seguros via MedinetGo API.
+ * Driver para Alianza Seguros via MedinetGo API (ApiGateway).
  *
- * Flujo por request (sin caché):
- *  1. POST /LoginUserProv → accessToken + nUsercode frescos
+ * Flujo por request:
+ *  1. POST /LoginUserProv      → accessToken + nUsercode frescos
  *  2. GET  /OdontologyCoverage?ci={ci}&nUsercode={nUsercode}
+ *
+ * URLs, credenciales y timeout se leen de config('services.alianza.*'),
+ * configurables vía .env. success=true en la cobertura ya significa que el
+ * cliente tiene cobertura odontológica vigente.
  */
 class AlianzaDriver implements InsuranceDriverInterface
 {
@@ -20,17 +24,20 @@ class AlianzaDriver implements InsuranceDriverInterface
     protected string $microserviceUrl;
     protected string $user;
     protected string $password;
-    protected int    $timeout = 1000;
+    protected int    $timeout;
+    protected bool   $logRawToken;
 
     const OPTION_ID_EN_MORA  = 91;
     const OPTION_ID_PROBLEMA = 92;
 
     public function __construct()
     {
-        $this->loginUrl        = "https://devnet.alianza.com.bo/ApiGateway";
-        $this->microserviceUrl = "https://devnet.alianza.com.bo/ApiGateway";
-        $this->user            = env('ALIANZA_USER', '');
-        $this->password        = env('ALIANZA_PASS', '');
+        $this->loginUrl        = rtrim((string) config('services.alianza.login_url'), '/');
+        $this->microserviceUrl = rtrim((string) config('services.alianza.microservice_url'), '/');
+        $this->user            = (string) config('services.alianza.user', '');
+        $this->password        = (string) config('services.alianza.password', '');
+        $this->timeout         = (int) config('services.alianza.timeout', 15);
+        $this->logRawToken     = (bool) config('services.alianza.log_raw_token', false);
     }
 
     public function verify(object $person, string $ci): array
@@ -38,7 +45,7 @@ class AlianzaDriver implements InsuranceDriverInterface
         try {
             [$token, $nUsercode] = $this->login();
             Log::info('[AlianzaDriver] Login exitoso', [
-                'token'     => $token,
+                'token'     => $this->maskToken($token),
                 'nUsercode' => $nUsercode,
             ]);
             if (! $token || ! $nUsercode) {
@@ -95,32 +102,25 @@ class AlianzaDriver implements InsuranceDriverInterface
 
         $body = $response->json();
 
+        // En MedinetGo, success=true significa que el cliente tiene cobertura
+        // odontológica vigente. La respuesta trae: ci, clientCode, clientName, age.
         if ($response->successful() && ($body['success'] ?? false)) {
             $rows   = $body['data'] ?? [];
-            $record = is_array($rows) && isset($rows[0]) ? $rows[0] : $rows;
+            $record = (array) (is_array($rows) && isset($rows[0]) ? $rows[0] : $rows);
 
-            $estado = strtoupper($record['ESTADO'] ?? 'VIGENTE');
-            $badge  = $estado === 'VIGENTE' ? 'success' : 'warning';
-
-            $this->updateInsuranceAttributes($person, $estado);
+            $this->updateInsuranceAttributes($person, 'VIGENTE');
 
             return [
-                'status'  => $estado,
+                'status'  => 'VIGENTE',
                 'message' => '¡Todo en orden! El paciente tiene cobertura dental activa en Alianza.',
-                'badge'   => $badge,
+                'badge'   => 'success',
                 'success' => true,
                 'data'    => [
-                    'CI'                     => $record['NRO. DOCUMENTO']                   ?? $ci,
-                    'CONTRATANTE'            => $record['CONTRATANTE']                      ?? '',
-                    'NOMBRE COMPLETO'        => $record['NOMBRE COMPLETO']                  ?? '',
-                    'ESTADO'                 => $record['ESTADO']                           ?? $estado,
-                    'EDAD'                   => $record['EDAD']                             ?? null,
-                    'CODIGO'                 => $record['CODIGO DE ASEGURADO']              ?? '',
-                    'COBERTURA ODONTOLOGICA' => $record['COBERTURA ADICIONAL ODONTOLOGICA'] ?? '',
-                    'COASEGURO'              => $record['COASEGURO ODONTOLOGICO']           ?? '',
-                    'CLINICA'                => $record['CLINICA ODONTOLOGICA']             ?? '',
-                    'RELACION'               => $record['RELACION']                         ?? '',
-                    'FECHA INGRESO'          => $record['FECHA DE INGRESO']                 ?? '',
+                    'CI'              => $record['ci']         ?? $ci,
+                    'CODIGO'          => $record['clientCode'] ?? '',
+                    'NOMBRE COMPLETO' => $record['clientName'] ?? '',
+                    'ESTADO'          => 'VIGENTE',
+                    'EDAD'            => $record['age']        ?? null,
                 ],
             ];
         }
@@ -228,5 +228,22 @@ class AlianzaDriver implements InsuranceDriverInterface
             'success' => false,
             'data'    => null,
         ];
+    }
+
+    /**
+     * Devuelve el token para logging. Por defecto un hash truncado (no reversible);
+     * solo en claro si ALIANZA_LOG_RAW_TOKEN=true (depuración puntual).
+     */
+    protected function maskToken(?string $token): ?string
+    {
+        if (! $token) {
+            return null;
+        }
+
+        if ($this->logRawToken) {
+            return $token;
+        }
+
+        return 'sha256:' . substr(hash('sha256', $token), 0, 12);
     }
 }
