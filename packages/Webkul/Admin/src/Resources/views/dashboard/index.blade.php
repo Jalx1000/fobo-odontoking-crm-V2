@@ -81,6 +81,8 @@
             {{-- @include('admin::dashboard.index.revenue-by-types') --}}
 
             @include('admin::dashboard.index.quantity-products-pie')
+
+            @include('admin::dashboard.index.services-requested')
         </div>
 
         {!! view_render_event('admin.dashboard.index.content.right.after') !!}
@@ -100,6 +102,41 @@
             {!! view_render_event('admin.dashboard.index.date_filters.before') !!}
 
             <div class="flex gap-1.5">
+
+            <div class="flex gap-1">
+                    <button
+                        type="button"
+                        class="flex min-h-[39px] items-center rounded-md border px-3 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                        @click="setQuickRange(7)"
+                    >
+                        7 días
+                    </button>
+
+                    <button
+                        type="button"
+                        class="flex min-h-[39px] items-center rounded-md border px-3 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                        @click="setQuickRange(30)"
+                    >
+                        30 días
+                    </button>
+
+                    <button
+                        type="button"
+                        class="flex min-h-[39px] items-center rounded-md border px-3 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                        @click="setQuickRange(90)"
+                    >
+                        90 días
+                    </button>
+
+                    <button
+                        type="button"
+                        class="flex min-h-[39px] items-center rounded-md border px-3 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                        @click="setCurrentMonth()"
+                    >
+                        Este mes
+                    </button>
+                </div>
+
                 <x-admin::flat-picker.date
                     class="!w-[140px]"
                     ::allow-input="false"
@@ -115,7 +152,7 @@
                 <x-admin::flat-picker.date
                     class="!w-[140px]"
                     ::allow-input="false"
-                    ::max-date="filters.end"
+                    ::min-date="filters.start"
                 >
                     <input
                         class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
@@ -134,28 +171,92 @@
                 template: '#v-dashboard-filters-template',
 
                 data() {
+                    // Restore the persisted date range ("from|to") from its cookie.
+                    const savedDate = (document.cookie.match(/(?:^|;\s*)global_date_range=([^;]*)/) || [])[1];
+
+                    let savedFrom = '';
+                    let savedTo = '';
+
+                    if (savedDate) {
+                        const parts = decodeURIComponent(savedDate).split('|');
+                        savedFrom = parts[0] || '';
+                        savedTo = parts[1] || '';
+                    }
+
                     return {
                         filters: {
-                            channel: '',
+                            start: savedFrom || "{{ $startDate->format('Y-m-d') }}",
 
-                            start: "{{ $startDate->format('Y-m-d') }}",
-
-                            end: "{{ $endDate->format('Y-m-d') }}"
-                        }
-                    }
+                            end: savedTo || "{{ $endDate->format('Y-m-d') }}",
+                        },
+                    };
                 },
 
                 watch: {
+                    // Emit on any filter change so the cards reload.
                     filters: {
                         handler() {
                             this.$emitter.emit('reporting-filter-updated', this.filters);
                         },
 
-                        deep: true
-                    }
+                        deep: true,
+                    },
+
+                    'filters.start'() {
+                        this.setDateCookie(this.filters.start, this.filters.end);
+                    },
+
+                    'filters.end'() {
+                        this.setDateCookie(this.filters.start, this.filters.end);
+                    },
                 },
 
+                mounted() {
+                    // Apply the initial (possibly cookie-restored) range once the cards have
+                    // registered their listeners, so the dashboard loads already filtered
+                    // instead of falling back to the backend default range.
+                    this.$nextTick(() => {
+                        this.$emitter.emit('reporting-filter-updated', this.filters);
+                    });
+                },
 
+                methods: {
+                    setDateCookie(from, to) {
+                        if (! from || ! to) {
+                            return;
+                        }
+
+                        const maxAge = 60 * 60 * 24 * 365;
+
+                        document.cookie = `global_date_range=${encodeURIComponent(from + '|' + to)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+                    },
+
+                    formatDate(date) {
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+
+                        return `${year}-${month}-${day}`;
+                    },
+
+                    setQuickRange(days) {
+                        const end = new Date();
+                        const start = new Date();
+
+                        start.setDate(end.getDate() - (days - 1));
+
+                        this.filters.start = this.formatDate(start);
+                        this.filters.end = this.formatDate(end);
+                    },
+
+                    setCurrentMonth() {
+                        const end = new Date();
+                        const start = new Date(end.getFullYear(), end.getMonth(), 1);
+
+                        this.filters.start = this.formatDate(start);
+                        this.filters.end = this.formatDate(end);
+                    },
+                },
             });
         </script>
     @endPushOnce

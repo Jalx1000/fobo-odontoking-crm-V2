@@ -33,11 +33,11 @@ class Product extends AbstractReporting
             ->with('product')
             ->when(request('user_id'), function ($q) {
                 $q->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
-                  ->where('leads.user_id', request('user_id'));
+                    ->where('leads.user_id', request('user_id'));
             })
             ->when(request('organization_id'), function ($q) {
                 $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
-                  ->where('persons.organization_id', request('organization_id'));
+                    ->where('persons.organization_id', request('organization_id'));
             })
             ->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
             ->leftJoin('products', 'lead_products.product_id', '=', 'products.id')
@@ -78,11 +78,11 @@ class Product extends AbstractReporting
             ->with('product')
             ->when(request('user_id'), function ($q) {
                 $q->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
-                  ->where('leads.user_id', request('user_id'));
+                    ->where('leads.user_id', request('user_id'));
             })
             ->when(request('organization_id'), function ($q) {
                 $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
-                  ->where('persons.organization_id', request('organization_id'));
+                    ->where('persons.organization_id', request('organization_id'));
             })
             ->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
             ->leftJoin('products', 'lead_products.product_id', '=', 'products.id')
@@ -110,6 +110,45 @@ class Product extends AbstractReporting
         });
 
         return $items;
+    }
+
+    /**
+     * Retrieves every service ever requested across all leads, ignoring the date range.
+     *
+     * Unlike the other reporting methods this one is intentionally NOT bound to the
+     * dashboard date filter: it answers "how many times has each service been
+     * requested in total?". Returns the aggregated list plus the grand total.
+     */
+    public function getAllServicesRequested(): array
+    {
+        $tablePrefix = DB::getTablePrefix();
+
+        $items = $this->productRepository
+            ->resetModel()
+            ->leftJoin('products', 'lead_products.product_id', '=', 'products.id')
+            ->select(
+                'products.id as product_id',
+                'products.name'
+            )
+            ->addSelect(DB::raw('SUM('.$tablePrefix.'lead_products.quantity) as total_qty_ordered'))
+            ->addSelect(DB::raw('COUNT(DISTINCT '.$tablePrefix.'lead_products.lead_id) as leads_count'))
+            ->whereNotNull('lead_products.product_id')
+            ->groupBy('products.id', 'products.name')
+            ->having(DB::raw('SUM('.$tablePrefix.'lead_products.quantity)'), '>', 0)
+            ->orderByDesc('total_qty_ordered')
+            ->get();
+
+        $statistics = $items->map(fn ($item) => [
+            'id'                => $item->product_id,
+            'name'              => $item->name ?: '—',
+            'total_qty_ordered' => (int) $item->total_qty_ordered,
+            'leads_count'       => (int) $item->leads_count,
+        ])->values()->toArray();
+
+        return [
+            'statistics' => $statistics,
+            'total'      => array_sum(array_column($statistics, 'total_qty_ordered')),
+        ];
     }
 
     /**
@@ -152,9 +191,12 @@ class Product extends AbstractReporting
 
         $intervals = $this->generateTimeIntervals($this->startDate, $this->endDate, $period);
 
-        $groupColumn = $this->getGroupColumn('leads.created_at', $period);
-
         $tablePrefix = DB::getTablePrefix();
+
+        // The grouping column is a raw expression, so it is NOT auto-prefixed by the
+        // query builder; qualify it with the table prefix to avoid "Unknown column
+        // 'leads.created_at'" (the real table is e.g. od_leads).
+        $groupColumn = $this->getGroupColumn($tablePrefix.'leads.created_at', $period);
 
         $query = $this->productRepository
             ->resetModel()
@@ -253,7 +295,9 @@ class Product extends AbstractReporting
     {
         return match ($period) {
             'day'   => $date->format('Y-m-d'),
-            'week'  => clone $date->startOfWeek()->format('Y-m-d'),
+            // Sunday-based week start to match the SQL grouping (DAYOFWEEK: Sunday = 1).
+            // copy() avoids mutating the loop's date via startOfWeek().
+            'week'  => $date->copy()->startOfWeek(\Carbon\Carbon::SUNDAY)->format('Y-m-d'),
             'month' => $date->format('Y-m'),
             'year'  => $date->format('Y'),
             default => $date->format('Y-m-d'),
@@ -264,7 +308,7 @@ class Product extends AbstractReporting
     {
         return match ($period) {
             'day'   => $date->format('d M'),
-            'week'  => clone $date->startOfWeek()->format('d M') . ' - ' . clone $date->endOfWeek()->format('d M'),
+            'week'  => $date->copy()->startOfWeek(\Carbon\Carbon::SUNDAY)->format('d M').' - '.$date->copy()->endOfWeek(\Carbon\Carbon::SATURDAY)->format('d M'),
             'month' => $date->format('M Y'),
             'year'  => $date->format('Y'),
             default => $date->format('d M'),

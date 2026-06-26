@@ -65,6 +65,10 @@
                     {!! view_render_event('admin.activities.index.toggle_view.before') !!}
 
                     <div class="flex items-center gap-x-2.5">
+                        @if (bouncer()->hasPermission('activities'))
+                            <v-smd-sync-control></v-smd-sync-control>
+                        @endif
+
                         @if (bouncer()->hasPermission('leads.create'))
                             <a
                                 href="{{ route('admin.leads.create') }}"
@@ -420,6 +424,10 @@
         </script>
 
         @include('admin::components.activities.doctor-day-calendar')
+
+        @if (bouncer()->hasPermission('activities'))
+            @include('admin::components.smd-sync-control')
+        @endif
 
         <script type="module">
             app.component('v-activities', {

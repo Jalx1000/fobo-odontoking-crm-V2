@@ -45,19 +45,34 @@
                 this.prepare();
             },
 
+            beforeUnmount() {
+                // Destruir la instancia al desmontar evita que Chart.js siga su loop de
+                // dibujado sobre un canvas ya removido del DOM (getContext sobre null).
+                if (this.chart) {
+                    this.chart.destroy();
+                    this.chart = undefined;
+                }
+            },
+
             methods: {
                 prepare() {
                     const barCount = this.datasets.length;
-                    
+
                     this.datasets.forEach((dataset) => {
                         dataset.barThickness = Math.max(4, 36 / barCount);
                     });
-        
+
                     if (this.chart) {
                         this.chart.destroy();
                     }
 
-                    this.chart = new Chart(document.getElementById(this.$.uid + '_chart'), {
+                    const canvas = document.getElementById(this.$.uid + '_chart');
+
+                    if (! canvas) {
+                        return;
+                    }
+
+                    this.chart = new Chart(canvas, {
                         type: 'bar',
                         
                         data: {

@@ -331,7 +331,11 @@
                     applied: {
                         filters: {
                             columns: [],
-                        }
+                        },
+
+                        // Quick date-range filter: null | '7' | '30' | '90' | 'month'.
+                        // Persisted in a cookie so it survives reloads and other sessions.
+                        dateRange: null,
                     },
 
                     finalized: {
@@ -345,6 +349,8 @@
                     stageLeads: {},
 
                     isLoading: true,
+
+                    appendingStages: {},
 
                     tagTextColor: {
                         '#FEE2E2': '#DC2626',
@@ -385,6 +391,10 @@
                  * @returns {void}
                  */
                 boot() {
+                    // Restore the persisted date-range filter so the first load already
+                    // reflects it (cookie is the source of truth for this filter).
+                    this.applied.dateRange = this.readDateRange();
+
                     let kanbans = this.getKanbans();
 
                     if (kanbans?.length) {
@@ -425,6 +435,12 @@
                         pipeline_id: "{{ request('pipeline_id') }}",
                         limit: 20,
                     };
+
+                    // Include the active date-range filter on every request (initial load,
+                    // filtering and infinite-scroll pagination) so all stay consistent.
+                    if (this.applied.dateRange) {
+                        params.date_range = this.applied.dateRange;
+                    }
 
                     this.applied.filters.columns.forEach((column) => {
                         if (column.index === 'all') {
@@ -516,8 +532,14 @@
                  * @returns {void}
                  */
                 append(params) {
-                    this.get(params)
+                    return this.get(params)
                         .then(response => {
+                            // get() swallows request errors and resolves to undefined.
+                            // Bail out instead of throwing on response.data.
+                            if (! response) {
+                                return;
+                            }
+
                             for (let [sortOrder, data] of Object.entries(response.data)) {
                                 if (! this.stageLeads[sortOrder]) {
                                     this.stageLeads[sortOrder] = data;
@@ -669,22 +691,100 @@
                  * @returns {void}
                  */
                 handleScroll(stage, event) {
-                    const bottom = event.target.scrollHeight - event.target.scrollTop === event.target.clientHeight;
+                    // Tolerancia: scrollTop puede ser fraccionario (pantallas HiDPI / zoom /
+                    // subpixel), por lo que comparar con === casi nunca dispara y las columnas
+                    // con muchos leads nunca cargan las páginas siguientes. Usamos un umbral
+                    // que además precarga un poco antes de llegar al fondo.
+                    const THRESHOLD = 150;
+                    const distanceToBottom = event.target.scrollHeight - event.target.scrollTop - event.target.clientHeight;
 
-                    if (! bottom) {
+                    if (distanceToBottom > THRESHOLD) {
                         return;
                     }
 
-                    if (this.stageLeads[stage.sort_order].leads.meta.current_page == this.stageLeads[stage.sort_order].leads.meta.last_page) {
+                    const sortOrder = stage.sort_order;
+
+                    // Guard de concurrencia: evita disparar la misma página varias veces
+                    // mientras la petición anterior sigue en vuelo (precarga + scroll rápido).
+                    if (this.appendingStages[sortOrder]) {
                         return;
                     }
+
+                    if (this.stageLeads[sortOrder].leads.meta.current_page >= this.stageLeads[sortOrder].leads.meta.last_page) {
+                        return;
+                    }
+
+                    this.appendingStages[sortOrder] = true;
 
                     this.append({
                         pipeline_stage_id: stage.id,
                         pipeline_id: stage.lead_pipeline_id,
-                        page: this.stageLeads[stage.sort_order].leads.meta.current_page + 1,
+                        page: this.stageLeads[sortOrder].leads.meta.current_page + 1,
                         limit: 20,
+                    }).finally(() => {
+                        this.appendingStages[sortOrder] = false;
                     });
+                },
+
+                /**
+                 * Applies (or toggles off) a quick date-range filter and reloads every column.
+                 *
+                 * @param {string} range - One of '7', '30', '90', 'month'.
+                 * @returns {void}
+                 */
+                applyDateRange(range) {
+                    // Clicking the active range again clears the filter.
+                    this.applied.dateRange = this.applied.dateRange === range ? null : range;
+
+                    this.persistDateRange();
+
+                    this.get()
+                        .then(response => {
+                            if (! response) {
+                                return;
+                            }
+
+                            for (let [sortOrder, data] of Object.entries(response.data)) {
+                                this.stageLeads[sortOrder] = data;
+                            }
+                        });
+                },
+
+                //=======================================================================================
+                // Date-range filter persistence (cookie based, so it is shared across reloads).
+                //=======================================================================================
+
+                /**
+                 * Stores the active date range in a cookie (1 year, site-wide).
+                 *
+                 * @returns {void}
+                 */
+                persistDateRange() {
+                    const maxAge = 60 * 60 * 24 * 365; // 1 year in seconds.
+
+                    if (this.applied.dateRange) {
+                        document.cookie = `kanban_date_range=${this.applied.dateRange}; path=/; max-age=${maxAge}; SameSite=Lax`;
+                    } else {
+                        // Expire the cookie when the filter is cleared.
+                        document.cookie = 'kanban_date_range=; path=/; max-age=0; SameSite=Lax';
+                    }
+                },
+
+                /**
+                 * Reads the persisted date range from the cookie.
+                 *
+                 * @returns {string|null} One of '7', '30', '90', 'month' or null.
+                 */
+                readDateRange() {
+                    const match = document.cookie.match(/(?:^|;\s*)kanban_date_range=([^;]+)/);
+
+                    if (! match) {
+                        return null;
+                    }
+
+                    const value = decodeURIComponent(match[1]);
+
+                    return ['7', '30', '90', 'month'].includes(value) ? value : null;
                 },
 
                 //=======================================================================================

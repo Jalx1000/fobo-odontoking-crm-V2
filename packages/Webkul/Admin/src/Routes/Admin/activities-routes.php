@@ -2,6 +2,13 @@
 
 use Illuminate\Support\Facades\Route;
 use Webkul\Admin\Http\Controllers\Activity\ActivityController;
+use Webkul\Admin\Http\Controllers\Activity\SmdSyncController;
+
+Route::controller(SmdSyncController::class)->prefix('activities/smd')->group(function () {
+    Route::post('sync', 'sync')->name('admin.activities.smd.sync');
+    Route::get('sync/status', 'status')->name('admin.activities.smd.sync.status');
+    Route::post('pause', 'pause')->name('admin.activities.smd.pause');
+});
 
 Route::controller(ActivityController::class)->prefix('activities')->group(function () {
     Route::get('', 'index')->name('admin.activities.index');

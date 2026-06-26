@@ -101,7 +101,7 @@
                             this.extendColors(this.report.statistics.length);
                             this.isLoading = false;
                         })
-                        .catch(error => {});
+                        .catch(error => { this.isLoading = false; console.error(error); });
                 },
                 extendColors(length) {
                     while (this.colors.length < length) {

@@ -139,6 +139,16 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 /**
+ * Disponibilidad real (ShareMeData − citas locales) con fallback local.
+ * Endpoint recomendado para clientes externos (agente IA) en lugar de
+ * /horarios y /disponibilidad (deprecados) y /api/doctors/{id}/slots (solo local).
+ */
+Route::middleware(['auth:sanctum', 'throttle:doctor-availability'])->group(function () {
+    Route::get('doctors/{id}/available-slots', [\App\Http\Controllers\Api\DoctorAvailabilityController::class, 'availableSlots'])
+        ->where('id', '[1-9][0-9]*');
+});
+
+/**
  * Override del endpoint REST de actividades con validación médica (turno local + ShareMeData).
  * Debe estar registrado ANTES de que el vendor krayin/rest-api cargue sus rutas.
  */

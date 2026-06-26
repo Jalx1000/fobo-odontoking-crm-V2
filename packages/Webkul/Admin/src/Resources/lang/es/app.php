@@ -1585,6 +1585,14 @@ return [
     'activities' => [
         'index' => [
             'title'    => 'Calendario',
+            'smd-sync' => [
+                'sync-now'     => 'Sincronizar ahora',
+                'syncing'      => 'Sincronizando…',
+                'pause'        => 'Pausar sincronización',
+                'resume'       => 'Reanudar sincronización',
+                'pause-hint'   => 'La sincronización automática está activa. Clic para pausarla.',
+                'resume-hint'  => 'La sincronización automática está en pausa. Clic para reanudarla.',
+            ],
             'datagrid' => [
                 'comment'       => 'Comentario',
                 'created_at'    => 'Creado En',
@@ -1812,6 +1820,12 @@ return [
                         'from'          => 'De',
                         'select'        => 'Seleccionar',
                         'to'            => 'A',
+                    ],
+                    'date-range' => [
+                        'last-7-days'  => '7 días',
+                        'last-30-days' => '30 días',
+                        'last-90-days' => '90 días',
+                        'this-month'   => 'Este mes',
                     ],
                 ],
                 'stages' => [
@@ -2050,6 +2064,7 @@ return [
             'over-all' => [
                 'average-lead-value'    => 'Valor Promedio de Paciente',
                 'total-leads'           => 'Total de Pacientes',
+                'total-citas'           => 'Total de Citas',
                 'average-leads-per-day' => 'Pacientes Promedio por Día',
                 'total-quotations'      => 'Total de Cotizaciones',
                 'total-persons'         => 'Total de Pacientes',
@@ -2076,6 +2091,12 @@ return [
                 'title'       => 'Servicios Más Vendidos',
                 'empty-title' => 'No Se Encontraron Servicios',
                 'empty-info'  => 'No hay servicios disponibles para el intervalo seleccionado',
+            ],
+            'services-requested' => [
+                'title'       => 'Servicios Solicitados',
+                'leads'       => 'citas',
+                'empty-title' => 'No Se Encontraron Servicios',
+                'empty-info'  => 'Aún no se ha solicitado ningún servicio',
             ],
             'top-selling-products' => [
                 'title'       => 'Servicios Más Vendidos',

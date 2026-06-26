@@ -61,6 +61,14 @@
                 this.$emitter.on('reporting-filter-updated', this.getStats);
             },
 
+            beforeUnmount() {
+                // Evita que Chart.js dibuje sobre un canvas ya removido (getContext sobre null).
+                if (this.chart) {
+                    this.chart.destroy();
+                    this.chart = undefined;
+                }
+            },
+
             methods: {
                 getStats(filters) {
                     this.isLoading = true;
@@ -86,6 +94,11 @@
                         return;
                     }
                     const ctx = document.getElementById(this.$.uid + '_chart')?.getContext('2d');
+
+                    if (! ctx) {
+                        return;
+                    }
+
                     const gradient = ctx.createLinearGradient(0, 0, 0, 400);
                     gradient.addColorStop(0, 'rgba(144, 247, 236, 0.8)');
                     gradient.addColorStop(1, 'rgba(50, 204, 188, 1)');

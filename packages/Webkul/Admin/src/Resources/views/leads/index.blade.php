@@ -23,6 +23,11 @@
         {!! view_render_event('admin.leads.index.header.right.before') !!}
 
         <div class="flex items-center gap-x-2.5">
+            <!-- Control de sincronización con ShareMeData -->
+            @if (bouncer()->hasPermission('activities'))
+                <v-smd-sync-control></v-smd-sync-control>
+            @endif
+
             <!-- Upload File for Lead Creation -->
             @if(core()->getConfigData('general.magic_ai.doc_generation.enabled'))
                 @include('admin::leads.index.upload')
@@ -63,4 +68,10 @@
     </div>
 
     {!! view_render_event('admin.leads.index.content.after') !!}
+
+    @if (bouncer()->hasPermission('activities'))
+        @pushOnce('scripts')
+            @include('admin::components.smd-sync-control')
+        @endPushOnce
+    @endif
 </x-admin::layouts>

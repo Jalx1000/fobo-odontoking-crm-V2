@@ -119,6 +119,14 @@ class LeadController extends Controller
                 $query->whereIn('leads.user_id', $userIds);
             }
 
+            /**
+             * Date range quick-filter (7 / 30 / 90 days / current month). Applied before the
+             * sum() clone and the paginator so both the column totals and the cards respect it.
+             */
+            if ($from = $this->resolveDateRangeFrom(request()->query('date_range'))) {
+                $query->where('leads.created_at', '>=', $from);
+            }
+
             $stage->lead_value = (clone $query)->sum('lead_value');
 
             $data[$stage->sort_order] = (new StageResource($stage))->jsonSerialize();
@@ -136,7 +144,7 @@ class LeadController extends Controller
                     'pipeline.stages',
                     'stage',
                     'attribute_values',
-                ])->paginate(10)),
+                ])->paginate($this->resolveKanbanPerPage())),
 
                 'meta' => [
                     'current_page' => $paginator->currentPage(),
@@ -150,6 +158,38 @@ class LeadController extends Controller
         }
 
         return response()->json($data);
+    }
+
+    /**
+     * Resolves the starting datetime for the kanban date-range quick filter.
+     *
+     * Accepted values: "7", "30", "90" (last N days) and "month" (current month).
+     * Any other/empty value disables the filter (returns null). The boundary is
+     * computed server-side so it is consistent regardless of the client timezone.
+     */
+    protected function resolveDateRangeFrom(?string $range): ?Carbon
+    {
+        return match ($range) {
+            '7'     => now()->subDays(7),
+            '30'    => now()->subDays(30),
+            '90'    => now()->subDays(90),
+            'month' => now()->startOfMonth(),
+            default => null,
+        };
+    }
+
+    /**
+     * Resolves how many leads each kanban column page returns.
+     *
+     * Honours the request "limit" (sent by the infinite-scroll frontend) so the
+     * backend and frontend share a single source of truth, clamped to a sane
+     * range to avoid abusive page sizes.
+     */
+    protected function resolveKanbanPerPage(): int
+    {
+        $limit = (int) request()->query('limit', 10);
+
+        return max(1, min($limit, 100));
     }
 
     /**

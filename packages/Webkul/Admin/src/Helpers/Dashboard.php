@@ -85,6 +85,14 @@ class Dashboard
     }
 
     /**
+     * Returns every service ever requested (all-time, ignores the date filter).
+     */
+    public function getServicesRequestedStats(): array
+    {
+        return $this->productReporting->getAllServicesRequested();
+    }
+
+    /**
      * Returns leads revenue statistics by sources.
      */
     public function getLeadsStatsBySources(): mixed
@@ -123,7 +131,7 @@ class Dashboard
     {
         return $this->productReporting->getTopSellingProductsByRevenue(5);
     }
-    
+
     public function getTopSellingProductsByQuantity(): Collection
     {
         return $this->productReporting->getTopSellingProductsByQuantity(5);

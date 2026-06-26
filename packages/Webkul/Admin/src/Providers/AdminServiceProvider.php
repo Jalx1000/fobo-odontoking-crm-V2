@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Webkul\Admin\Console\Commands\InitDropboxCursor;
+use Webkul\Admin\Console\Commands\LinkDoctorsSmd;
 use Webkul\Admin\Console\Commands\SyncDropboxAppointments;
 use Webkul\Admin\Exceptions\Handler;
 use Webkul\Admin\Http\Middleware\Bouncer as BouncerMiddleware;
@@ -66,6 +67,7 @@ class AdminServiceProvider extends ServiceProvider
         $this->commands([
             InitDropboxCursor::class,
             SyncDropboxAppointments::class,
+            LinkDoctorsSmd::class,
         ]);
     }
 

@@ -1482,6 +1482,10 @@
             this.updateNow();
             this.nowTimer = window.setInterval(this.updateNow, 30000);
             window.addEventListener('keydown', this.onKeyDown);
+
+            // Recargar el calendario cuando termina una sincronización con ShareMeData.
+            this.onSmdSynced = () => this.fetch();
+            this.$emitter.on('smd-sync-completed', this.onSmdSynced);
         },
         beforeUnmount() {
             if (this.nowTimer) {
@@ -1489,6 +1493,10 @@
                 this.nowTimer = null;
             }
             window.removeEventListener('keydown', this.onKeyDown);
+
+            if (this.onSmdSynced) {
+                this.$emitter.off('smd-sync-completed', this.onSmdSynced);
+            }
         },
         methods: {
             loadInsuranceOptions() {

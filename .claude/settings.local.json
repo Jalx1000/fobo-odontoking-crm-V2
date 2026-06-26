@@ -39,7 +39,19 @@
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d['schedule'][0]['slots'], indent=2\\)\\)\")",
       "Bash(python3 -c ' *)",
       "Bash(php -l packages/Webkul/Admin/src/Services/Insurance/Drivers/AlianzaDriver.php)",
-      "Bash(php -l config/services.php)"
+      "Bash(php -l config/services.php)",
+      "Bash(php -l packages/Webkul/Admin/src/Console/Commands/LinkDoctorsSmd.php)",
+      "Bash(php -l packages/Webkul/Admin/src/Providers/AdminServiceProvider.php)",
+      "Bash(php -l packages/Webkul/Admin/src/Services/AvailabilityResolverService.php)",
+      "Bash(php -l app/Http/Controllers/Api/DoctorAvailabilityController.php)",
+      "Bash(php -l routes/api.php)",
+      "Bash(php -l tests/Feature/AvailabilityResolverServiceTest.php)",
+      "Bash(php -l tests/Feature/InsuranceVerifyApiStatusTest.php)",
+      "Bash(awk \"/'activities' =>/{f=NR} END{print f}\" packages/Webkul/Admin/src/Resources/lang/es/app.php)",
+      "Bash(php -l tests/Feature/SmdAppointmentSyncTest.php)",
+      "Bash(php -l packages/Webkul/Admin/src/Console/Commands/SyncDropboxAppointments.php)",
+      "Bash(awk '/public function create/,/^    }/' packages/Webkul/Lead/src/Repositories/LeadRepository.php)",
+      "Bash(php -l tests/Feature/LeadKanbanPaginationTest.php)"
     ]
   }
 }

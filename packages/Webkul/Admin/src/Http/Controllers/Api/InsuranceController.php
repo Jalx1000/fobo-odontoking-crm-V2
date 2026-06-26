@@ -124,7 +124,10 @@ class InsuranceController extends Controller
             $data['insurance_type'],
         );
 
-        $httpStatus = $result['success'] === false && $result['status'] === 'INDETERMINADO' ? 502 : 200;
+        // 424 Failed Dependency: la aseguradora externa no respondió/autenticó.
+        // No usar 5xx: el reverse-proxy (Easypanel) intercepta los 502/503 del
+        // upstream y devuelve su propia página HTML, ocultando este JSON al cliente.
+        $httpStatus = $result['success'] === false && $result['status'] === 'INDETERMINADO' ? 424 : 200;
 
         return response()->json($result, $httpStatus);
     }
