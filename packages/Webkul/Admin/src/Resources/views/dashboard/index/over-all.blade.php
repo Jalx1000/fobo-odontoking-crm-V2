@@ -21,7 +21,7 @@
         <!-- Total Sales Section -->
         <template v-else>
             <!-- Stats Cards -->
-            <div class="grid grid-cols-3 gap-4 max-md:grid-cols-2 max-sm:grid-cols-1">
+            <div class="grid grid-cols-4 gap-4 max-lg:grid-cols-2 max-sm:grid-cols-1">
                 <!-- Average Revenue Card (Oculto) -->
                 <!--
                 <div class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-5 dark:border-gray-800 dark:bg-gray-900">
@@ -51,28 +51,28 @@
                 </div>
                 -->
                 
-                <!-- Total Persons Card -->
+                <!-- Total de Prospectos (leads abiertos: Prospecto + Confirmado) -->
                 <div class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-5 dark:border-gray-800 dark:bg-gray-900">
                     <p class="text-xs font-medium text-gray-600 dark:text-gray-300">
-                        @lang('admin::app.dashboard.index.over-all.total-persons')
+                        @lang('admin::app.dashboard.index.over-all.total-leads')
                     </p>
 
                     <div class="flex gap-2">
                         <p class="text-xl font-bold dark:text-gray-300">
-                            @{{ Math.round(report.statistics.total_persons.current) }}
+                            @{{ Math.round(report.statistics.total_leads.current) }}
                         </p>
 
                         <div class="flex items-center gap-0.5">
                             <span
                                 class="text-base !font-semibold text-green-500"
-                                :class="[report.statistics.total_persons.progress < 0 ? 'icon-stats-down text-red-500 dark:!text-red-500' : 'icon-stats-up text-green-500 dark:!text-green-500']"
+                                :class="[report.statistics.total_leads.progress < 0 ? 'icon-stats-down text-red-500 dark:!text-red-500' : 'icon-stats-up text-green-500 dark:!text-green-500']"
                             ></span>
 
                             <p
                                 class="text-xs font-semibold text-green-500"
-                                :class="[report.statistics.total_persons.progress < 0 ?  'text-red-500' : 'text-green-500']"
+                                :class="[report.statistics.total_leads.progress < 0 ?  'text-red-500' : 'text-green-500']"
                             >
-                                @{{ Math.round(Math.abs(report.statistics.total_persons.progress)) }}%
+                                @{{ Math.round(Math.abs(report.statistics.total_leads.progress)) }}%
                             </p>
                         </div>
                     </div>
@@ -131,7 +131,34 @@
                         </div>
                     </div>
                 </div>
-                
+
+                <!-- Total Products Sold (delivered) -->
+                <div class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-5 dark:border-gray-800 dark:bg-gray-900">
+                    <p class="text-xs font-medium text-gray-600 dark:text-gray-300">
+                        Total productos vendidos (Entregados)
+                    </p>
+
+                    <div class="flex gap-2">
+                        <p class="text-xl font-bold dark:text-gray-300">
+                            @{{ Math.round(report.statistics.total_products_sold.current) }}
+                        </p>
+
+                        <div class="flex items-center gap-0.5">
+                            <span
+                                class="text-base !font-semibold text-green-500"
+                                :class="[report.statistics.total_products_sold.progress < 0 ? 'icon-stats-down text-red-500 dark:!text-red-500' : 'icon-stats-up text-green-500 dark:!text-green-500']"
+                            ></span>
+
+                            <p
+                                class="text-xs font-semibold text-green-500"
+                                :class="[report.statistics.total_products_sold.progress < 0 ?  'text-red-500' : 'text-green-500']"
+                            >
+                                @{{ Math.round(Math.abs(report.statistics.total_products_sold.progress)) }}%
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Total Quotes -->
                 <!-- <div class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-5 dark:border-gray-800 dark:bg-gray-900">
                     <p class="text-xs font-medium text-gray-600 dark:text-gray-300">

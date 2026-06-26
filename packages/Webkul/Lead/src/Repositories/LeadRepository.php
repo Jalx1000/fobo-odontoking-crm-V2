@@ -183,6 +183,8 @@ class LeadRepository extends Repository
             }
         }
 
+        $this->applyLeadValueRule($lead, $data);
+
         return $lead;
     }
 
@@ -287,6 +289,10 @@ class LeadRepository extends Repository
 
         if (isset($data['products'])) {
             foreach ($data['products'] as $productId => $productInputs) {
+                // Always (re)compute the line amount = price × quantity so it stays
+                // consistent on edits (the create flow did this, the update didn't).
+                $productInputs['amount'] = (float) ($productInputs['price'] ?? 0) * (float) ($productInputs['quantity'] ?? 0);
+
                 if (Str::contains($productId, 'product_')) {
                     $this->productRepository->create(array_merge([
                         'lead_id' => $lead->id,
@@ -305,6 +311,61 @@ class LeadRepository extends Repository
             $this->productRepository->delete($productId);
         }
 
+        $this->applyLeadValueRule($lead, $data);
+
         return $lead;
+    }
+
+    /**
+     * Keeps lead_value in sync with the products (Σ price × quantity). Only
+     * Supervisores/Administrador may override it manually; for everyone else the
+     * value is always derived from the products. A manual override (the
+     * lead_value_is_manual flag) is preserved across later product edits until a
+     * privileged user clears it. Runs only on saves that carry products, so it
+     * never touches stage-only updates (e.g. kanban drag).
+     */
+    private function applyLeadValueRule($lead, array $data): void
+    {
+        if (! isset($data['products'])) {
+            return;
+        }
+
+        $productSum = (float) $lead->products()->sum(DB::raw('price * quantity'));
+
+        $canOverride = $this->userCanOverrideLeadValue();
+
+        // A manual override requires an explicit signal (lead_value_is_manual) from
+        // a privileged user, plus a submitted value. This avoids accidentally
+        // freezing the value when products change but the field wasn't touched.
+        $wantsManual = $canOverride
+            && ! empty($data['lead_value_is_manual'])
+            && array_key_exists('lead_value', $data)
+            && $data['lead_value'] !== null
+            && $data['lead_value'] !== '';
+
+        if ($wantsManual) {
+            $lead->lead_value = (float) $data['lead_value'];
+            $lead->lead_value_is_manual = true;
+        } elseif ($canOverride) {
+            // Privileged user not requesting a manual override => back to auto.
+            $lead->lead_value = $productSum;
+            $lead->lead_value_is_manual = false;
+        } elseif (! $lead->lead_value_is_manual) {
+            // Non-privileged users can never override; recalc unless a supervisor
+            // previously froze it as a manual override.
+            $lead->lead_value = $productSum;
+        }
+
+        $lead->save();
+    }
+
+    /**
+     * Whether the current user may override lead_value manually.
+     */
+    private function userCanOverrideLeadValue(): bool
+    {
+        $user = auth()->guard('user')->user();
+
+        return $user && in_array(optional($user->role)->name, ['Supervisores', 'Administrador'], true);
     }
 }

@@ -49,6 +49,7 @@ class Dashboard
             'average_lead_value'    => $this->leadReporting->getAverageLeadValueProgress(),
             'average_leads_per_day' => $this->leadReporting->getAverageLeadsPerDayProgress(),
             'total_services'        => $this->productReporting->getTotalServicesProgress(),
+            'total_products_sold'   => $this->productReporting->getTotalProductsSoldProgress(),
             'total_quotations'      => $this->quoteReporting->getTotalQuotesProgress(),
             'total_persons'         => $this->personReporting->getTotalPersonsProgress(),
             'total_organizations'   => $this->organizationReporting->getTotalOrganizationsProgress(),
@@ -202,7 +203,7 @@ class Dashboard
             'ventas'             => $this->leadReporting->getEvolution('ventas'),
             'valor-ventas'       => $this->leadReporting->getEvolution('valor-ventas'),
             'pedidos-creados'    => $this->leadReporting->getEvolution('pedidos-creados'),
-            'productos-vendidos' => $this->leadReporting->buildEvolutionPayload($units['current'], $units['previous'], 'count', 'number'),
+            'productos-vendidos' => $this->leadReporting->buildEvolutionPayload($units['current'], $units['previous'], 'count', 'number', $units['period']),
         ];
     }
 

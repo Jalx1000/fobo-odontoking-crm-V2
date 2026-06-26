@@ -299,7 +299,18 @@ class LeadController extends Controller
             }
 
             if ($dateRange) {
-                $query->whereBetween('leads.created_at', $dateRange);
+                /**
+                 * Option B: filter each stage column by its own event date so the
+                 * board reconciles with the dashboard cards (a delivered order shows
+                 * on its delivery date, a confirmed one on its confirmation date...).
+                 */
+                $dateColumn = match ($stage->code) {
+                    'pedidos-confirmado'                    => 'confirmed_at',
+                    'pedido-entregado', 'pedidos-cancelado' => 'closed_at',
+                    default                                 => 'created_at',
+                };
+
+                $query->whereBetween('leads.'.$dateColumn, $dateRange);
             }
 
             /**

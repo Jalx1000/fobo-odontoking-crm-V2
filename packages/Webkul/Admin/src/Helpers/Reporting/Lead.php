@@ -33,6 +33,16 @@ class Lead extends AbstractReporting
     protected array $lostStageIds;
 
     /**
+     * The confirmed stage ids.
+     */
+    protected array $confirmedStageIds;
+
+    /**
+     * The prospecto stage ids.
+     */
+    protected array $prospectoStageIds;
+
+    /**
      * Role names excluded from vendor/sales statistics. Must match `roles.name` in the database exactly.
      */
     protected array $ignoredRoleNames = ['Supervisores', 'Administrador'];
@@ -71,7 +81,53 @@ class Lead extends AbstractReporting
             ->pluck('id')
             ->toArray();
 
+        $this->confirmedStageIds = $this->stageRepository
+            ->resetModel()
+            ->where('code', 'pedidos-confirmado')
+            ->orWhereRaw("LOWER(name) LIKE '%confirmado%'")
+            ->pluck('id')
+            ->toArray();
+
+        $this->prospectoStageIds = $this->stageRepository
+            ->resetModel()
+            ->where('code', 'prospectos')
+            ->orWhereRaw("LOWER(name) LIKE '%prospecto%'")
+            ->pluck('id')
+            ->toArray();
+
         parent::__construct();
+    }
+
+    /**
+     * "Open" pipeline stages = Prospecto + Pedido confirmado (not yet delivered nor
+     * cancelled). The dashboard counts "Prospectos" as the leads currently in these
+     * stages, so the cards reconcile with the kanban (Prospecto + Confirmado columns).
+     */
+    protected function openStageIds(): array
+    {
+        return array_values(array_unique(array_merge($this->prospectoStageIds, $this->confirmedStageIds))) ?: [0];
+    }
+
+    /**
+     * SQL CASE expression for the "event date" of a lead based on its current
+     * stage (Option B): prospecto => created_at, confirmado => confirmed_at,
+     * entregado/cancelado => closed_at. Falls back to created_at when the event
+     * date is null (legacy rows). Used so every stage-based metric and the kanban
+     * count a lead on the date it reached its current stage.
+     */
+    protected function stageEventDateExpr(string $table = 'leads'): string
+    {
+        $prefix = DB::getTablePrefix();
+        $col = $prefix.$table;
+
+        $confirmed = implode(',', $this->confirmedStageIds ?: [0]);
+        $closed = implode(',', array_merge($this->wonStageIds, $this->lostStageIds) ?: [0]);
+
+        return "CASE
+            WHEN {$col}.lead_pipeline_stage_id IN ({$confirmed}) THEN COALESCE({$col}.confirmed_at, {$col}.created_at)
+            WHEN {$col}.lead_pipeline_stage_id IN ({$closed}) THEN COALESCE({$col}.closed_at, {$col}.created_at)
+            ELSE {$col}.created_at
+        END";
     }
 
     /**
@@ -95,11 +151,13 @@ class Lead extends AbstractReporting
      */
     public function getTotalLeadsOverTime($period = 'auto'): array
     {
-        $this->stageIds = array_values(array_diff($this->allStageIds, $this->lostStageIds));
+        // "Prospectos" = leads currently in Prospecto or Pedido confirmado, counted
+        // by each stage's event date so it reconciles with the kanban.
+        $this->stageIds = $this->openStageIds();
 
         $period = $this->determinePeriod($period);
 
-        return $this->getOverTimeStats($this->startDate, $this->endDate, 'leads.id', 'created_at', $period);
+        return $this->getOverTimeStats($this->startDate, $this->endDate, 'leads.id', $this->stageEventDateExpr(), $period);
     }
 
     /**
@@ -148,8 +206,10 @@ class Lead extends AbstractReporting
                 break;
 
             case 'pedidos-creados':
-                $this->stageIds = $this->allStageIds;
-                $dateColumn = 'created_at';
+                // "Prospectos" = leads currently open (Prospecto + Confirmado), by
+                // each stage's event date.
+                $this->stageIds = $this->openStageIds();
+                $dateColumn = $this->stageEventDateExpr();
                 $valueColumn = 'leads.id';
                 $key = 'count';
                 $format = 'number';
@@ -170,32 +230,59 @@ class Lead extends AbstractReporting
         $current = $this->getOverTimeStats($this->startDate, $this->endDate, $valueColumn, $dateColumn, $period);
         $previous = $this->getOverTimeStats($this->lastStartDate, $this->lastEndDate, $valueColumn, $dateColumn, $period);
 
-        return $this->buildEvolutionPayload($current, $previous, $key, $format);
+        return $this->buildEvolutionPayload($current, $previous, $key, $format, $period);
     }
 
     /**
-     * Builds the evolution payload (labels, series, current/previous averages,
-     * progress and number format) from current and previous over-time buckets.
+     * Builds the evolution payload from current and previous over-time buckets:
+     * the current series, the previous series (aligned bucket-by-bucket), totals,
+     * per-bucket averages, the compared date ranges, progress and number format.
      */
-    public function buildEvolutionPayload(array $current, array $previous, string $key, string $format): array
+    public function buildEvolutionPayload(array $current, array $previous, string $key, string $format, ?string $period = null): array
     {
         $labels = array_map(fn ($row) => $row['label'], $current);
 
         $data = array_map(fn ($row) => $key === 'total' ? round((float) $row['total'], 2) : (int) $row['count'], $current);
 
-        $previousValues = array_map(fn ($row) => $key === 'total' ? (float) $row['total'] : (int) $row['count'], $previous);
+        $previousValues = array_map(fn ($row) => $key === 'total' ? round((float) $row['total'], 2) : (int) $row['count'], $previous);
 
-        $currentAverage = count($data) ? array_sum($data) / count($data) : 0;
-        $previousAverage = count($previousValues) ? array_sum($previousValues) / count($previousValues) : 0;
+        /**
+         * Align the previous series to the current series length so the chart can
+         * compare bucket-by-bucket by position (día 1 vs día 1, ...). Pad with null
+         * or truncate when the bucket counts differ at the period boundaries.
+         */
+        $previousData = [];
+
+        for ($i = 0; $i < count($data); $i++) {
+            $previousData[] = array_key_exists($i, $previousValues) ? $previousValues[$i] : null;
+        }
+
+        $currentTotal = array_sum($data);
+        $previousTotal = array_sum($previousValues);
+
+        $currentAverage = count($data) ? $currentTotal / count($data) : 0;
+        $previousAverage = count($previousValues) ? $previousTotal / count($previousValues) : 0;
+
+        $formatNumber = fn ($value) => $format === 'currency'
+            ? core()->formatBasePrice($value)
+            : (string) (round($value) == $value ? (int) $value : round($value, 1));
 
         return [
             'labels'                     => $labels,
             'data'                       => $data,
+            'previous_data'              => $previousData,
+            'period'                     => $period,
+            'current_total'              => round($currentTotal, 2),
+            'previous_total'             => round($previousTotal, 2),
+            'current_total_formatted'    => $formatNumber($currentTotal),
+            'previous_total_formatted'   => $formatNumber($previousTotal),
             'current_average'            => round($currentAverage, 2),
             'previous_average'           => round($previousAverage, 2),
             'current_average_formatted'  => $format === 'currency' ? core()->formatBasePrice($currentAverage) : (string) round($currentAverage, 1),
             'previous_average_formatted' => $format === 'currency' ? core()->formatBasePrice($previousAverage) : (string) round($previousAverage, 1),
-            'progress'                   => $this->getPercentageChange($previousAverage, $currentAverage),
+            'current_range'              => $this->startDate->format('d M').' – '.$this->endDate->format('d M'),
+            'previous_range'             => $this->lastStartDate->format('d M').' – '.$this->lastEndDate->format('d M'),
+            'progress'                   => $this->getPercentageChange($previousTotal, $currentTotal),
             'format'                     => $format,
         ];
     }
@@ -366,8 +453,9 @@ class Lead extends AbstractReporting
                     'users.name as user_name',
                     DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) AS count')
                 )
-                ->whereBetween('leads.created_at', [$startDate, $endDate])
-                ->whereNotIn('leads.lead_pipeline_stage_id', $this->lostStageIds)
+                // "Prospectos" = leads abiertos (Prospecto + Confirmado) por fecha de evento.
+                ->whereIn('leads.lead_pipeline_stage_id', $this->openStageIds())
+                ->whereRaw('('.$this->stageEventDateExpr().') BETWEEN ? AND ?', [$startDate, $endDate])
                 ->when($pipelineId, function ($q) use ($pipelineId) {
                     $q->where('leads.lead_pipeline_id', $pipelineId);
                 })
@@ -707,7 +795,9 @@ class Lead extends AbstractReporting
                     'leads.lead_pipeline_id as pipeline_id',
                     DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) AS count')
                 )
-                ->whereBetween('leads.created_at', [$startDate, $endDate])
+                // "Prospectos" = leads abiertos (Prospecto + Confirmado) por fecha de evento.
+                ->whereIn('leads.lead_pipeline_stage_id', $this->openStageIds())
+                ->whereRaw('('.$this->stageEventDateExpr().') BETWEEN ? AND ?', [$startDate, $endDate])
                 ->when($pipelineId, function ($q) use ($pipelineId) {
                     $q->where('leads.lead_pipeline_id', $pipelineId);
                 })
@@ -838,12 +928,14 @@ class Lead extends AbstractReporting
      */
     public function getTotalLeads($startDate, $endDate): int
     {
+        // "Prospectos" = leads currently open (Prospecto + Confirmado), by event date.
         return $this->leadRepository
             ->resetModel()
             ->when(is_numeric(request('pipeline_id')) ? request('pipeline_id') : null, function ($q, $pipelineId) {
                 $q->where('lead_pipeline_id', $pipelineId);
             })
-            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereIn('lead_pipeline_stage_id', $this->openStageIds())
+            ->whereRaw('('.$this->stageEventDateExpr().') BETWEEN ? AND ?', [$startDate, $endDate])
             ->count();
     }
 
@@ -1142,7 +1234,7 @@ class Lead extends AbstractReporting
             ->when($pipelineId, function ($q) use ($pipelineId) {
                 $q->where('leads.lead_pipeline_id', $pipelineId);
             })
-            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
+            ->whereRaw('('.$this->stageEventDateExpr().') BETWEEN ? AND ?', [$this->startDate, $this->endDate])
             ->select(
                 'lead_pipeline_stages.name as stage_name',
                 DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) as total')
@@ -1337,7 +1429,9 @@ class Lead extends AbstractReporting
                 $q->where('lead_pipeline_id', $pipelineId);
             })
             ->whereIn('lead_pipeline_stage_id', $this->stageIds)
-            ->whereBetween($dateColumn, [$startDate, $endDate])
+            // whereRaw (not whereBetween) so $dateColumn may also be a raw SQL
+            // expression, e.g. the per-stage event date used for "open" leads.
+            ->whereRaw("($dateColumn) BETWEEN ? AND ?", [$startDate, $endDate])
             ->groupBy(DB::raw($groupColumn))
             ->orderBy(DB::raw($groupColumn));
 
@@ -1365,7 +1459,16 @@ class Lead extends AbstractReporting
     protected function generateTimeIntervals(Carbon $startDate, Carbon $endDate, string $period): array
     {
         $intervals = [];
-        $current = $startDate->copy();
+
+        // Anchor the first bucket to the period boundary so the bucket keys align
+        // with the SQL grouping AND the bucket containing the end date is never
+        // dropped (a mid-period start date used to skip the last week/month).
+        $current = match ($period) {
+            'week'  => $startDate->copy()->startOfWeek(),
+            'month' => $startDate->copy()->startOfMonth(),
+            'year'  => $startDate->copy()->startOfYear(),
+            default => $startDate->copy()->startOfDay(),
+        };
 
         while ($current <= $endDate) {
             $interval = [
@@ -1445,7 +1548,7 @@ class Lead extends AbstractReporting
             case 'day':
                 return $date->format('M d');
             case 'week':
-                return 'Week '.$date->format('W, Y');
+                return 'Semana '.$date->format('W, Y');
             case 'month':
                 return $date->format('M Y');
             case 'year':

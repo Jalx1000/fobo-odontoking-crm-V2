@@ -164,7 +164,9 @@ class Product extends AbstractReporting
             )
             ->addSelect(DB::raw('SUM('.$tablePrefix.'lead_products.quantity) as total_qty_ordered'))
             ->whereIn('leads.lead_pipeline_stage_id', $this->wonStageIds)
-            ->whereRaw('COALESCE('.$tablePrefix.'leads.confirmed_at, '.$tablePrefix.'leads.created_at) BETWEEN ? AND ?', [$this->startDate, $this->endDate])
+            // Option B: delivered products counted by delivery date (closed_at), to
+            // match the "Productos vendidos" KPI and the evolution card.
+            ->whereBetween('leads.closed_at', [$this->startDate, $this->endDate])
             ->having(DB::raw('SUM('.$tablePrefix.'lead_products.quantity)'), '>', 0)
             ->groupBy('products.id', 'products.name', 'products.price')
             ->orderBy('total_qty_ordered', 'DESC')
@@ -211,6 +213,41 @@ class Product extends AbstractReporting
                 $q->where('leads.lead_pipeline_id', $pipelineId);
             })
             ->whereBetween('leads.created_at', [$startDate, $endDate])
+            ->sum(DB::raw($tablePrefix.'lead_products.quantity'));
+    }
+
+    /**
+     * Retrieves total products sold (delivered orders, i.e. won stage) and their
+     * progress. Counts quantity from leads delivered (closed_at) in the period,
+     * mirroring getTotalServicesProgress but restricted to the won/delivered stage.
+     */
+    public function getTotalProductsSoldProgress(): array
+    {
+        return [
+            'previous' => $previous = $this->getTotalProductsSold($this->lastStartDate, $this->lastEndDate),
+            'current'  => $current = $this->getTotalProductsSold($this->startDate, $this->endDate),
+            'progress' => $this->getPercentageChange($previous, $current),
+        ];
+    }
+
+    /**
+     * Retrieves total products sold (delivered) by date.
+     *
+     * @param  \Carbon\Carbon  $startDate
+     * @param  \Carbon\Carbon  $endDate
+     */
+    public function getTotalProductsSold($startDate, $endDate): int
+    {
+        $tablePrefix = DB::getTablePrefix();
+
+        return (int) $this->productRepository
+            ->resetModel()
+            ->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
+            ->when(is_numeric(request('pipeline_id')) ? request('pipeline_id') : null, function ($q, $pipelineId) {
+                $q->where('leads.lead_pipeline_id', $pipelineId);
+            })
+            ->whereIn('leads.lead_pipeline_stage_id', $this->wonStageIds)
+            ->whereBetween('leads.closed_at', [$startDate, $endDate])
             ->sum(DB::raw($tablePrefix.'lead_products.quantity'));
     }
 
@@ -320,6 +357,7 @@ class Product extends AbstractReporting
         return [
             'current'  => $this->getUnitsSoldOverTime($this->startDate, $this->endDate, $period),
             'previous' => $this->getUnitsSoldOverTime($this->lastStartDate, $this->lastEndDate, $period),
+            'period'   => $period,
         ];
     }
 
@@ -329,7 +367,16 @@ class Product extends AbstractReporting
     protected function generateTimeIntervals(\Carbon\Carbon $startDate, \Carbon\Carbon $endDate, string $period): array
     {
         $intervals = [];
-        $current = $startDate->copy();
+
+        // Anchor the first bucket to the period boundary so the bucket keys align
+        // with the SQL grouping AND the bucket containing the end date is never
+        // dropped (a mid-period start date used to skip the last week/month).
+        $current = match ($period) {
+            'week'  => $startDate->copy()->startOfWeek(\Carbon\CarbonInterface::SUNDAY),
+            'month' => $startDate->copy()->startOfMonth(),
+            'year'  => $startDate->copy()->startOfYear(),
+            default => $startDate->copy()->startOfDay(),
+        };
 
         while ($current <= $endDate) {
             $interval = [
