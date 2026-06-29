@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Webkul\Admin\Console\Commands\InitDropboxCursor;
 use Webkul\Admin\Console\Commands\LinkDoctorsSmd;
+use Webkul\Admin\Console\Commands\ReassignSyncedLeads;
 use Webkul\Admin\Console\Commands\SyncDropboxAppointments;
 use Webkul\Admin\Exceptions\Handler;
 use Webkul\Admin\Http\Middleware\Bouncer as BouncerMiddleware;
@@ -68,6 +69,7 @@ class AdminServiceProvider extends ServiceProvider
             InitDropboxCursor::class,
             SyncDropboxAppointments::class,
             LinkDoctorsSmd::class,
+            ReassignSyncedLeads::class,
         ]);
     }
 
@@ -111,5 +113,7 @@ class AdminServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(dirname(__DIR__).'/Config/attribute_lookups.php', 'attribute_lookups');
 
         $this->mergeConfigFrom(dirname(__DIR__).'/Config/attribute_entity_types.php', 'attribute_entity_types');
+
+        $this->mergeConfigFrom(dirname(__DIR__).'/Config/dashboard.php', 'dashboard');
     }
 }

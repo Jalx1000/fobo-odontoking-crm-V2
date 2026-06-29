@@ -1,6 +1,9 @@
 # Plan: corregir "tablero a medias" — leads de la sync asignados al admin
 
-> Estado: **plan aprobado, pendiente de implementar**.
+> Estado: **IMPLEMENTADO Y APLICADO en producción (2026-06-29)**.
+> Backfill ejecutado: 278 leads reasignados a "Sin asignar" (rol Sistema id 18,
+> usuario id 57), auditados en `lead_reassignment_log`, reversibles con
+> `php artisan leads:reassign-synced-to-unassigned --rollback --apply`.
 > Fecha diagnóstico: 2026-06-29. Verificado con datos reales en el contenedor
 > de producción `heaven_odontoking-crm`.
 

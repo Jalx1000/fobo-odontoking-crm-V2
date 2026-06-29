@@ -149,11 +149,18 @@ class LeadRepository extends Repository
             }
 
             if (! $assignedId) {
+                // Sin usuario en contexto (p.ej. la sync SMD/Dropbox por cron): el lead
+                // queda en la cuenta "Sin asignar" (no-admin), para que el tablero
+                // por-vendedor no lo oculte. Antes caía en el primer usuario activo
+                // (= admin id 1), lo que invisibilizaba estos leads en los reportes.
                 $userRepo = app(\Webkul\User\Repositories\UserRepository::class);
-                $fallbackUser = $userRepo->resetModel()->where('status', 1)->orderBy('id')->first();
-                if ($fallbackUser) {
-                    $assignedId = $fallbackUser->id;
-                }
+                $unassigned = $userRepo->resetModel()
+                    ->where('email', config('dashboard.unassigned_user.email'))
+                    ->first();
+
+                // Si la cuenta no existe en este entorno, se deja user_id nulo a
+                // propósito (no se cae al admin).
+                $assignedId = $unassigned?->id;
             }
 
             if ($assignedId) {
