@@ -59,6 +59,10 @@
                         return;
                     }
 
+                    // Mata cualquier instancia "zombie" aún ligada a este canvas antes
+                    // de crear una nueva (evita getContext sobre null en el loop de dibujado).
+                    Chart.getChart(canvas)?.destroy();
+
                     this.chart = new Chart(canvas, {
                         type: 'doughnut',
                         
@@ -69,6 +73,10 @@
                         },
                 
                         options: {
+                            // Sin animación: el chart no entra al Animator de Chart.js, evitando
+                            // que su loop dibuje sobre un canvas ya destruido (getContext de null).
+                            animation: false,
+
                             plugins: {
                                 legend: {
                                     display: false

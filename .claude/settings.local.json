@@ -51,7 +51,20 @@
       "Bash(php -l tests/Feature/SmdAppointmentSyncTest.php)",
       "Bash(php -l packages/Webkul/Admin/src/Console/Commands/SyncDropboxAppointments.php)",
       "Bash(awk '/public function create/,/^    }/' packages/Webkul/Lead/src/Repositories/LeadRepository.php)",
-      "Bash(php -l tests/Feature/LeadKanbanPaginationTest.php)"
+      "Bash(php -l tests/Feature/LeadKanbanPaginationTest.php)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Http/Controllers/Lead/LeadController.php tests/Feature/LeadKanbanPaginationTest.php)",
+      "Bash(npm install *)",
+      "Bash(php -r ' *)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Helpers/Reporting/Lead.php packages/Webkul/Admin/src/Helpers/Reporting/Product.php tests/Feature/DashboardStatsRangeTest.php)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Helpers/Reporting/Lead.php packages/Webkul/Admin/src/Helpers/Reporting/Product.php)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Helpers/Reporting/Lead.php)",
+      "Bash(./vendor/bin/pint tests/Feature/DashboardExcludeAdminsTest.php)",
+      "Bash(cat)",
+      "Bash(docker cp *)",
+      "Bash(rm -f /tmp/chk.php)",
+      "Bash(chown -R www-data:www-data storage bootstrap/cache)",
+      "Bash(echo \"--- exit: $? ---\")",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Console/Commands/ReassignSyncedLeads.php packages/Webkul/Admin/src/Config/dashboard.php packages/Webkul/Admin/src/Database/Migrations/2026_06_29_000001_create_sistema_role_and_unassigned_user.php packages/Webkul/Admin/src/Database/Migrations/2026_06_29_000002_create_lead_reassignment_log_table.php packages/Webkul/Lead/src/Repositories/LeadRepository.php tests/Feature/LeadUnassignedOwnerTest.php tests/Feature/ReassignSyncedLeadsCommandTest.php)"
     ]
   }
 }

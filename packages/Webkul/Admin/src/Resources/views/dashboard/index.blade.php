@@ -53,7 +53,7 @@
             @include('admin::dashboard.index.evolution')
 
             @if ($isAdminRole)
-                <div class="grid grid-cols-3 gap-4 w-full">
+                <div class="grid gap-4 w-full">
                     <div class="col-span-1 flex flex-col gap-4">
                         @include('admin::dashboard.index.ventas')
                     </div>
