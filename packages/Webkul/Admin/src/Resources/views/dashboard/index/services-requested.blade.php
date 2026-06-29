@@ -24,24 +24,26 @@
                     </span>
                 </div>
 
-                <div class="flex flex-col divide-y divide-gray-200 dark:divide-gray-800" v-if="report.statistics.length">
-                    <div
-                        class="flex items-center justify-between gap-2 px-4 py-3"
-                        v-for="stat in report.statistics"
-                        :key="stat.id"
-                    >
-                        <div class="flex min-w-0 flex-col">
-                            <p class="truncate text-sm font-medium text-gray-800 dark:text-gray-200" :title="stat.name">
-                                @{{ stat.name }}
-                            </p>
-                            <p class="text-xs text-gray-400">
-                                @{{ stat.leads_count }} @lang('admin::app.dashboard.index.services-requested.leads')
-                            </p>
-                        </div>
+                <div class="flex flex-col" v-if="report.statistics.length">
+                    <div class="flex w-full max-w-full flex-col gap-4 px-8 pt-4 pb-8">
+                        <x-admin::charts.doughnut
+                            ::labels="chartLabels"
+                            ::datasets="chartDatasets"
+                        />
 
-                        <span class="shrink-0 rounded-md bg-gray-100 px-2.5 py-1 text-sm font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200">
-                            @{{ stat.total_qty_ordered }}
-                        </span>
+                        <div class="flex flex-wrap justify-center gap-5">
+                            <div class="flex items-start gap-2 max-w-[260px]" v-for="(stat, index) in report.statistics" :key="stat.id">
+                                <span class="mt-0.5 h-3.5 w-3.5 shrink-0 rounded-sm" :style="{ backgroundColor: colors[index] }"></span>
+                                <div class="flex min-w-0 flex-col">
+                                    <p class="text-xs font-medium text-gray-800 dark:text-gray-200 break-words" :title="stat.name">
+                                        @{{ stat.name }} — @{{ stat.total_qty_ordered }}
+                                    </p>
+                                    <p class="text-xs text-gray-400">
+                                        @{{ stat.leads_count }} @lang('admin::app.dashboard.index.services-requested.leads')
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -65,8 +67,26 @@
             data() {
                 return {
                     report: { statistics: [], total: 0 },
+                    colors: [
+                        '#8979FF',
+                        '#FF928A',
+                        '#3CC3DF',
+                    ],
                     isLoading: true,
                 }
+            },
+
+            computed: {
+                chartLabels() {
+                    return this.report.statistics.map(({ name }) => name);
+                },
+
+                chartDatasets() {
+                    return [{
+                        data: this.report.statistics.map(({ total_qty_ordered }) => total_qty_ordered),
+                        backgroundColor: this.colors,
+                    }];
+                },
             },
 
             mounted() {
@@ -83,9 +103,17 @@
                         })
                         .then(response => {
                             this.report = response.data.statistics;
+                            this.extendColors(this.report.statistics.length);
                             this.isLoading = false;
                         })
                         .catch(error => { this.isLoading = false; console.error(error); });
+                },
+
+                extendColors(length) {
+                    while (this.colors.length < length) {
+                        const hue = Math.floor(Math.random() * 360);
+                        this.colors.push(`hsl(${hue}, 70%, 60%)`);
+                    }
                 },
             }
         });

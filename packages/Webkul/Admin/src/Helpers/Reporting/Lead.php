@@ -127,6 +127,47 @@ class Lead extends AbstractReporting
         return $this->getOverTimeStats($this->startDate, $this->endDate, 'leads.id', 'closed_at', $period);
     }
 
+    /**
+     * Builds the data for the "Evolución" card: the current period vs the real
+     * previous period, point-to-point comparable.
+     *
+     * Reuses getOverTimeStats() (same counting rule as the bar chart) for both
+     * ranges and aligns the previous series to the current one by index, so the
+     * frontend can draw two overlapping lines (solid = actual, dotted = anterior).
+     *
+     * @param  string  $period
+     */
+    public function getLeadsEvolution($period = 'auto'): array
+    {
+        // Same universe as "Total de Pacientes": every stage except the lost/cancelled ones.
+        $this->stageIds = array_values(array_diff($this->allStageIds, $this->lostStageIds));
+
+        $period = $this->determinePeriod($period);
+
+        $current = $this->getOverTimeStats($this->startDate, $this->endDate, 'leads.id', 'created_at', $period);
+        $previous = $this->getOverTimeStats($this->lastStartDate, $this->lastEndDate, 'leads.id', 'created_at', $period);
+
+        $currentCounts = array_column($current, 'count');
+        $previousCounts = array_column($previous, 'count');
+
+        // Align the previous series to the current length (by index) so both lines
+        // share the same X axis; pad with 0 / truncate the surplus.
+        $size = count($currentCounts);
+        $previousCounts = array_slice(array_pad($previousCounts, $size, 0), 0, $size);
+
+        return [
+            'labels'         => array_column($current, 'label'),
+            'current'        => $currentCounts,
+            'previous'       => $previousCounts,
+            'total'          => array_sum($currentCounts),
+            'previous_total' => array_sum($previousCounts),
+            'current_range'  => $this->startDate->format('d M Y').' - '.$this->endDate->format('d M Y'),
+            'previous_range' => $this->lastStartDate->format('d M Y').' - '.$this->lastEndDate->format('d M Y'),
+            'period'         => $period,
+            'progress'       => $this->getPercentageChange(array_sum($previousCounts), array_sum($currentCounts)),
+        ];
+    }
+
     public function getVendedoresStats($limit = null)
     {
         $tablePrefix = DB::getTablePrefix();
@@ -939,7 +980,9 @@ class Lead extends AbstractReporting
         }
 
         $intervals = $this->generateTimeIntervals($this->startDate, $this->endDate, $period);
-        $groupColumn = $this->getGroupColumn('leads.created_at', $period);
+        // Raw expression: NOT auto-prefixed by the query builder, so qualify with the
+        // table prefix to avoid "Unknown column 'leads.created_at'" (real table is od_leads).
+        $groupColumn = $this->getGroupColumn($tablePrefix.'leads.created_at', $period);
 
         $results = $this->leadRepository
             ->resetModel()

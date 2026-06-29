@@ -32,6 +32,7 @@ class DashboardController extends Controller
         'total-leads-by-stages-over-time' => 'getTotalLeadsByStagesOverTime',
         'total-services'                  => 'getTotalServicesStats',
         'services-requested'              => 'getServicesRequestedStats',
+        'evolution'                       => 'getEvolutionStats',
     ];
 
     /**

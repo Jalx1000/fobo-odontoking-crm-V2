@@ -18,7 +18,7 @@ uses(DatabaseTransactions::class);
  */
 it('el endpoint del kanban entrega todos los leads de un stage al paginar', function () {
     $pipeline = app(PipelineRepository::class)->getDefaultPipeline();
-    $stage    = $pipeline->stages->first();
+    $stage = $pipeline->stages->first();
     $leadRepo = app(LeadRepository::class);
 
     $person = Person::create(['name' => 'Paciente Kanban '.uniqid(), 'entity_type' => 'persons']);
@@ -39,13 +39,13 @@ it('el endpoint del kanban entrega todos los leads de un stage al paginar', func
 
     // Recorrer todas las páginas del stage y juntar los IDs devueltos.
     $collected = [];
-    $page      = 1;
-    $lastPage  = 1;
+    $page = 1;
+    $lastPage = 1;
 
     do {
         $response = $this->actingAs(User::find(1), 'user')
             ->getJson(route('admin.leads.get', ['pipeline_id' => $pipeline->id])
-                . '?pipeline_stage_id=' . $stage->id . '&page=' . $page)
+                .'?pipeline_stage_id='.$stage->id.'&page='.$page)
             ->assertStatus(200);
 
         $column = collect($response->json())->firstWhere('id', $stage->id);
@@ -64,4 +64,78 @@ it('el endpoint del kanban entrega todos los leads de un stage al paginar', func
     expect(array_intersect($createdIds, $collected))->toHaveCount(count($createdIds));
     // Y debió requerir más de una página (prueba que no se quedó en los primeros 10).
     expect($lastPage)->toBeGreaterThan(1);
+});
+
+/**
+ * El filtro rápido por rango de fechas (date_range) acota los leads por created_at.
+ * Con date_range=7 solo deben volver los leads creados en los últimos 7 días.
+ */
+it('el filtro date_range acota los leads por created_at', function () {
+    $pipeline = app(PipelineRepository::class)->getDefaultPipeline();
+    $stage = $pipeline->stages->first();
+    $leadRepo = app(LeadRepository::class);
+
+    $person = Person::create(['name' => 'Paciente Rango '.uniqid(), 'entity_type' => 'persons']);
+
+    $makeLead = function (string $when) use ($leadRepo, $pipeline, $stage, $person) {
+        $lead = $leadRepo->create([
+            'title'                  => 'Lead Rango '.uniqid(),
+            'entity_type'            => 'leads',
+            'lead_pipeline_id'       => $pipeline->id,
+            'lead_pipeline_stage_id' => $stage->id,
+            'user_id'                => 1,
+            'person'                 => ['id' => $person->id],
+        ]);
+
+        $lead->forceFill(['created_at' => $when])->save();
+
+        return $lead->id;
+    };
+
+    $recentId = $makeLead(now()->subDays(2));   // dentro de la ventana de 7 días
+    $oldId = $makeLead(now()->subDays(40));  // fuera de la ventana de 7 días
+
+    $response = $this->actingAs(User::find(1), 'user')
+        ->getJson(route('admin.leads.get', ['pipeline_id' => $pipeline->id])
+            .'?pipeline_stage_id='.$stage->id.'&date_range=7&limit=100')
+        ->assertStatus(200);
+
+    $column = collect($response->json())->firstWhere('id', $stage->id);
+    $ids = collect($column['leads']['data'])->pluck('id');
+
+    expect($ids)->toContain($recentId);
+    expect($ids)->not->toContain($oldId);
+});
+
+/**
+ * El endpoint respeta el parámetro limit (fuente de verdad única con el frontend),
+ * acotado a un máximo razonable.
+ */
+it('el endpoint del kanban respeta el parametro limit', function () {
+    $pipeline = app(PipelineRepository::class)->getDefaultPipeline();
+    $stage = $pipeline->stages->first();
+    $leadRepo = app(LeadRepository::class);
+
+    $person = Person::create(['name' => 'Paciente Limit '.uniqid(), 'entity_type' => 'persons']);
+
+    for ($i = 0; $i < 6; $i++) {
+        $leadRepo->create([
+            'title'                  => 'Lead Limit '.$i.' '.uniqid(),
+            'entity_type'            => 'leads',
+            'lead_pipeline_id'       => $pipeline->id,
+            'lead_pipeline_stage_id' => $stage->id,
+            'user_id'                => 1,
+            'person'                 => ['id' => $person->id],
+        ]);
+    }
+
+    $response = $this->actingAs(User::find(1), 'user')
+        ->getJson(route('admin.leads.get', ['pipeline_id' => $pipeline->id])
+            .'?pipeline_stage_id='.$stage->id.'&limit=3')
+        ->assertStatus(200);
+
+    $column = collect($response->json())->firstWhere('id', $stage->id);
+
+    expect($column['leads']['meta']['per_page'])->toBe(3);
+    expect(count($column['leads']['data']))->toBe(3);
 });

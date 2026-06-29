@@ -21,7 +21,7 @@
         <!-- Total Sales Section -->
         <template v-else>
             <!-- Stats Cards -->
-            <div class="grid grid-cols-3 gap-4 max-md:grid-cols-2 max-sm:grid-cols-1">
+            <div class="grid grid-cols-4 gap-4 max-lg:grid-cols-2 max-sm:grid-cols-1">
                 <!-- Average Revenue Card (Oculto) -->
                 <!--
                 <div class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-5 dark:border-gray-800 dark:bg-gray-900">

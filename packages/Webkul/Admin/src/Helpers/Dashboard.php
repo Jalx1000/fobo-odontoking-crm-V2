@@ -93,6 +93,14 @@ class Dashboard
     }
 
     /**
+     * Returns the evolution statistics (current vs previous period).
+     */
+    public function getEvolutionStats(): array
+    {
+        return $this->leadReporting->getLeadsEvolution();
+    }
+
+    /**
      * Returns leads revenue statistics by sources.
      */
     public function getLeadsStatsBySources(): mixed

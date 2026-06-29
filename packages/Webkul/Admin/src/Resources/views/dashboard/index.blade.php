@@ -37,7 +37,9 @@
 
     @php
         $user = auth()->guard('user')->user();
-        $isAdminRole = strtolower(optional($user->role)->name) === 'admin';
+        // Detecta el rol Administrador (cubre "Administrator"/"Administrador"); antes
+        // comparaba === 'admin', que nunca coincidía y dejaba el card "ventas" muerto.
+        $isAdminRole = str_starts_with(strtolower((string) optional($user->role)->name), 'admin');
     @endphp
 
     <div class="mt-3.5 flex gap-4 max-xl:flex-wrap">
@@ -48,6 +50,7 @@
             {{-- @include('admin::dashboard.index.revenue') --}}
             @include('admin::dashboard.index.over-all')
             @include('admin::dashboard.index.total-leads')
+            @include('admin::dashboard.index.evolution')
 
             @if ($isAdminRole)
                 <div class="grid grid-cols-3 gap-4 w-full">

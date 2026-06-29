@@ -2252,6 +2252,12 @@ return [
                 'total-organizations'   => 'Total Organizations',
             ],
 
+            'evolution' => [
+                'title'    => 'Evolution',
+                'vs'       => 'vs',
+                'current'  => 'Current period',
+                'previous' => 'Previous period',
+            ],
             'total-leads' => [
                 'title' => 'Leads',
                 'total' => 'Total Leads',

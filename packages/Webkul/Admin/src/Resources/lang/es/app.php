@@ -2076,6 +2076,12 @@ return [
                 'won'   => 'Pacientes Ganados',
                 'lost'  => 'Pacientes Perdidos',
             ],
+            'evolution' => [
+                'title'    => 'Evolución',
+                'vs'       => 'vs',
+                'current'  => 'Periodo actual',
+                'previous' => 'Periodo anterior',
+            ],
             'revenue-by-sources' => [
                 'title'       => 'Ingresos por Fuentes',
                 'empty-title' => 'No Hay Datos Disponibles',
