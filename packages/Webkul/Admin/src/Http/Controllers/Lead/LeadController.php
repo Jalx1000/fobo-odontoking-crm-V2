@@ -205,11 +205,28 @@ class LeadController extends Controller
             $pipeline = $this->pipelineRepository->getDefaultPipeline();
         }
 
+        /**
+         * Guard against an unknown pipeline_id (find() returns null): fall back to
+         * the default pipeline so we never dereference a null $pipeline below.
+         */
+        if (! $pipeline) {
+            $pipeline = $this->pipelineRepository->getDefaultPipeline();
+        }
+
         if ($stageId = request()->query('pipeline_stage_id')) {
             $stages = $pipeline->stages->where('id', request()->query('pipeline_stage_id'));
         } else {
             $stages = $pipeline->stages;
         }
+
+        /**
+         * Initialize the payload up-front. When a pipeline_stage_id that doesn't
+         * belong to $pipeline is requested (e.g. stale/cross-pipeline params forwarded
+         * from the URL), $stages is an empty collection and the loop below never runs.
+         * Without this, $data would be undefined and the endpoint would 500
+         * ("Undefined variable $data"). An empty payload yields an empty board instead.
+         */
+        $data = [];
 
         $dateRange = null;
 
