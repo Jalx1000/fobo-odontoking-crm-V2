@@ -2053,7 +2053,7 @@ return [
                 'total-leads'           => 'Total de Prospectos',
                 'average-leads-per-day' => 'Prospectos Promedio por Día',
                 'total-quotations'      => 'Total de Cotizaciones',
-                'total-persons'         => 'Total de Prospectos',
+                'total-persons'         => 'Total de contactos',
                 'total-organizations'   => 'Total de Organizaciones',
             ],
             'total-leads' => [
@@ -2064,7 +2064,8 @@ return [
             ],
             'leads-vs-entregados' => [
                 'title'     => 'Prospectos vs. Pedidos entregados',
-                'prospects' => 'Prospectos',
+                'prospects' => 'Prospecto',
+                'confirmed' => 'Pedido confirmado',
                 'delivered' => 'Pedidos entregados',
             ],
             'revenue-by-sources' => [

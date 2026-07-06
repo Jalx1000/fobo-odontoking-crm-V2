@@ -66,6 +66,14 @@ class Dashboard
                 'over_time' => $this->leadReporting->getTotalLeadsOverTime(),
             ],
 
+            'prospecto' => [
+                'over_time' => $this->leadReporting->getTotalProspectoLeadsOverTime(),
+            ],
+
+            'confirmed' => [
+                'over_time' => $this->leadReporting->getTotalConfirmedLeadsOverTime(),
+            ],
+
             'won'  => [
                 'over_time' => $this->leadReporting->getTotalWonLeadsOverTime(),
             ],

@@ -104,15 +104,25 @@ abstract class AbstractReporting
             $this->setEndDate(request()->date('end'));
         }
 
-        $this->lastStartDate = $this->startDate->clone()->subDays($this->startDate->diffInDays($this->endDate));
+        /**
+         * El período anterior debe tener EXACTAMENTE la misma longitud que el actual
+         * y ser contiguo (termina un segundo antes de que empiece el actual). Así
+         * actual(período N) == anterior(período N+1) cuando son consecutivos.
+         * El cálculo viejo usaba subDays(diffInDays) (= longitud−1 día) y lastEnd =
+         * inicio actual, lo que dejaba la ventana anterior corrida y un día más corta.
+         */
+        $this->setLastEndDate();
+
+        $this->lastStartDate = $this->lastEndDate->clone()
+            ->subSeconds($this->startDate->diffInSeconds($this->endDate));
     }
 
     /**
-     * Sets the end date for the last period.
+     * Sets the end date for the last period (un segundo antes del inicio actual).
      */
     private function setLastEndDate(): void
     {
-        $this->lastEndDate = $this->startDate->clone();
+        $this->lastEndDate = $this->startDate->clone()->subSecond();
     }
 
     /**

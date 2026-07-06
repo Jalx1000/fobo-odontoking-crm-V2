@@ -37,6 +37,7 @@ class Lead extends Model implements LeadContract
         'expected_close_date',
         'closed_at',
         'confirmed_at',
+        'first_stage_change_at',
         'user_id',
         'person_id',
         'lead_source_id',
@@ -52,9 +53,10 @@ class Lead extends Model implements LeadContract
      * @var array
      */
     protected $casts = [
-        'closed_at'            => 'datetime:D M d, Y H:i A',
-        'confirmed_at'         => 'datetime:D M d, Y H:i A',
-        'expected_close_date'  => 'date:D M d, Y',
+        'closed_at'             => 'datetime:D M d, Y H:i A',
+        'confirmed_at'          => 'datetime:D M d, Y H:i A',
+        'first_stage_change_at' => 'datetime:D M d, Y H:i A',
+        'expected_close_date'   => 'date:D M d, Y',
         'lead_value_is_manual' => 'boolean',
     ];
 

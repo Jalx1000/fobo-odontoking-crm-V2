@@ -161,6 +161,39 @@ class Lead extends AbstractReporting
     }
 
     /**
+     * Returns leads currently in the "Prospecto" stage over time (the pure
+     * prospecto segment of "Prospectos" B'), bucketed by created_at via the
+     * shared event-date expression. Summed with getTotalConfirmedLeadsOverTime
+     * it equals getTotalLeadsOverTime (the stacked bar total).
+     *
+     * @param  string  $period
+     */
+    public function getTotalProspectoLeadsOverTime($period = 'auto'): array
+    {
+        $this->stageIds = $this->prospectoStageIds ?: [0];
+
+        $period = $this->determinePeriod($period);
+
+        return $this->getOverTimeStats($this->startDate, $this->endDate, 'leads.id', $this->stageEventDateExpr(), $period);
+    }
+
+    /**
+     * Returns leads currently in the "Pedido confirmado" stage over time (the
+     * confirmed segment of "Prospectos" B'), bucketed by confirmed_at via the
+     * shared event-date expression.
+     *
+     * @param  string  $period
+     */
+    public function getTotalConfirmedLeadsOverTime($period = 'auto'): array
+    {
+        $this->stageIds = $this->confirmedStageIds ?: [0];
+
+        $period = $this->determinePeriod($period);
+
+        return $this->getOverTimeStats($this->startDate, $this->endDate, 'leads.id', $this->stageEventDateExpr(), $period);
+    }
+
+    /**
      * Returns current customers over time
      *
      * @param  string  $period
@@ -641,21 +674,55 @@ class Lead extends AbstractReporting
         ];
     }
 
+    /**
+     * "Tiempo en responder" por asesor: tiempo desde la entrada a Prospecto
+     * (leads.created_at) hasta el PRIMER cambio de etapa (leads.first_stage_change_at),
+     * promediado por usuario. Si el lead sigue en Prospecto sin transición, el reloj
+     * corre hasta NOW(). Inmune a reaperturas/movimientos accidentales por ser la
+     * 1ª transición pegajosa. El front convierte segundos -> horas.
+     */
     public function getAverageResponseTimeByUsers(): array
     {
         $tablePrefix = DB::getTablePrefix();
         $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
-        $buildAverages = function ($startDate, $endDate) use ($tablePrefix, $pipelineId) {
+        /**
+         * "Ahora" en la zona de la app (America/La_Paz), no el NOW() de MySQL (UTC).
+         * created_at se guarda en hora local, así que usar el NOW() de SQL (4h
+         * adelantado) inflaba el tiempo de los leads abiertos. Se calcula una sola
+         * vez para que el período actual y el anterior usen el mismo instante.
+         */
+        $now = now()->toDateTimeString();
+
+        /**
+         * Regla "por etapa actual": el reloj se mide desde created_at hasta la fecha
+         * de la ETAPA donde el lead está HOY (no la 1ª transición):
+         *   - Prospecto            -> NOW (sigue abierto, el tiempo aumenta)
+         *   - Confirmado           -> confirmed_at
+         *   - Entregado/Cancelado  -> closed_at  (ej. #161: 22-jun -> 29-jun, no 11 min)
+         * Un lead confirmado por error y devuelto a Prospecto vuelve a contar como
+         * abierto (cae en la rama Prospecto -> NOW).
+         */
+        $prospectoIds = implode(',', $this->prospectoStageIds ?: [0]);
+        $confirmadoIds = implode(',', $this->confirmedStageIds ?: [0]);
+
+        $buildAverages = function ($startDate, $endDate) use ($tablePrefix, $pipelineId, $now, $prospectoIds, $confirmadoIds) {
             $query = $this->leadRepository
                 ->resetModel()
                 ->leftJoin('users', 'leads.user_id', '=', 'users.id')
-                ->leftJoin('lead_activities', 'leads.id', '=', 'lead_activities.lead_id')
-                ->leftJoin('activities', 'lead_activities.activity_id', '=', 'activities.id')
                 ->select(
                     'users.id as user_id',
-                    'users.name as user_name',
-                    DB::raw('AVG(CASE WHEN '.$tablePrefix.'activities.created_at IS NOT NULL THEN TIMESTAMPDIFF(SECOND, '.$tablePrefix.'leads.created_at, '.$tablePrefix.'activities.created_at) END) as avg_response_seconds')
+                    'users.name as user_name'
+                )
+                ->selectRaw(
+                    'AVG(TIMESTAMPDIFF(SECOND, '.$tablePrefix.'leads.created_at, '
+                    .'CASE '
+                    .'WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.$prospectoIds.') THEN ? '
+                    .'WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.$confirmadoIds.') THEN COALESCE('.$tablePrefix.'leads.confirmed_at, ?) '
+                    .'ELSE COALESCE('.$tablePrefix.'leads.closed_at, '.$tablePrefix.'leads.confirmed_at, ?) '
+                    .'END'
+                    .')) as avg_response_seconds',
+                    [$now, $now, $now]
                 )
                 ->whereBetween('leads.created_at', [$startDate, $endDate])
                 ->when($pipelineId, function ($q) use ($pipelineId) {

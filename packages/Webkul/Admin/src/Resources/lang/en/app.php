@@ -2248,7 +2248,8 @@ return [
 
             'leads-vs-entregados' => [
                 'title'     => 'Prospects vs. Delivered Orders',
-                'prospects' => 'Prospects',
+                'prospects' => 'Prospect',
+                'confirmed' => 'Confirmed Order',
                 'delivered' => 'Delivered Orders',
             ],
 

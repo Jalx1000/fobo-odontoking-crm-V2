@@ -33,6 +33,11 @@
                     type: Number,
                     default: 3.23,
                 },
+
+                stacked: {
+                    type: Boolean,
+                    default: false,
+                },
             },
 
             data() {
@@ -79,6 +84,8 @@
                                 x: {
                                     beginAtZero: true,
 
+                                    stacked: this.stacked,
+
                                     border: {
                                         dash: [8, 4],
                                     }
@@ -86,6 +93,9 @@
 
                                 y: {
                                     beginAtZero: true,
+
+                                    stacked: this.stacked,
+
                                     border: {
                                         dash: [8, 4],
                                     },

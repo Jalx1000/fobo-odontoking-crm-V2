@@ -27,18 +27,25 @@
                     </p>
                 </div>
 
-                <!-- Combo Chart (bars + line) -->
+                <!-- Combo Chart (stacked bars + line) -->
                 <div class="flex w-full max-w-full flex-col gap-4">
                     <x-admin::charts.bar
+                        ::stacked="true"
                         ::labels="chartLabels"
                         ::datasets="chartDatasets"
                     />
 
-                    <div class="flex justify-center gap-5">
+                    <div class="flex flex-wrap justify-center gap-5">
                         <div class="flex items-center gap-2">
                             <span class="h-3.5 w-3.5 rounded-sm" style="background-color: #8979FF;"></span>
                             <p class="text-xs dark:text-gray-300">
                                 @lang('admin::app.dashboard.index.leads-vs-entregados.prospects')
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="h-3.5 w-3.5 rounded-sm" style="background-color: #F59E0B;"></span>
+                            <p class="text-xs dark:text-gray-300">
+                                @lang('admin::app.dashboard.index.leads-vs-entregados.confirmed')
                             </p>
                         </div>
                         <div class="flex items-center gap-2">
@@ -67,19 +74,26 @@
 
             computed: {
                 chartLabels() {
-                    return this.report.statistics.all.over_time.map(({ label }) => label);
+                    return this.report.statistics.prospecto.over_time.map(({ label }) => label);
                 },
 
                 chartDatasets() {
                     return [{
-                        // Prospectos -> columnas
+                        // Prospecto (puro) -> segmento inferior de la barra apilada
                         type: 'bar',
-                        order: 2,
-                        data: this.report.statistics.all.over_time.map(({ count }) => count),
-                        barThickness: 24,
+                        order: 3,
+                        stack: 'pipeline',
+                        data: this.report.statistics.prospecto.over_time.map(({ count }) => count),
                         backgroundColor: '#8979FF',
                     },{
-                        // Pedidos entregados -> linea horizontal superpuesta
+                        // Pedido confirmado -> segmento superior de la barra apilada
+                        type: 'bar',
+                        order: 2,
+                        stack: 'pipeline',
+                        data: this.report.statistics.confirmed.over_time.map(({ count }) => count),
+                        backgroundColor: '#F59E0B',
+                    },{
+                        // Pedidos entregados -> linea superpuesta (sin apilar)
                         type: 'line',
                         order: 1,
                         data: this.report.statistics.won.over_time.map(({ count }) => count),

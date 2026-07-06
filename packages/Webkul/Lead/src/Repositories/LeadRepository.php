@@ -231,18 +231,25 @@ class LeadRepository extends Repository
             $isLost = ($code === 'lost') || ($code === 'pedidos-cancelado') || str_contains($name, 'lost') || str_contains($name, 'perdido') || str_contains($name, 'cancelado');
             $isConfirmed = ($code === 'pedidos-confirmado') || str_contains($name, 'confirmado');
 
+            $currentLead = $this->find($id);
+
             if ($isWon || $isLost) {
                 $data['closed_at'] = $data['closed_at'] ?? Carbon::now();
             } else {
                 $data['closed_at'] = null;
             }
 
-            if ($isConfirmed) {
-                $currentLead = $this->find($id);
+            if ($isConfirmed && ! $currentLead?->confirmed_at) {
+                $data['confirmed_at'] = Carbon::now();
+            }
 
-                if (! $currentLead?->confirmed_at) {
-                    $data['confirmed_at'] = Carbon::now();
-                }
+            /**
+             * first_stage_change_at: primera salida de Prospecto (la etapa inicial).
+             * Pegajoso: se fija una sola vez y nunca se sobrescribe ni se borra, para que
+             * el "Tiempo en responder" sea inmune a reaperturas/movimientos accidentales.
+             */
+            if (($isWon || $isLost || $isConfirmed) && ! $currentLead?->first_stage_change_at) {
+                $data['first_stage_change_at'] = Carbon::now();
             }
         }
 
