@@ -72,7 +72,7 @@
 
             data() {
                 return {
-                    format: 'xls',
+                    format: 'xlsx',
 
                     available: null,
 
