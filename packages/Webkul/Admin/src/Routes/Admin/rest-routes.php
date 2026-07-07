@@ -14,6 +14,8 @@ Route::controller(DashboardController::class)->prefix('dashboard')->group(functi
     Route::get('', 'index')->name('admin.dashboard.index');
 
     Route::get('stats', 'stats')->name('admin.dashboard.stats');
+
+    Route::get('export', 'export')->name('admin.dashboard.export');
 });
 
 /**

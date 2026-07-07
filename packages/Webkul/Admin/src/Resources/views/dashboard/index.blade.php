@@ -184,6 +184,28 @@
                         placeholder="@lang('admin::app.dashboard.index.end-date')"
                     />
                 </x-admin::flat-picker.date>
+
+                <!-- Export (respects the active city/date filter): Resumen + Detalle -->
+                <div class="flex gap-1">
+                    <select
+                        class="flex min-h-[39px] w-[90px] rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
+                        v-model="exportFormat"
+                    >
+                        <option value="xlsx">XLSX</option>
+                        <option value="xls">XLS</option>
+                        <option value="csv">CSV</option>
+                    </select>
+
+                    <button
+                        type="button"
+                        class="primary-button flex min-h-[39px] items-center gap-x-1.5"
+                        @click="exportData"
+                    >
+                        <span class="icon-export text-xl"></span>
+
+                        @lang('admin::app.export.export')
+                    </button>
+                </div>
             </div>
 
             {!! view_render_event('admin.dashboard.index.date_filters.after') !!}
@@ -210,6 +232,8 @@
 
                     return {
                         pipelines: @json($pipelines->map(fn ($pipeline) => ['id' => $pipeline->id, 'name' => $pipeline->name])),
+
+                        exportFormat: 'xlsx',
 
                         filters: {
                             channel: '',
@@ -291,6 +315,25 @@
 
                         this.filters.start = this.formatDate(start);
                         this.filters.end = this.formatDate(end);
+                    },
+
+                    // Download the dashboard export carrying the live filters, so
+                    // the file matches exactly what's on screen.
+                    exportData() {
+                        const params = new URLSearchParams();
+
+                        params.set('format', this.exportFormat);
+
+                        if (this.filters.pipeline_id) {
+                            params.set('pipeline_id', this.filters.pipeline_id);
+                        }
+
+                        if (this.filters.start && this.filters.end) {
+                            params.set('start', this.filters.start);
+                            params.set('end', this.filters.end);
+                        }
+
+                        window.location.href = `{{ route('admin.dashboard.export') }}?${params.toString()}`;
                     },
                 },
             });

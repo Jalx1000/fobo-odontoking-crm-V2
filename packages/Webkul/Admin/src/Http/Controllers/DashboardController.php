@@ -2,6 +2,9 @@
 
 namespace Webkul\Admin\Http\Controllers;
 
+use Maatwebsite\Excel\Facades\Excel;
+use Webkul\Admin\Exports\Dashboard\DashboardExport;
+use Webkul\Admin\Exports\Dashboard\DashboardLeadsSheet;
 use Webkul\Admin\Helpers\Dashboard;
 use Webkul\Lead\Repositories\PipelineRepository;
 
@@ -96,6 +99,53 @@ class DashboardController extends Controller
             'statistics' => $stats,
             'date_range' => $dashboardHelper->getDateRange(),
         ]);
+    }
+
+    /**
+     * Download the dashboard as an Excel/CSV file: a KPI summary sheet plus a
+     * detail sheet with the underlying lead/pedido rows and custom attributes,
+     * honoring the active city/date filter.
+     *
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
+     */
+    public function export()
+    {
+        $format = request()->query('format', 'xlsx');
+
+        if (! in_array($format, ['csv', 'xls', 'xlsx'])) {
+            $format = 'xlsx';
+        }
+
+        $this->applyGlobalFilterDefaults();
+
+        /**
+         * Translate the dashboard's global filter (pipeline_id + start/end) into
+         * the params LeadDataGrid expects for the detail sheet: a custom date
+         * range, and 'all' cities when no specific city is selected.
+         */
+        if (($start = request('start')) && ($end = request('end'))) {
+            request()->merge([
+                'date_filter' => 'custom',
+                'date_from'   => $start,
+                'date_to'     => $end,
+            ]);
+        }
+
+        if (! is_numeric(request('pipeline_id'))) {
+            request()->merge(['pipeline_id' => 'all']);
+        }
+
+        $fileName = 'tablero-'.now()->format('Y-m-d-His').'.'.$format;
+
+        /**
+         * CSV cannot hold multiple sheets, so fall back to the detail rows
+         * (the analytically useful part) for that format.
+         */
+        if ($format === 'csv') {
+            return Excel::download(new DashboardLeadsSheet, $fileName);
+        }
+
+        return Excel::download(new DashboardExport(app(Dashboard::class)), $fileName);
     }
 
     /**
