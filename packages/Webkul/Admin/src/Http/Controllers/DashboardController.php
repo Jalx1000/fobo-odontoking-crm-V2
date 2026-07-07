@@ -136,7 +136,7 @@ class DashboardController extends Controller
         }
 
         $range = (($from = request('start')) && ($to = request('end')))
-            ? $from.'-'.$to
+            ? $from.'_'.$to
             : now()->format('Y-m-d');
 
         $fileName = 'tablero_'.$range.'.'.$format;

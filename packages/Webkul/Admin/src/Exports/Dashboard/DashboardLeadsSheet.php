@@ -33,6 +33,13 @@ class DashboardLeadsSheet extends DataGridExport implements WithTitle
 
         $dataGrid->setQueryBuilder();
 
+        /**
+         * FromQuery exports run in chunks, which require a deterministic order.
+         * We add it explicitly here because we skip the datagrid's normal
+         * request pipeline (that's where sorting is otherwise applied).
+         */
+        $dataGrid->getQueryBuilder()->orderBy('leads.id', 'desc');
+
         parent::__construct($dataGrid);
     }
 

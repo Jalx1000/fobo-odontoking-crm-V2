@@ -104,7 +104,7 @@
                     const base = this.fileName || url.pathname.split('/').filter(Boolean).pop() || 'export';
 
                     const range = (from && to)
-                        ? `${from}-${to}`
+                        ? `${from}_${to}`
                         : new Date().toISOString().slice(0, 10);
 
                     return `${base}_${range}.${format}`;
