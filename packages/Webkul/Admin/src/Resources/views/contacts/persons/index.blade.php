@@ -37,6 +37,11 @@
 
         {!! view_render_event('admin.persons.index.datagrid.before') !!}
 
+        <!-- Global filters (city + date range), shared with the dashboard/Pedidos -->
+        <div class="flex flex-wrap items-center justify-end gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2.5 dark:border-gray-800 dark:bg-gray-900">
+            @include('admin::contacts.persons.filters')
+        </div>
+
         <v-persons>
             <!-- Datagrid shimmer -->
             <x-admin::shimmer.datagrid :is-multi-row="true"/>

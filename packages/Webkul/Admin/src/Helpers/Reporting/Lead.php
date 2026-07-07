@@ -120,14 +120,19 @@ class Lead extends AbstractReporting
         $prefix = DB::getTablePrefix();
         $col = $prefix.$table;
 
-        $confirmed = implode(',', $this->confirmedStageIds ?: [0]);
-        $closed = implode(',', array_merge($this->wonStageIds, $this->lostStageIds) ?: [0]);
-
-        return "CASE
-            WHEN {$col}.lead_pipeline_stage_id IN ({$confirmed}) THEN COALESCE({$col}.confirmed_at, {$col}.created_at)
-            WHEN {$col}.lead_pipeline_stage_id IN ({$closed}) THEN COALESCE({$col}.closed_at, {$col}.created_at)
-            ELSE {$col}.created_at
-        END";
+        /**
+         * Decisión de negocio: contar cada lead por su FECHA DE CREACIÓN
+         * (created_at), no por la fecha del evento de su etapa actual. Así el
+         * conteo de leads/tablero cuadra con el módulo de Contactos, que filtra
+         * las personas por persons.created_at: en una ventana de N días, "leads"
+         * y "contactos" cuentan el mismo conjunto (los creados en la ventana) y
+         * un cliente viejo que solo AVANZÓ de etapa dentro de la ventana ya no
+         * infla el conteo de leads.
+         *
+         * (Se conserva el método como punto único para no tocar sus 8 llamadores;
+         * la variante por fecha de evento quedó descartada a propósito.)
+         */
+        return "{$col}.created_at";
     }
 
     /**

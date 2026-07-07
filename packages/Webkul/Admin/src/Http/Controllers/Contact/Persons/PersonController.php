@@ -6,6 +6,7 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Event;
 use Illuminate\View\View;
 use Prettus\Repository\Criteria\RequestCriteria;
@@ -15,6 +16,7 @@ use Webkul\Admin\Http\Requests\AttributeForm;
 use Webkul\Admin\Http\Requests\MassDestroyRequest;
 use Webkul\Admin\Http\Resources\PersonResource;
 use Webkul\Contact\Repositories\PersonRepository;
+use Webkul\Lead\Repositories\PipelineRepository;
 
 class PersonController extends Controller
 {
@@ -23,8 +25,10 @@ class PersonController extends Controller
      *
      * @return void
      */
-    public function __construct(protected PersonRepository $personRepository)
-    {
+    public function __construct(
+        protected PersonRepository $personRepository,
+        protected PipelineRepository $pipelineRepository
+    ) {
         request()->request->add(['entity_type' => 'persons']);
     }
 
@@ -37,7 +41,84 @@ class PersonController extends Controller
             return datagrid(PersonDataGrid::class)->process();
         }
 
-        return view('admin::contacts.persons.index');
+        if ($redirect = $this->syncGlobalFilters()) {
+            return $redirect;
+        }
+
+        return view('admin::contacts.persons.index', [
+            'pipelines' => $this->pipelineRepository->all(['id', 'name']),
+        ]);
+    }
+
+    /**
+     * Keep the prospect list in sync with the shared global filters used by the
+     * dashboard and the Pedidos/Leads module.
+     *
+     * City lives in the "global_pipeline_id" cookie, the date range in
+     * "global_date_range" ("from|to"). We normalize both to explicit query
+     * params (pipeline_id, start, end) so the DataGrid — which forwards the
+     * page's query string on its AJAX request — filters accordingly.
+     *
+     * Returns a RedirectResponse when the URL had to be normalized, otherwise
+     * null so the caller can render the view.
+     */
+    protected function syncGlobalFilters(): ?RedirectResponse
+    {
+        /**
+         * City: apply the saved city when the URL carries none, otherwise
+         * persist an explicit selection ('' means "Todas", i.e. no filter).
+         */
+        if (request()->query('pipeline_id') === null) {
+            $savedPipelineId = request()->cookie('global_pipeline_id');
+
+            if (is_numeric($savedPipelineId)) {
+                return redirect()->route('admin.contacts.persons.index', array_merge(
+                    request()->except('pipeline_id'),
+                    ['pipeline_id' => $savedPipelineId]
+                ));
+            }
+        } else {
+            $pipelineId = request()->query('pipeline_id');
+
+            // httpOnly=false so the dashboard's JS can read the same cookie.
+            Cookie::queue('global_pipeline_id', $pipelineId === '' ? 'all' : $pipelineId, 60 * 24 * 365, '/', null, false, false, false, 'Lax');
+        }
+
+        /**
+         * Date: "clear_date" forgets the shared range; otherwise apply the saved
+         * range when absent, or persist the one supplied via start/end.
+         */
+        if (request()->query('clear_date') !== null) {
+            Cookie::queue(Cookie::forget('global_date_range'));
+
+            return redirect()->route('admin.contacts.persons.index', request()->except(['start', 'end', 'clear_date']));
+        }
+
+        $hasDateParam = request()->query('start') !== null
+            || request()->query('end') !== null;
+
+        if (! $hasDateParam) {
+            if ($savedRange = request()->cookie('global_date_range')) {
+                [$from, $to] = array_pad(explode('|', $savedRange), 2, null);
+
+                if ($from && $to) {
+                    return redirect()->route('admin.contacts.persons.index', array_merge(
+                        request()->all(),
+                        ['start' => $from, 'end' => $to]
+                    ));
+                }
+            }
+        } else {
+            $from = request()->query('start');
+
+            $to = request()->query('end');
+
+            if ($from && $to) {
+                Cookie::queue('global_date_range', $from.'|'.$to, 60 * 24 * 365, '/', null, false, false, false, 'Lax');
+            }
+        }
+
+        return null;
     }
 
     /**

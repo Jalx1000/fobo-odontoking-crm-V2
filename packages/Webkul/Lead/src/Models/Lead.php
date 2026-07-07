@@ -57,7 +57,7 @@ class Lead extends Model implements LeadContract
         'confirmed_at'          => 'datetime:D M d, Y H:i A',
         'first_stage_change_at' => 'datetime:D M d, Y H:i A',
         'expected_close_date'   => 'date:D M d, Y',
-        'lead_value_is_manual' => 'boolean',
+        'lead_value_is_manual'  => 'boolean',
     ];
 
     /**
@@ -176,6 +176,10 @@ class Lead extends Model implements LeadContract
         }
 
         if (! $this->created_at) {
+            return 0;
+        }
+
+        if (! $this->pipeline) {
             return 0;
         }
 

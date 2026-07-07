@@ -317,17 +317,14 @@ class LeadController extends Controller
 
             if ($dateRange) {
                 /**
-                 * Option B: filter each stage column by its own event date so the
-                 * board reconciles with the dashboard cards (a delivered order shows
-                 * on its delivery date, a confirmed one on its confirmation date...).
+                 * Se filtra SIEMPRE por created_at (fecha de creación del lead),
+                 * igual que el dashboard (stageEventDateExpr) y el módulo de
+                 * Contactos (persons.created_at). Así, en una ventana de N días, el
+                 * tablero y los contactos cuentan el mismo conjunto: un cliente
+                 * viejo que solo avanzó de etapa dentro de la ventana ya no aparece
+                 * en el tablero como si fuera nuevo.
                  */
-                $dateColumn = match ($stage->code) {
-                    'pedidos-confirmado'                    => 'confirmed_at',
-                    'pedido-entregado', 'pedidos-cancelado' => 'closed_at',
-                    default                                 => 'created_at',
-                };
-
-                $query->whereBetween('leads.'.$dateColumn, $dateRange);
+                $query->whereBetween('leads.created_at', $dateRange);
             }
 
             /**
