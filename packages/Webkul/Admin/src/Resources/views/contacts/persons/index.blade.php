@@ -45,11 +45,85 @@
         {!! view_render_event('admin.persons.index.datagrid.after') !!}
     </div>
 
+    {{-- Helper compartido para sincronizar el rango de fechas con Tablero y Leads --}}
+    @include('admin::components.global-date-range')
+
     @pushOnce('scripts')
         <script
             type="text/x-template"
             id="v-persons-template"
         >
+          <div>
+            <!-- Filtro por rango de fechas de registro (persistente por cookie) -->
+            <div class="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 dark:border-gray-800 dark:bg-gray-900">
+                <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Registrados:</span>
+
+                <button
+                    type="button"
+                    class="rounded-md border px-3 py-1.5 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:text-gray-300"
+                    :style="quickRangeStyle(7)"
+                    @click="setQuickRange(7)"
+                >
+                    7 días
+                </button>
+
+                <button
+                    type="button"
+                    class="rounded-md border px-3 py-1.5 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:text-gray-300"
+                    :style="quickRangeStyle(30)"
+                    @click="setQuickRange(30)"
+                >
+                    30 días
+                </button>
+
+                <button
+                    type="button"
+                    class="rounded-md border px-3 py-1.5 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:text-gray-300"
+                    :style="quickRangeStyle(90)"
+                    @click="setQuickRange(90)"
+                >
+                    90 días
+                </button>
+
+                <button
+                    type="button"
+                    class="rounded-md border px-3 py-1.5 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:text-gray-300"
+                    :style="quickRangeStyle('month')"
+                    @click="setCurrentMonth"
+                >
+                    Este mes
+                </button>
+
+                <label class="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
+                    Desde
+                    <input
+                        type="date"
+                        v-model="dateStart"
+                        @change="onManualDate"
+                        class="rounded-md border px-2.5 py-1.5 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                    >
+                </label>
+
+                <label class="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
+                    Hasta
+                    <input
+                        type="date"
+                        v-model="dateEnd"
+                        @change="onManualDate"
+                        class="rounded-md border px-2.5 py-1.5 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                    >
+                </label>
+
+                <button
+                    type="button"
+                    v-if="dateStart || dateEnd"
+                    @click="clear"
+                    class="text-sm text-gray-500 underline dark:text-gray-400"
+                >
+                    Limpiar
+                </button>
+            </div>
+
             <x-admin::datagrid
                 src="{{ route('admin.contacts.persons.index') }}"
                 :isMultiRow="true"
@@ -68,7 +142,7 @@
                     </template>
 
                     <template v-else>
-                        <div class="row grid grid-cols-[.1fr_.2fr_.2fr_.2fr_.2fr_.2fr] grid-rows-1 items-center border-b px-4 py-2.5 dark:border-gray-800 max-lg:hidden">
+                        <div class="row grid grid-cols-[.1fr_.25fr_.25fr_.25fr_.15fr] grid-rows-1 items-center border-b px-4 py-2.5 dark:border-gray-800 max-lg:hidden">
                             <div
                                 class="flex select-none items-center gap-2.5"
                                 v-for="(columnGroup, index) in [['id'], ['person_name'], ['emails'], ['contact_numbers']]"
@@ -209,7 +283,7 @@
 
                     <template v-else>
                         <div
-                            class="row grid grid-cols-[.1fr_.2fr_.2fr_.2fr_.2fr_.2fr] grid-rows-1 border-b px-4 py-2.5 transition-all hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-950 max-lg:hidden"
+                            class="row grid grid-cols-[.1fr_.25fr_.25fr_.25fr_.15fr] grid-rows-1 border-b px-4 py-2.5 transition-all hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-950 max-lg:hidden"
                             v-for="record in available.records"
                         >
                             <!-- Mass Action and Person ID. -->
@@ -328,11 +402,112 @@
                     </template>
                 </template>
             </x-admin::datagrid>
+          </div>
         </script>
 
         <script type="module">
             app.component('v-persons', {
                 template: '#v-persons-template',
+
+                data() {
+                    // Rango sincronizado (cookie compartida global_date_range) para que
+                    // coincida con Tablero y Leads. 'quick' evita ambigüedad cuando dos
+                    // botones producen el mismo rango (p. ej. "Este mes" y "7 días" el día 7).
+                    const saved = window.OdontoDateRange.read();
+
+                    return {
+                        dateStart: saved.from,
+                        dateEnd: saved.to,
+                        // Botón rápido activo: 7 | 30 | 90 | 'month' | '' (custom).
+                        activeQuick: window.OdontoDateRange.normalizeQuick(saved.quick),
+                    };
+                },
+
+                created() {
+                    // Reflejar el rango restaurado en la URL ANTES de que el datagrid
+                    // haga su primer fetch (su mounted lee window.location).
+                    if (this.dateStart || this.dateEnd) {
+                        this.syncUrl();
+                    }
+                },
+
+                methods: {
+                    formatDate(date) {
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+
+                        return `${year}-${month}-${day}`;
+                    },
+
+                    quickRangeStyle(key) {
+                        if (this.activeQuick !== key) {
+                            return {};
+                        }
+
+                        return {
+                            borderColor: '#2AA8B3',
+                            backgroundColor: 'rgba(42, 168, 179, 0.12)',
+                            color: '#2AA8B3',
+                            fontWeight: '600',
+                        };
+                    },
+
+                    setCookie() {
+                        window.OdontoDateRange.write(this.dateStart, this.dateEnd, this.activeQuick);
+                    },
+
+                    syncUrl() {
+                        const url = new URL(window.location);
+
+                        this.dateStart
+                            ? url.searchParams.set('start_date', this.dateStart)
+                            : url.searchParams.delete('start_date');
+
+                        this.dateEnd
+                            ? url.searchParams.set('end_date', this.dateEnd)
+                            : url.searchParams.delete('end_date');
+
+                        window.history.replaceState({}, '', url);
+                    },
+
+                    apply() {
+                        this.setCookie();
+                        this.syncUrl();
+                        this.$refs.datagrid.get();
+                    },
+
+                    setQuickRange(days) {
+                        const r = window.OdontoDateRange.resolve(days);
+
+                        this.dateStart = r.from;
+                        this.dateEnd = r.to;
+                        this.activeQuick = days;
+                        this.apply();
+                    },
+
+                    setCurrentMonth() {
+                        const r = window.OdontoDateRange.resolve('month');
+
+                        this.dateStart = r.from;
+                        this.dateEnd = r.to;
+                        this.activeQuick = 'month';
+                        this.apply();
+                    },
+
+                    // Edición manual de los date pickers: rango personalizado.
+                    onManualDate() {
+                        this.activeQuick = '';
+                        this.apply();
+                    },
+
+                    clear() {
+                        this.dateStart = '';
+                        this.dateEnd = '';
+                        this.activeQuick = '';
+                        this.apply();
+                    },
+                },
             });
         </script>
     @endPushOnce

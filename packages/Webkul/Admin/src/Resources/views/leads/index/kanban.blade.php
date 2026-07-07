@@ -339,9 +339,14 @@
                             columns: [],
                         },
 
-                        // Quick date-range filter: null | '7' | '30' | '90' | 'month'.
-                        // Persisted in a cookie so it survives reloads and other sessions.
-                        dateRange: null,
+                        // Botón rápido activo ('7'|'30'|'90'|'month'|'') para resaltar.
+                        quick: '',
+
+                        // Rango de fechas efectivo (created_at). Fuente de verdad,
+                        // sincronizado con Tablero y Pacientes vía cookie compartida
+                        // (window.OdontoDateRange / global_date_range).
+                        dateFrom: null,
+                        dateTo: null,
                     },
 
                     finalized: {
@@ -397,9 +402,12 @@
                  * @returns {void}
                  */
                 boot() {
-                    // Restore the persisted date-range filter so the first load already
-                    // reflects it (cookie is the source of truth for this filter).
-                    this.applied.dateRange = this.readDateRange();
+                    // Restaurar el rango desde la cookie compartida (sincronizada con
+                    // Tablero y Pacientes) para que la primera carga ya lo refleje.
+                    const saved = window.OdontoDateRange.read();
+                    this.applied.quick = saved.quick;
+                    this.applied.dateFrom = saved.from || null;
+                    this.applied.dateTo = saved.to || null;
 
                     let kanbans = this.getKanbans();
 
@@ -442,10 +450,16 @@
                         limit: 20,
                     };
 
-                    // Include the active date-range filter on every request (initial load,
-                    // filtering and infinite-scroll pagination) so all stay consistent.
-                    if (this.applied.dateRange) {
-                        params.date_range = this.applied.dateRange;
+                    // Rango de fechas efectivo (start_date/end_date) en cada request
+                    // (carga inicial, filtrado y scroll infinito) para mantener todo
+                    // consistente. Tanto los rápidos como el personalizado resuelven a
+                    // estas fechas, idénticas a Tablero y Pacientes.
+                    if (this.applied.dateFrom) {
+                        params.start_date = this.applied.dateFrom;
+                    }
+
+                    if (this.applied.dateTo) {
+                        params.end_date = this.applied.dateTo;
                     }
 
                     this.applied.filters.columns.forEach((column) => {
@@ -738,12 +752,57 @@
                  * @param {string} range - One of '7', '30', '90', 'month'.
                  * @returns {void}
                  */
-                applyDateRange(range) {
-                    // Clicking the active range again clears the filter.
-                    this.applied.dateRange = this.applied.dateRange === range ? null : range;
+                applyQuick(range) {
+                    // Pulsar el rango activo de nuevo lo limpia.
+                    if (this.applied.quick === range) {
+                        return this.clearDateFilters();
+                    }
+
+                    const r = window.OdontoDateRange.resolve(range);
+
+                    this.applied.quick = range;
+                    this.applied.dateFrom = r.from;
+                    this.applied.dateTo = r.to;
 
                     this.persistDateRange();
 
+                    this.reloadColumns();
+                },
+
+                /**
+                 * Aplica el rango personalizado Desde/Hasta (desactiva el quick range).
+                 *
+                 * @returns {void}
+                 */
+                applyCustomRange() {
+                    this.applied.quick = '';
+
+                    this.persistDateRange();
+
+                    this.reloadColumns();
+                },
+
+                /**
+                 * Limpia cualquier filtro de fecha (rápido o personalizado).
+                 *
+                 * @returns {void}
+                 */
+                clearDateFilters() {
+                    this.applied.quick = '';
+                    this.applied.dateFrom = null;
+                    this.applied.dateTo = null;
+
+                    this.persistDateRange();
+
+                    this.reloadColumns();
+                },
+
+                /**
+                 * Recarga todas las columnas del kanban con los filtros vigentes.
+                 *
+                 * @returns {void}
+                 */
+                reloadColumns() {
                     this.get()
                         .then(response => {
                             if (! response) {
@@ -756,41 +815,42 @@
                         });
                 },
 
+                /**
+                 * Estilo inline del botón rápido activo (resaltado teal), solo cuando
+                 * no hay un rango personalizado vigente.
+                 *
+                 * @param {string} value
+                 * @returns {object}
+                 */
+                quickRangeStyle(value) {
+                    if (this.applied.quick !== value) {
+                        return {};
+                    }
+
+                    return {
+                        borderColor: '#2AA8B3',
+                        backgroundColor: 'rgba(42, 168, 179, 0.12)',
+                        color: '#2AA8B3',
+                        fontWeight: '600',
+                    };
+                },
+
                 //=======================================================================================
-                // Date-range filter persistence (cookie based, so it is shared across reloads).
+                // Persistencia del filtro de fechas: cookie compartida global_date_range
+                // (window.OdontoDateRange), sincronizada con Tablero y Pacientes.
                 //=======================================================================================
 
                 /**
-                 * Stores the active date range in a cookie (1 year, site-wide).
+                 * Guarda el rango vigente (desde/hasta/quick) en la cookie compartida.
                  *
                  * @returns {void}
                  */
                 persistDateRange() {
-                    const maxAge = 60 * 60 * 24 * 365; // 1 year in seconds.
-
-                    if (this.applied.dateRange) {
-                        document.cookie = `kanban_date_range=${this.applied.dateRange}; path=/; max-age=${maxAge}; SameSite=Lax`;
-                    } else {
-                        // Expire the cookie when the filter is cleared.
-                        document.cookie = 'kanban_date_range=; path=/; max-age=0; SameSite=Lax';
-                    }
-                },
-
-                /**
-                 * Reads the persisted date range from the cookie.
-                 *
-                 * @returns {string|null} One of '7', '30', '90', 'month' or null.
-                 */
-                readDateRange() {
-                    const match = document.cookie.match(/(?:^|;\s*)kanban_date_range=([^;]+)/);
-
-                    if (! match) {
-                        return null;
-                    }
-
-                    const value = decodeURIComponent(match[1]);
-
-                    return ['7', '30', '90', 'month'].includes(value) ? value : null;
+                    window.OdontoDateRange.write(
+                        this.applied.dateFrom,
+                        this.applied.dateTo,
+                        this.applied.quick
+                    );
                 },
 
                 //=======================================================================================

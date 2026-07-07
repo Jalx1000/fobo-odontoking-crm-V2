@@ -3,14 +3,17 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
+use Webkul\Lead\Models\Lead;
+use Webkul\Product\Models\Product;
 use Webkul\User\Models\User;
 
 uses(DatabaseTransactions::class);
 
 /**
- * El nuevo card "Servicios solicitados" muestra las métricas de TODOS los
- * servicios pedidos sin importar la fecha. El endpoint debe responder 200 con
- * una lista (statistics) y un total agregado.
+ * El nuevo card "Servicios solicitados" muestra las métricas de los servicios
+ * pedidos dentro del rango. El endpoint debe responder 200 con una lista
+ * (statistics) y un total agregado.
  */
 it('el endpoint services-requested responde 200 con statistics y total', function () {
     $response = $this->actingAs(User::find(1), 'user')
@@ -35,38 +38,85 @@ it('el endpoint services-requested responde 200 con statistics y total', functio
 });
 
 /**
- * Es "all-time": el rango de fechas NO debe alterar el resultado. Un rango de un
- * solo día y uno de cinco años deben producir exactamente lo mismo.
+ * Crea un servicio pedido (product + lead_products) sobre un lead con la fecha
+ * dada y devuelve el id del producto. Aislado por producto único para poder
+ * medirlo sin interferencia de otros datos.
+ *
+ * Nota: cada test hace UN solo request. El helper del tablero (con las fechas
+ * leídas en su constructor) queda memoizado en el objeto Route, así que un
+ * segundo request dentro del mismo test reutilizaría las fechas del primero.
  */
-it('services-requested ignora el filtro de fechas', function () {
-    $narrow = $this->actingAs(User::find(1), 'user')
-        ->getJson(route('admin.dashboard.stats', [
-            'type'  => 'services-requested',
-            'start' => now()->format('Y-m-d'),
-            'end'   => now()->format('Y-m-d'),
-        ]))->json('statistics');
+function makeServiceLead(\Carbon\Carbon $when): int
+{
+    $product = Product::create([
+        'name' => 'Servicio Rango '.uniqid(),
+        'sku'  => 'SR-'.uniqid(),
+    ]);
 
-    $wide = $this->actingAs(User::find(1), 'user')
-        ->getJson(route('admin.dashboard.stats', [
-            'type'  => 'services-requested',
-            'start' => now()->subYears(5)->format('Y-m-d'),
-            'end'   => now()->format('Y-m-d'),
-        ]))->json('statistics');
+    $stage = DB::table('lead_pipeline_stages')->where('code', 'consultas')->first();
 
-    expect($narrow)->toEqual($wide);
+    $lead = Lead::create([
+        'title'                  => 'Lead Servicio Rango '.uniqid(),
+        'status'                 => 1,
+        'lead_pipeline_id'       => $stage->lead_pipeline_id,
+        'lead_pipeline_stage_id' => $stage->id,
+    ]);
+    $lead->created_at = $when;
+    $lead->save();
+
+    DB::table('lead_products')->insert([
+        'lead_id'    => $lead->id,
+        'product_id' => $product->id,
+        'quantity'   => 4,
+        'price'      => 0,
+        'amount'     => 0,
+        'created_at' => $when,
+        'updated_at' => $when,
+    ]);
+
+    return $product->id;
+}
+
+function serviceQty(int $productId, array $params): int
+{
+    $stats = test()->actingAs(User::find(1), 'user')
+        ->getJson(route('admin.dashboard.stats', array_merge(['type' => 'services-requested'], $params)))
+        ->assertStatus(200)
+        ->json('statistics.statistics');
+
+    return collect($stats)->firstWhere('id', $productId)['total_qty_ordered'] ?? 0;
+}
+
+it('incluye el servicio cuando el rango cubre la fecha del lead', function () {
+    $productId = makeServiceLead(now());
+
+    expect(serviceQty($productId, [
+        'start' => now()->subDays(2)->format('Y-m-d'),
+        'end'   => now()->format('Y-m-d'),
+    ]))->toBe(4);
+});
+
+it('excluye el servicio cuando el rango no cubre la fecha del lead', function () {
+    $productId = makeServiceLead(now());
+
+    expect(serviceQty($productId, [
+        'start' => now()->subDays(40)->format('Y-m-d'),
+        'end'   => now()->subDays(30)->format('Y-m-d'),
+    ]))->toBe(0);
 });
 
 /**
- * El card over-all debe exponer total_leads (fuente del nuevo indicador
- * "Total de Citas"), separado de total_persons ("Total de Pacientes").
+ * El card over-all debe exponer total_leads (fuente del indicador
+ * "Total de Citas"), separado de total_consultas ("Total de Consultas",
+ * que reemplazó a "Total de Pacientes").
  */
-it('over-all expone total_leads y total_persons por separado', function () {
+it('over-all expone total_leads y total_consultas por separado', function () {
     $stats = $this->actingAs(User::find(1), 'user')
         ->getJson(route('admin.dashboard.stats', ['type' => 'over-all']))
         ->assertStatus(200)
         ->json('statistics');
 
-    expect($stats)->toHaveKeys(['total_leads', 'total_persons']);
+    expect($stats)->toHaveKeys(['total_leads', 'total_consultas']);
     expect($stats['total_leads'])->toHaveKey('current');
-    expect($stats['total_persons'])->toHaveKey('current');
+    expect($stats['total_consultas'])->toHaveKey('current');
 });

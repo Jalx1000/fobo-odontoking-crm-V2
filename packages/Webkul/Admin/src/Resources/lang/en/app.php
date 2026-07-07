@@ -2246,6 +2246,7 @@ return [
                 'average-lead-value'    => 'Average Lead Value',
                 'total-leads'           => 'Total Leads',
                 'total-citas'           => 'Total Appointments',
+                'total-consultas'       => 'Total Consultations',
                 'average-leads-per-day' => 'Average Leads Per Day',
                 'total-quotations'      => 'Total Quotations',
                 'total-persons'         => 'Total Persons',
@@ -2258,13 +2259,6 @@ return [
                 'current'  => 'Current period',
                 'previous' => 'Previous period',
             ],
-            'total-leads' => [
-                'title' => 'Leads',
-                'total' => 'Total Leads',
-                'won'   => 'Won Leads',
-                'lost'  => 'Lost Leads',
-            ],
-
             'revenue-by-sources' => [
                 'title'       => 'Revenue By Sources',
                 'empty-title' => 'No Data Available',
@@ -2277,11 +2271,6 @@ return [
                 'empty-info'  => 'No data available for selected interval',
             ],
 
-            'quantity-products' => [
-                'title'       => 'Best Selling Products',
-                'empty-title' => 'No Products Found',
-                'empty-info'  => 'No products available for selected interval',
-            ],
             'services-requested' => [
                 'title'       => 'Requested Services',
                 'leads'       => 'appointments',

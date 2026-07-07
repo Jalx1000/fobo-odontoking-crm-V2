@@ -64,7 +64,29 @@
       "Bash(rm -f /tmp/chk.php)",
       "Bash(chown -R www-data:www-data storage bootstrap/cache)",
       "Bash(echo \"--- exit: $? ---\")",
-      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Console/Commands/ReassignSyncedLeads.php packages/Webkul/Admin/src/Config/dashboard.php packages/Webkul/Admin/src/Database/Migrations/2026_06_29_000001_create_sistema_role_and_unassigned_user.php packages/Webkul/Admin/src/Database/Migrations/2026_06_29_000002_create_lead_reassignment_log_table.php packages/Webkul/Lead/src/Repositories/LeadRepository.php tests/Feature/LeadUnassignedOwnerTest.php tests/Feature/ReassignSyncedLeadsCommandTest.php)"
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Console/Commands/ReassignSyncedLeads.php packages/Webkul/Admin/src/Config/dashboard.php packages/Webkul/Admin/src/Database/Migrations/2026_06_29_000001_create_sistema_role_and_unassigned_user.php packages/Webkul/Admin/src/Database/Migrations/2026_06_29_000002_create_lead_reassignment_log_table.php packages/Webkul/Lead/src/Repositories/LeadRepository.php tests/Feature/LeadUnassignedOwnerTest.php tests/Feature/ReassignSyncedLeadsCommandTest.php)",
+      "Bash(./vendor/bin/pint --test packages/Webkul/Admin/src/Helpers/Reporting/Lead.php packages/Webkul/Admin/src/Helpers/Dashboard.php tests/Feature/DashboardTotalConsultasTest.php tests/Feature/DashboardServicesRequestedTest.php)",
+      "Bash(./vendor/bin/pint --test packages/Webkul/Admin/src/Helpers/Dashboard.php packages/Webkul/Admin/src/Helpers/Reporting/Product.php packages/Webkul/Admin/src/Http/Controllers/DashboardController.php tests/Feature/DashboardStatsRangeTest.php tests/Feature/DashboardLayoutTest.php)",
+      "Bash(./vendor/bin/pint --test packages/Webkul/Admin/src/Helpers/Reporting/Lead.php packages/Webkul/Admin/src/Helpers/Dashboard.php packages/Webkul/Admin/src/Http/Controllers/DashboardController.php tests/Feature/DashboardLayoutTest.php tests/Feature/DashboardStatsRangeTest.php)",
+      "Skill(dataviz)",
+      "Skill(artifact-design)",
+      "Bash(node /tmp/claude-0/bundled-skills/2.1.199/bae62ce96b2765dbfd18852a553efeb1/dataviz/scripts/validate_palette.js \"#8979FF,#63CFE5,#F59E0B,#10B981\" --mode light)",
+      "Bash(node /tmp/claude-0/bundled-skills/2.1.199/bae62ce96b2765dbfd18852a553efeb1/dataviz/scripts/validate_palette.js \"#8979FF,#63CFE5,#F59E0B,#10B981\" --mode dark)",
+      "Artifact",
+      "Bash(sed '1d;$d')",
+      "Bash(node --check check.js)",
+      "Bash(./vendor/bin/pint --test packages/Webkul/Admin/src/Helpers/Reporting/Lead.php tests/Feature/DashboardStagesOverTimeTest.php)",
+      "Bash(./vendor/bin/pint --test tests/Feature/DashboardStagesOverTimeTest.php)",
+      "Bash(./vendor/bin/pint tests/Feature/LeadUiHiddenElementsTest.php routes/api.php)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(awk '{print $3, $4}')",
+      "Bash(php -l packages/Webkul/Admin/src/DataGrids/Contact/PersonDataGrid.php)",
+      "Bash(node --check \"/tmp/claude-0/-etc-easypanel-projects-heaven-odontoking-crm-code/8771c163-15f7-421d-8ebe-a422f19e3105/scratchpad/vpersons.js\")",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/DataGrids/Contact/PersonDataGrid.php tests/Feature/PersonIndexDateFilterTest.php)",
+      "Bash(cd *)",
+      "Bash(node --check \"/tmp/claude-0/-etc-easypanel-projects-heaven-odontoking-crm-code/8771c163-15f7-421d-8ebe-a422f19e3105/scratchpad/kanban.js\")",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Http/Controllers/Lead/LeadController.php tests/Feature/LeadKanbanDateRangeTest.php)",
+      "Bash(./vendor/bin/pint tests/Feature/PersonIndexDateFilterTest.php tests/Feature/LeadKanbanDateRangeTest.php tests/Feature/DashboardLayoutTest.php)"
     ]
   }
 }

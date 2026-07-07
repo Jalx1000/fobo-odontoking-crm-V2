@@ -90,16 +90,21 @@
             },
 
             mounted() {
-                // All-time card: load once and do NOT subscribe to the date filter.
-                this.getStats();
+                this.getStats({});
+
+                // Recargar cuando cambie el rango de fechas del tablero.
+                this.$emitter.on('reporting-filter-updated', this.getStats);
             },
 
             methods: {
-                getStats() {
+                getStats(filters) {
                     this.isLoading = true;
 
+                    var filters = Object.assign({}, filters);
+                    filters.type = 'services-requested';
+
                     this.$axios.get("{{ route('admin.dashboard.stats') }}", {
-                            params: { type: 'services-requested' }
+                            params: filters
                         })
                         .then(response => {
                             this.report = response.data.statistics;

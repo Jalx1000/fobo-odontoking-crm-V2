@@ -50,27 +50,9 @@ class Dashboard
             'average_leads_per_day' => $this->leadReporting->getAverageLeadsPerDayProgress(),
             'total_services'        => $this->productReporting->getTotalServicesProgress(),
             'total_quotations'      => $this->quoteReporting->getTotalQuotesProgress(),
-            'total_persons'         => $this->personReporting->getTotalPersonsProgress(),
+            'total_contacts'        => $this->personReporting->getTotalPersonsProgress(),
+            'total_consultas'       => $this->leadReporting->getTotalConsultasProgress(),
             'total_organizations'   => $this->organizationReporting->getTotalOrganizationsProgress(),
-        ];
-    }
-
-    /**
-     * Returns leads statistics.
-     */
-    public function getTotalLeadsStats(): array
-    {
-        return [
-            'all'  => [
-                'over_time' => $this->leadReporting->getTotalLeadsOverTime(),
-            ],
-
-            'won'  => [
-                'over_time' => $this->leadReporting->getTotalWonLeadsOverTime(),
-            ],
-            'lost' => [
-                'over_time' => $this->leadReporting->getTotalLostLeadsOverTime(),
-            ],
         ];
     }
 
@@ -85,7 +67,7 @@ class Dashboard
     }
 
     /**
-     * Returns every service ever requested (all-time, ignores the date filter).
+     * Returns the services requested within the selected dashboard date range.
      */
     public function getServicesRequestedStats(): array
     {
@@ -140,11 +122,6 @@ class Dashboard
         return $this->productReporting->getTopSellingProductsByRevenue(5);
     }
 
-    public function getTopSellingProductsByQuantity(): Collection
-    {
-        return $this->productReporting->getTopSellingProductsByQuantity(5);
-    }
-
     /**
      * Returns top selling products statistics.
      */
@@ -156,16 +133,6 @@ class Dashboard
     public function getVendedoresStats(): Collection
     {
         return $this->leadReporting->getVendedoresStats(5);
-    }
-
-    public function getVentasOverTimeStats(): array
-    {
-        return $this->leadReporting->getVentasOverTimeByUser();
-    }
-
-    public function getVentasByUsersStats(): array
-    {
-        return $this->leadReporting->getVentasCountByUsers();
     }
 
     public function getLeadsByUsersStats(): array

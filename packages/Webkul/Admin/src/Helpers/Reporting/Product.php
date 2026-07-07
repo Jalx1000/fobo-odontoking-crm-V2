@@ -65,59 +65,9 @@ class Product extends AbstractReporting
     }
 
     /**
-     * Gets top-selling products by quantity.
-     *
-     * @param  int  $limit
-     */
-    public function getTopSellingProductsByQuantity($limit = null): Collection
-    {
-        $tablePrefix = DB::getTablePrefix();
-
-        $items = $this->productRepository
-            ->resetModel()
-            ->with('product')
-            ->when(request('user_id'), function ($q) {
-                $q->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
-                    ->where('leads.user_id', request('user_id'));
-            })
-            ->when(request('organization_id'), function ($q) {
-                $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
-                    ->where('persons.organization_id', request('organization_id'));
-            })
-            ->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
-            ->leftJoin('products', 'lead_products.product_id', '=', 'products.id')
-            ->select(
-                'products.id as product_id',
-                'products.name',
-                'products.price'
-            )
-            ->addSelect(DB::raw('SUM('.$tablePrefix.'lead_products.quantity) as total_qty_ordered'))
-            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
-            ->having(DB::raw('SUM('.$tablePrefix.'lead_products.quantity)'), '>', 0)
-            ->groupBy('products.id', 'products.name', 'products.price')
-            ->orderBy('total_qty_ordered', 'DESC')
-            ->limit($limit)
-            ->get();
-
-        $items = $items->map(function ($item) {
-            return [
-                'id'                => $item->product_id,
-                'name'              => $item->name,
-                'price'             => $item->product?->price,
-                'formatted_price'   => core()->formatBasePrice($item->price),
-                'total_qty_ordered' => $item->total_qty_ordered,
-            ];
-        });
-
-        return $items;
-    }
-
-    /**
-     * Retrieves every service ever requested across all leads, ignoring the date range.
-     *
-     * Unlike the other reporting methods this one is intentionally NOT bound to the
-     * dashboard date filter: it answers "how many times has each service been
-     * requested in total?". Returns the aggregated list plus the grand total.
+     * Retrieves the services requested by the leads created within the dashboard
+     * date range, aggregated per product (quantity ordered + distinct leads).
+     * Returns the list plus the grand total, both bound to the selected period.
      */
     public function getAllServicesRequested(): array
     {
@@ -126,6 +76,7 @@ class Product extends AbstractReporting
         $items = $this->productRepository
             ->resetModel()
             ->leftJoin('products', 'lead_products.product_id', '=', 'products.id')
+            ->join('leads', 'lead_products.lead_id', '=', 'leads.id')
             ->select(
                 'products.id as product_id',
                 'products.name'
@@ -133,6 +84,7 @@ class Product extends AbstractReporting
             ->addSelect(DB::raw('SUM('.$tablePrefix.'lead_products.quantity) as total_qty_ordered'))
             ->addSelect(DB::raw('COUNT(DISTINCT '.$tablePrefix.'lead_products.lead_id) as leads_count'))
             ->whereNotNull('lead_products.product_id')
+            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
             ->groupBy('products.id', 'products.name')
             ->having(DB::raw('SUM('.$tablePrefix.'lead_products.quantity)'), '>', 0)
             ->orderByDesc('total_qty_ordered')

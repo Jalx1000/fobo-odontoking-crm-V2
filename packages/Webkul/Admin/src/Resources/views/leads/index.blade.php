@@ -69,6 +69,9 @@
 
     {!! view_render_event('admin.leads.index.content.after') !!}
 
+    {{-- Helper compartido para sincronizar el rango de fechas con Tablero y Pacientes --}}
+    @include('admin::components.global-date-range')
+
     @if (bouncer()->hasPermission('activities'))
         @pushOnce('scripts')
             @include('admin::components.smd-sync-control')

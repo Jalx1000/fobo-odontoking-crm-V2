@@ -24,12 +24,9 @@ it('todos los types activos del dashboard responden 200 con rango de fechas', fu
     expect($response->status())->toBe(200);
 })->with([
     'over-all',
-    'total-leads',
-    'ventas',
     'leads-by-users',
     'tiempo-por-vendedor',
     'open-leads-by-states-fixed',
-    'quantity-products',
     'total-services',
     'services-requested',
     'evolution',

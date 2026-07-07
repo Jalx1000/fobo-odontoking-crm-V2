@@ -120,10 +120,23 @@ class LeadController extends Controller
             }
 
             /**
-             * Date range quick-filter (7 / 30 / 90 days / current month). Applied before the
-             * sum() clone and the paginator so both the column totals and the cards respect it.
+             * Filtro por fecha de creación. Un rango personalizado (start_date/end_date)
+             * tiene precedencia sobre el quick-filter (7 / 30 / 90 días / mes actual).
+             * Aplicado antes del sum() clone y el paginador para que tanto los totales
+             * de columna como las tarjetas lo respeten.
              */
-            if ($from = $this->resolveDateRangeFrom(request()->query('date_range'))) {
+            $startDate = request()->query('start_date');
+            $endDate = request()->query('end_date');
+
+            if ($startDate || $endDate) {
+                if ($startDate) {
+                    $query->whereDate('leads.created_at', '>=', $startDate);
+                }
+
+                if ($endDate) {
+                    $query->whereDate('leads.created_at', '<=', $endDate);
+                }
+            } elseif ($from = $this->resolveDateRangeFrom(request()->query('date_range'))) {
                 $query->where('leads.created_at', '>=', $from);
             }
 
