@@ -135,7 +135,11 @@ class DashboardController extends Controller
             request()->merge(['pipeline_id' => 'all']);
         }
 
-        $fileName = 'tablero-'.now()->format('Y-m-d-His').'.'.$format;
+        $range = (($from = request('start')) && ($to = request('end')))
+            ? $from.'_a_'.$to
+            : now()->format('Y-m-d');
+
+        $fileName = 'tablero_'.$range.'.'.$format;
 
         /**
          * CSV cannot hold multiple sheets, so fall back to the detail rows

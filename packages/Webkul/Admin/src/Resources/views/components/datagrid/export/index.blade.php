@@ -68,7 +68,7 @@
         app.component('v-datagrid-export', {
             template: '#v-datagrid-export-template',
 
-            props: ['src'],
+            props: ['src', 'fileName'],
 
             data() {
                 return {
@@ -85,6 +85,31 @@
             },
 
             methods: {
+                /**
+                 * Builds the download filename as "modulo_desde_a_hasta.ext",
+                 * reading the active date range from the export src (start/end or
+                 * date_from/date_to). Falls back to today's date when no range is
+                 * applied.
+                 *
+                 * @param {string} format
+                 * @returns {string}
+                 */
+                buildFileName(format) {
+                    const url = new URL(this.src, window.location.origin);
+                    const params = url.searchParams;
+
+                    const from = params.get('start') || params.get('date_from') || '';
+                    const to = params.get('end') || params.get('date_to') || '';
+
+                    const base = this.fileName || url.pathname.split('/').filter(Boolean).pop() || 'export';
+
+                    const range = (from && to)
+                        ? `${from}_a_${to}`
+                        : new Date().toISOString().slice(0, 10);
+
+                    return `${base}_${range}.${format}`;
+                },
+
                 /**
                  * Registers events to update properties and trigger the download process.
                  *
@@ -151,7 +176,7 @@
                                  */
                                 const link = document.createElement('a');
                                 link.href = url;
-                                link.setAttribute('download', `${(Math.random() + 1).toString(36).substring(7)}.${this.format}`);
+                                link.setAttribute('download', this.buildFileName(this.format));
 
                                 /**
                                  * Adding a link to a document, clicking on the link, and then removing the link.

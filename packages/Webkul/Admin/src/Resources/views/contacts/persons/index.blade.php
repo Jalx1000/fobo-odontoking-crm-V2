@@ -16,10 +16,13 @@
             <div class="flex items-center gap-x-2.5">
                 <!-- Export Modal (carries the active city/date filter so the
                      download matches the on-screen list) -->
-                <x-admin::datagrid.export :src="route('admin.contacts.persons.index', array_merge(
-                    request()->only(['start', 'end']),
-                    ['pipeline_id' => request('pipeline_id')]
-                ))" />
+                <x-admin::datagrid.export
+                    file-name="prospectos"
+                    :src="route('admin.contacts.persons.index', array_merge(
+                        request()->only(['start', 'end']),
+                        ['pipeline_id' => request('pipeline_id')]
+                    ))"
+                />
 
                 <!-- Create button for person -->
                 <div class="flex items-center gap-x-2.5">
