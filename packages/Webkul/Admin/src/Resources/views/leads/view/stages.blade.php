@@ -44,6 +44,8 @@
 
             {!! view_render_event('admin.leads.view.stages.items.dropdown.before', ['lead' => $lead]) !!}
 
+            {{-- Oculto por requerimiento: selector "Ganado/Perdido" en la barra superior de etapas (no eliminar) --}}
+            @if (false)
             <!-- Won/Lost Stage Item -->
             <x-admin::dropdown position="bottom-right">
                 <x-slot:toggle>
@@ -88,6 +90,8 @@
                     {!! view_render_event('admin.leads.view.stages.items.dropdown.menu_item.after', ['lead' => $lead]) !!}
                 </x-slot>
             </x-admin::dropdown>
+            @endif
+            {{-- Fin bloque oculto "Ganado/Perdido" --}}
 
             {!! view_render_event('admin.leads.view.stages.items.dropdown.after', ['lead' => $lead]) !!}
 

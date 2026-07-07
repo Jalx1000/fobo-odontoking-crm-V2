@@ -1,12 +1,11 @@
 <?php
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
-use Webkul\Product\Models\Product;
+use Illuminate\Support\Facades\Route;
 use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\Attribute\Repositories\AttributeValueRepository;
-use Webkul\Contact\Repositories\PersonRepository;
+use Webkul\Product\Models\Product;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,7 +29,7 @@ Route::get('/public/products', function (Request $request) {
     if ($search) {
         $query->where(function ($q) use ($search) {
             $q->where('name', 'like', '%'.$search.'%')
-              ->orWhere('sku', 'like', '%'.$search.'%');
+                ->orWhere('sku', 'like', '%'.$search.'%');
         });
     }
 
@@ -46,7 +45,7 @@ Route::get('/public/products', function (Request $request) {
         if ($attribute) {
             $query->whereHas('attribute_values', function ($q) use ($attribute, $available) {
                 $q->where('attribute_id', $attribute->id)
-                  ->where('boolean_value', (int) $available);
+                    ->where('boolean_value', (int) $available);
             });
         }
     }
@@ -92,8 +91,9 @@ Route::get('/public/chat-history', function (Request $request) {
         foreach ($tables as $table) {
             $rows = DB::connection('external_pgsql')
                 ->table($table)
-                ->select('session_id', 'message')
+                ->select('id', 'session_id', 'message')
                 ->where('session_id', $email)
+                ->orderBy('id')
                 ->get();
 
             foreach ($rows as $row) {

@@ -77,6 +77,7 @@
                     <button type="button" class="px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" :class="viewType==='day'?'bg-gray-100 dark:bg-gray-800 font-semibold text-blue-600':''" @click="setView('day')">Día</button>
                     <button type="button" class="px-3 py-2 text-sm border-l dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800" :class="viewType==='week'?'bg-gray-100 dark:bg-gray-800 font-semibold text-blue-600':''" @click="setView('week')">Semana</button>
                     <button type="button" class="px-3 py-2 text-sm border-l dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800" :class="viewType==='month'?'bg-gray-100 dark:bg-gray-800 font-semibold text-blue-600':''" @click="setView('month')">Mes</button>
+                    <button type="button" class="px-3 py-2 text-sm border-l dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800" :class="viewType==='list'?'bg-gray-100 dark:bg-gray-800 font-semibold text-blue-600':''" @click="setView('list')">Lista</button>
                 </div>
             </div>
         </div>
@@ -196,6 +197,62 @@
             </div>
         </div>
 
+        <div v-else-if="viewType === 'list'" class="dwc-list-view">
+            <!-- Filtro de rango de fechas Desde / Hasta -->
+            <div class="dwc-list-filters">
+                <div class="flex items-end gap-3 flex-wrap">
+                    <label class="flex flex-col gap-1">
+                        <span class="text-xs text-gray-600 dark:text-gray-300">Desde</span>
+                        <input type="date" class="rounded border border-gray-200 px-2.5 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="rangeStart" @change="applyRange">
+                    </label>
+                    <label class="flex flex-col gap-1">
+                        <span class="text-xs text-gray-600 dark:text-gray-300">Hasta</span>
+                        <input type="date" class="rounded border border-gray-200 px-2.5 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="rangeEnd" @change="applyRange">
+                    </label>
+                    <button type="button" class="primary-button" @click="applyRange">Aplicar</button>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 ml-1">@{{ listAppointments.length }} citas</span>
+                </div>
+            </div>
+
+            <div v-if="isLoading" class="p-6 text-center text-sm text-gray-500 dark:text-gray-400">Cargando…</div>
+
+            <template v-else>
+                <div v-if="!listAppointments.length" class="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                    No hay citas en el rango seleccionado.
+                </div>
+
+                <div v-else class="dwc-list-table">
+                    <div v-for="group in listGroups" :key="'lg-'+group.date" class="dwc-list-group">
+                        <div class="dwc-list-group-title">@{{ group.label }}</div>
+
+                        <div v-for="ev in group.items" :key="'lrow-'+ev.id" class="dwc-list-row"
+                             :class="{ 'is-cancelled': ev.is_cancelled, 'is-completed': ev.is_completed }">
+                            <div class="dwc-list-time">
+                                <span class="font-semibold">@{{ formatTime(ev.start) }}</span>
+                                <span class="text-gray-400"> - @{{ formatTime(ev.end) }}</span>
+                            </div>
+                            <div class="dwc-list-main">
+                                <div class="text-sm font-semibold dark:text-white">@{{ ev.person_name || ev.title || 'Cita' }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">
+                                    <span v-if="ev.doctor_name">@{{ ev.doctor_name }}</span>
+                                    <span v-if="ev.product_name"> · @{{ ev.product_name }}</span>
+                                    <span> · @{{ getStageName(ev.lead_pipeline_stage_id) || ev.type }}</span>
+                                </div>
+                            </div>
+                            <div class="dwc-list-actions">
+                                <button type="button" class="dwc-action-btn" title="Ver detalles" @click="openViewModal(ev)">
+                                    <span class="icon-eye"></span>
+                                </button>
+                                <button type="button" class="dwc-action-btn" title="Editar Cita" @click="openEditModal(ev)">
+                                    <span class="icon-edit"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
         <div v-else-if="viewType === 'week' && !isSingleDoctorMode" class="dwc-week-view">
             <div class="dwc-week-header">
                 <div class="dwc-week-header-cell doctor-col">Doctores</div>
@@ -262,7 +319,7 @@
                         <div v-for="idx in 13" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
                         <!-- Events -->
-                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :class="{ 'dwc-event-cancelled': ev.is_cancelled, 'dwc-event-completed': ev.is_completed }" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
+                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :class="{ 'dwc-event-cancelled': ev.is_cancelled, 'dwc-event-completed': ev.is_completed, 'dwc-event-compact': ev.height < 64, 'dwc-event-tiny': ev.height < 40 }" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
                             <div class="dwc-event-content dwc-event-layout">
                                 <div class="dwc-event-info">
                                     <div class="dwc-event-row-primary">
@@ -329,7 +386,7 @@
 
                             <div v-for="idx in 13" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
-                            <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :class="{ 'dwc-event-cancelled': ev.is_cancelled, 'dwc-event-completed': ev.is_completed }" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
+                            <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :class="{ 'dwc-event-cancelled': ev.is_cancelled, 'dwc-event-completed': ev.is_completed, 'dwc-event-compact': ev.height < 64, 'dwc-event-tiny': ev.height < 40 }" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
                                 <div class="dwc-event-content dwc-event-layout">
                                     <div class="dwc-event-info">
                                         <div class="dwc-event-row-primary">
@@ -779,6 +836,9 @@
             <x-slot:footer>
                 <div class="flex items-center gap-2 justify-end">
                     <button type="button" class="secondary-button" @click="$refs.viewModal.close()">Cerrar</button>
+                    <button type="button" class="primary-button" v-if="viewAppointment.data" @click="editFromView">
+                        Editar Cita
+                    </button>
                 </div>
             </x-slot>
         </x-admin::modal>
@@ -1080,6 +1140,30 @@
 </script>
 
 <script type="module">
+    // Persistencia de filtros del calendario (vista, fecha y rango) por cookie.
+    const DDC_PREFS_COOKIE = 'ddc_calendar_prefs';
+
+    function ddcSetCookie(name, value, days = 365) {
+        const expires = new Date(Date.now() + days * 864e5).toUTCString();
+        document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+    }
+
+    function ddcGetCookie(name) {
+        return document.cookie.split('; ').reduce((acc, cookie) => {
+            const [key, ...rest] = cookie.split('=');
+            return key === name ? decodeURIComponent(rest.join('=')) : acc;
+        }, '');
+    }
+
+    function ddcLoadPrefs() {
+        try {
+            const raw = ddcGetCookie(DDC_PREFS_COOKIE);
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
     app.component('v-doctor-multiselect', {
         template: '#v-doctor-multiselect-template',
         props: {
@@ -1256,13 +1340,19 @@
         data() {
             const today = new Date();
             const start = new Date(today);
+            const rangeEndDefault = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30);
+
+            // Preferencias persistidas (cookie): vista, fecha ancla y rango.
+            const prefs = ddcLoadPrefs();
 
             return {
                 isLoading: false,
                 isSaving: false,
                 addError: '',
-                hourHeight: 64,
-                startISO: this.toISO(start),
+                hourHeight: 84,
+                startISO: prefs.startISO || this.toISO(start),
+                rangeStart: prefs.rangeStart || this.toISO(start),
+                rangeEnd: prefs.rangeEnd || this.toISO(rangeEndDefault),
                 days: [],
                 doctors: [],
                 appointments: [],
@@ -1363,7 +1453,7 @@
                 personStoreUrl: "{{ route('admin.contacts.persons.store') }}",
                 searchSmdUrl: "{{ route('admin.contacts.persons.search_smd') }}",
                 syncSmdBaseUrl: "{{ route('admin.contacts.persons.sync_smd', ['id' => '__ID__']) }}",
-                viewType: 'day',
+                viewType: ['day', 'week', 'month', 'list'].includes(prefs.viewType) ? prefs.viewType : 'day',
                 insuranceOptions: [],
                 insurance: {
                     ci: '',
@@ -1399,6 +1489,9 @@
                 return this.days.length * this.dayHeight;
             },
             dayLabel() {
+                if (this.viewType === 'list') {
+                    return `${this.rangeStart || '—'} → ${this.rangeEnd || '—'}`;
+                }
                 if (this.viewType === 'week' && this.days.length) {
                     const s = new Date(this.days[0].date);
                     const e = new Date(this.days[this.days.length - 1].date);
@@ -1434,6 +1527,31 @@
             },
             isSingleDoctorMode() {
                 return this.columns.length === 1;
+            },
+            listAppointments() {
+                if (!this.selectedDoctorIds.length) return [];
+                const ids = new Set(this.selectedDoctorIds.map(id => String(id)));
+                return this.appointments
+                    .filter(a => ids.has(String(a.doctor_id)))
+                    .slice()
+                    .sort((a, b) => new Date(a.start) - new Date(b.start));
+            },
+            listGroups() {
+                const groups = [];
+                const map = {};
+                for (const ev of this.listAppointments) {
+                    const date = String(ev.start).slice(0, 10);
+                    if (!map[date]) {
+                        map[date] = {
+                            date,
+                            label: this.formatDate(this.parseISODate(date)),
+                            items: []
+                        };
+                        groups.push(map[date]);
+                    }
+                    map[date].items.push(ev);
+                }
+                return groups;
             },
             monthGridCells() {
                 if (this.viewType !== 'month') return [];
@@ -1736,6 +1854,7 @@
             selectDate(iso) {
                 if (!iso) return;
                 this.startISO = iso;
+                this.persistPrefs();
                 this.closeDatePicker();
                 this.fetch();
             },
@@ -1770,6 +1889,7 @@
             },
             setView(type) {
                 this.viewType = type;
+                this.persistPrefs();
                 this.fetch();
             },
             prevPeriod() {
@@ -1778,6 +1898,7 @@
                 else if (this.viewType === 'month') d.setMonth(d.getMonth() - 1);
                 else d.setDate(d.getDate() - 1);
                 this.startISO = this.toISO(d);
+                this.persistPrefs();
                 this.fetch();
             },
             nextPeriod() {
@@ -1786,12 +1907,29 @@
                 else if (this.viewType === 'month') d.setMonth(d.getMonth() + 1);
                 else d.setDate(d.getDate() + 1);
                 this.startISO = this.toISO(d);
+                this.persistPrefs();
                 this.fetch();
             },
             goToday() {
                 const today = new Date();
                 this.startISO = this.toISO(today);
+                this.persistPrefs();
                 this.fetch();
+            },
+            applyRange() {
+                if (this.viewType !== 'list') {
+                    this.viewType = 'list';
+                }
+                this.persistPrefs();
+                this.fetch();
+            },
+            persistPrefs() {
+                ddcSetCookie(DDC_PREFS_COOKIE, JSON.stringify({
+                    viewType: this.viewType,
+                    startISO: this.startISO,
+                    rangeStart: this.rangeStart,
+                    rangeEnd: this.rangeEnd,
+                }));
             },
             fetch() {
                 this.isLoading = true;
@@ -1801,7 +1939,9 @@
                             view_type: 'calendar',
                             calendar_mode: 'doctor',
                             calendar_view: this.viewType,
-                            start: this.startISO
+                            start: this.startISO,
+                            range_start: this.rangeStart,
+                            range_end: this.rangeEnd
                         }
                     })
                     .then(r => {
@@ -2104,6 +2244,12 @@
                 this.viewAppointment.data = ev;
                 this.viewAppointment.visible = true;
                 this.$refs.viewModal.open();
+            },
+            editFromView() {
+                const ev = this.viewAppointment.data;
+                if (!ev) return;
+                this.$refs.viewModal.close();
+                this.openEditModal(ev);
             },
             openGroupModal() {
                 this.modalError = '';
@@ -3010,11 +3156,19 @@
     .dwc-event-content {
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 2px;
         height: 100%;
+        min-height: 0;
         position: relative;
-        padding: 6px 8px;
+        padding: 5px 8px;
         box-sizing: border-box;
+    }
+
+    /* En eventos cortos, apretamos el padding para que la primera línea no se
+       corte a la mitad. */
+    .dwc-event-compact .dwc-event-content {
+        padding: 3px 8px;
+        gap: 1px;
     }
 
     .dwc-event-actions-wrapper {
@@ -3067,6 +3221,7 @@
 
     .dwc-event-info {
         flex-grow: 1;
+        min-height: 0;
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -3115,8 +3270,9 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        flex-shrink: 0;
-        max-width: 60%;
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 100%;
     }
 
     .dwc-event-doctor {
@@ -3139,6 +3295,23 @@
         overflow: hidden;
         line-height: 1.3;
         font-style: italic;
+    }
+
+    /* Evento corto (< ~45 min): el motivo no cabe sin desbordar, se oculta.
+       El texto completo sigue disponible en el tooltip (title) y al abrir la cita. */
+    .dwc-event-compact .dwc-event-reason {
+        display: none;
+    }
+
+    /* Evento muy corto (< ~30 min): solo entra una línea; dejamos el nombre del
+       paciente y el estado, ocultando la fila secundaria (doctor · hora · estado)
+       para no cortar información a la mitad. */
+    .dwc-event-tiny .dwc-event-row-secondary {
+        display: none;
+    }
+
+    .dwc-event-tiny .dwc-event-patient {
+        font-size: 11px;
     }
 
 
@@ -3208,52 +3381,100 @@
     .dwc-month-view {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 12px;
         background: var(--hours-bg);
         border: 1px solid var(--border-color);
         border-radius: 8px;
-        padding: 10px;
+        padding: 14px;
+    }
+
+    /* Más aire entre celdas del mes (scopeado: no afecta el date-picker,
+       que comparte .ddc-date-grid / .ddc-date-weekdays). */
+    .dwc-month-view .ddc-date-weekdays,
+    .dwc-month-view .ddc-date-grid {
+        gap: 10px;
+    }
+
+    .dwc-month-view .ddc-date-weekday {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: capitalize;
     }
 
     .dwc-month-cell {
-        height: 120px;
-        align-items: flex-start;
+        height: 156px;
+        align-items: stretch;
         justify-content: flex-start;
         flex-direction: column;
-        border-radius: 8px;
+        border-radius: 10px;
         border: 1px solid var(--border-color);
+        overflow: hidden;
+        transition: box-shadow .15s ease, border-color .15s ease;
+    }
+
+    .dwc-month-cell:hover {
+        border-color: rgba(103, 80, 164, 0.35);
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+    }
+
+    .dwc-month-cell.is-today {
+        border-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.06);
+    }
+
+    .dwc-month-cell.is-out {
+        background: var(--gray-50, rgba(0, 0, 0, 0.02));
+        opacity: 0.6;
+    }
+
+    /* La regla base .ddc-date-day.is-out oculta el número (color: transparent);
+       en el mes lo mostramos atenuado en vez de desaparecerlo. */
+    .dwc-month-view .dwc-month-cell.is-out .dwc-month-cell-header {
+        color: var(--hour-text, #9ca3af);
     }
 
     .dwc-month-cell-header {
         width: 100%;
         display: flex;
         justify-content: space-between;
-        padding: 4px 8px;
+        align-items: center;
+        padding: 6px 10px;
+        font-size: 13px;
     }
 
     .dwc-month-cell-events {
         width: 100%;
-        padding: 0 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 0 8px 8px;
         overflow-y: auto;
-        max-height: 90px;
+        max-height: 118px;
     }
 
     .dwc-month-event {
-        font-size: 11px;
+        font-size: 11.5px;
+        line-height: 1.35;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        margin-bottom: 4px;
-        padding: 2px 4px;
-        border-radius: 4px;
+        padding: 3px 7px;
+        border-radius: 6px;
         background: #dbeafe;
         color: #1e40af;
+        border-left: 3px solid #3b82f6;
         cursor: pointer;
+        transition: filter .15s ease;
+    }
+
+    .dwc-month-event:hover {
+        filter: brightness(0.96);
     }
 
     .dark .dwc-month-event {
         background: #1e3a8a;
         color: #dbeafe;
+        border-left-color: #60a5fa;
     }
 
     .dwc-week-view {
@@ -3466,5 +3687,113 @@
 
     .dark .tp-list li.is-selected {
         background-color: #2563eb;
+    }
+
+    /* ===== Vista Lista por rango ===== */
+    .dwc-list-view {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .dwc-list-filters {
+        padding: 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #fff;
+    }
+
+    .dark .dwc-list-filters {
+        background: #111827;
+        border-color: #1f2937;
+    }
+
+    .dwc-list-table {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #fff;
+    }
+
+    .dark .dwc-list-table {
+        background: #111827;
+        border-color: #1f2937;
+    }
+
+    .dwc-list-group-title {
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: capitalize;
+        color: #374151;
+        background: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .dark .dwc-list-group-title {
+        color: #d1d5db;
+        background: #1f2937;
+        border-color: #374151;
+    }
+
+    .dwc-list-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-bottom: 1px solid #f3f4f6;
+    }
+
+    .dark .dwc-list-row {
+        border-color: #1f2937;
+    }
+
+    .dwc-list-row:hover {
+        background: #f9fafb;
+    }
+
+    .dark .dwc-list-row:hover {
+        background: #1f2937;
+    }
+
+    .dwc-list-row.is-cancelled {
+        opacity: 0.6;
+        text-decoration: line-through;
+    }
+
+    .dwc-list-row.is-completed {
+        background: #f0fdf4;
+    }
+
+    .dark .dwc-list-row.is-completed {
+        background: rgba(22, 163, 74, 0.12);
+    }
+
+    .dwc-list-time {
+        min-width: 120px;
+        font-size: 13px;
+        color: #374151;
+        white-space: nowrap;
+    }
+
+    .dark .dwc-list-time {
+        color: #d1d5db;
+    }
+
+    .dwc-list-main {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .dwc-list-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .dwc-list-actions .dwc-action-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
     }
 </style>

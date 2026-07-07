@@ -522,9 +522,10 @@
                         }, {
                             name: 'note',
                             label: "{{ trans('admin::app.components.activities.index.notes') }}",
-                        }, {
-                            name: 'call',
-                            label: "{{ trans('admin::app.components.activities.index.calls') }}",
+                        // Oculto por requerimiento: pestaña "Llamadas" (no eliminar)
+                        // }, {
+                        //     name: 'call',
+                        //     label: "{{ trans('admin::app.components.activities.index.calls') }}",
                         }, {
                             name: 'meeting',
                             label: "{{ trans('admin::app.components.activities.index.meetings') }}",

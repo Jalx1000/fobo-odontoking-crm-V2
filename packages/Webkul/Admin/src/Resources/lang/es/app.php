@@ -161,7 +161,7 @@ return [
                 'location'           => 'Ubicación',
                 'lunches'            => 'Almuerzos',
                 'mark-as-done'       => 'Marcar como hecho',
-                'meetings'           => 'Reuniones',
+                'meetings'           => 'Consultas',
                 'notes'              => 'Notas',
                 'participants'       => 'Participantes',
                 'planned'            => 'Planificado',
@@ -189,8 +189,8 @@ return [
                         'description' => 'No se encontraron llamadas para esto. Puedes agregarlas haciendo clic en el botón Actividad en el panel izquierdo y seleccionando el tipo Llamada.',
                     ],
                     'meetings' => [
-                        'title'       => 'No se encontraron reuniones',
-                        'description' => 'No se encontraron reuniones para esto. Puedes agregarlas haciendo clic en el botón Actividad en el panel izquierdo y seleccionando el tipo Consulta.',
+                        'title'       => 'No se encontraron consultas',
+                        'description' => 'No se encontraron consultas para esto. Puedes agregarlas haciendo clic en el botón Actividad en el panel izquierdo y seleccionando el tipo Consulta.',
                     ],
                     'lunches' => [
                         'title'       => 'No se encontraron almuerzos',
@@ -519,7 +519,7 @@ return [
                     'index' => [
                         'all'          => 'Todos',
                         'calls'        => 'Llamadas',
-                        'meetings'     => 'Reuniones',
+                        'meetings'     => 'Consultas',
                         'lunches'      => 'Almuerzos',
                         'files'        => 'Archivos',
                         'quotes'       => 'Cotizaciones',
@@ -2065,16 +2065,11 @@ return [
                 'average-lead-value'    => 'Valor Promedio de Paciente',
                 'total-leads'           => 'Total de Pacientes',
                 'total-citas'           => 'Total de Citas',
+                'total-consultas'       => 'Total de Consultas',
                 'average-leads-per-day' => 'Pacientes Promedio por Día',
                 'total-quotations'      => 'Total de Cotizaciones',
                 'total-persons'         => 'Total de Pacientes',
                 'total-organizations'   => 'Total de Organizaciones',
-            ],
-            'total-leads' => [
-                'title' => 'Pacientes',
-                'total' => 'Total de Pacientes',
-                'won'   => 'Pacientes Ganados',
-                'lost'  => 'Pacientes Perdidos',
             ],
             'evolution' => [
                 'title'    => 'Evolución',
@@ -2093,11 +2088,6 @@ return [
                 'empty-info'  => 'No hay datos disponibles para el intervalo seleccionado',
             ],
 
-            'quantity-products' => [
-                'title'       => 'Servicios Más Vendidos',
-                'empty-title' => 'No Se Encontraron Servicios',
-                'empty-info'  => 'No hay servicios disponibles para el intervalo seleccionado',
-            ],
             'services-requested' => [
                 'title'       => 'Servicios Solicitados',
                 'leads'       => 'citas',

@@ -53,6 +53,8 @@
                                 @endif
                             </div>
 
+                            {{-- Oculto por requerimiento: Valor total por etapa (no eliminar) --}}
+                            {{--
                             <!-- Stage Total Leads and Amount -->
                             <div class="flex items-center justify-between gap-2">
                                 <span class="text-xs font-medium dark:text-white">
@@ -67,6 +69,7 @@
                                     ></div>
                                 </div>
                             </div>
+                            --}}
                         </div>
 
                         {!! view_render_event('admin.leads.index.kanban.content.stage.header.after') !!}
@@ -182,9 +185,12 @@
                                             @{{ element.user?.name || '' }}
                                         </div>
 
+                                        {{-- Oculto por requerimiento: Valor total en la tarjeta del lead (no eliminar) --}}
+                                        {{--
                                         <div class="rounded-xl bg-gray-200 px-2 py-1 text-xs font-medium dark:bg-gray-800 dark:text-white">
                                             @{{ element.formatted_lead_value }}
                                         </div>
+                                        --}}
 
                                         <div 
                                             class="rounded-xl bg-gray-200 px-2 py-1 text-xs font-medium dark:bg-gray-800 dark:text-white"
