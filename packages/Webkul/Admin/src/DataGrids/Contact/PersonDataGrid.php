@@ -5,17 +5,38 @@ namespace Webkul\Admin\DataGrids\Contact;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Webkul\Admin\Helpers\CustomAttributeValueResolver;
+use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\Contact\Repositories\OrganizationRepository;
+use Webkul\Contact\Repositories\PersonRepository;
 use Webkul\DataGrid\DataGrid;
 
 class PersonDataGrid extends DataGrid
 {
     /**
+     * Shared custom-attribute value resolver (kept as a single instance so its
+     * lookup-label cache is reused across every exported row).
+     */
+    protected ?CustomAttributeValueResolver $attributeResolver = null;
+
+    /**
      * Create a new class instance.
      *
      * @return void
      */
-    public function __construct(protected OrganizationRepository $organizationRepository) {}
+    public function __construct(
+        protected OrganizationRepository $organizationRepository,
+        protected AttributeRepository $attributeRepository,
+        protected PersonRepository $personRepository,
+    ) {}
+
+    /**
+     * Resolve the shared custom-attribute value resolver.
+     */
+    protected function attributeResolver(): CustomAttributeValueResolver
+    {
+        return $this->attributeResolver ??= app(CustomAttributeValueResolver::class);
+    }
 
     /**
      * Resolve the id of the "cliente_ciudad" custom attribute for persons.
@@ -200,6 +221,49 @@ class PersonDataGrid extends DataGrid
                 ],
             ],
         ]);
+
+        $this->prepareCustomAttributeColumns();
+    }
+
+    /**
+     * Append every custom attribute of the "persons" entity as a hidden but
+     * exportable column, so the Excel/CSV download carries the custom data
+     * (city, branch, etc.) with its resolved label rather than a raw id.
+     */
+    protected function prepareCustomAttributeColumns(): void
+    {
+        $attributes = $this->attributeRepository->findWhere(['entity_type' => 'persons']);
+
+        foreach ($attributes as $attribute) {
+            /**
+             * Skip the core columns already rendered above to avoid duplicates.
+             */
+            if (in_array($attribute->code, ['name', 'emails', 'contact_numbers', 'organization_name'])) {
+                continue;
+            }
+
+            $this->addColumn([
+                'index'      => $attribute->code,
+                'label'      => $attribute->name,
+                'type'       => 'string',
+                'visibility' => false,
+                'closure'    => function ($row) use ($attribute) {
+                    static $person;
+
+                    if (! $person || $person->id != $row->id) {
+                        $person = $this->personRepository->find($row->id);
+                    }
+
+                    if (! $person) {
+                        return '';
+                    }
+
+                    $value = $person->getCustomAttributeValue($attribute);
+
+                    return $this->attributeResolver()->resolve($attribute, $value);
+                },
+            ]);
+        }
     }
 
     /**

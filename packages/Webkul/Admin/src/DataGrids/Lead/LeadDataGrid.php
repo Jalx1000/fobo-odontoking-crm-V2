@@ -4,6 +4,7 @@ namespace Webkul\Admin\DataGrids\Lead;
 
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
+use Webkul\Admin\Helpers\CustomAttributeValueResolver;
 use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\DataGrid\DataGrid;
 use Webkul\Lead\Repositories\LeadRepository;
@@ -29,6 +30,20 @@ class LeadDataGrid extends DataGrid
      * @var bool
      */
     protected $allPipelines = false;
+
+    /**
+     * Shared custom-attribute value resolver (kept as a single instance so its
+     * lookup-label cache is reused across every exported row).
+     */
+    protected ?CustomAttributeValueResolver $attributeResolver = null;
+
+    /**
+     * Resolve the shared custom-attribute value resolver.
+     */
+    protected function attributeResolver(): CustomAttributeValueResolver
+    {
+        return $this->attributeResolver ??= app(CustomAttributeValueResolver::class);
+    }
 
     /**
      * Create data grid instance.
@@ -395,29 +410,7 @@ class LeadDataGrid extends DataGrid
 
                     $value = $lead->getCustomAttributeValue($attribute);
 
-                    if (is_null($value) || $value === '') {
-                        return '';
-                    }
-
-                    if ($attribute->type == 'select') {
-                        return $attribute->options->where('id', $value)->first()->name ?? $value;
-                    }
-
-                    if ($attribute->type == 'lookup') {
-                        $lookUpEntity = config('attribute_lookups.'.$attribute->lookup_type);
-
-                        if (! $lookUpEntity) {
-                            return $value;
-                        }
-
-                        $repository = app($lookUpEntity['repository']);
-
-                        $record = $repository->find($value);
-
-                        return $record->{$lookUpEntity['label_column'] ?? 'name'} ?? $value;
-                    }
-
-                    return $value;
+                    return $this->attributeResolver()->resolve($attribute, $value);
                 },
             ]);
         }
