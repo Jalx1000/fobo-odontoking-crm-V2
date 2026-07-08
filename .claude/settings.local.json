@@ -86,7 +86,10 @@
       "Bash(cd *)",
       "Bash(node --check \"/tmp/claude-0/-etc-easypanel-projects-heaven-odontoking-crm-code/8771c163-15f7-421d-8ebe-a422f19e3105/scratchpad/kanban.js\")",
       "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Http/Controllers/Lead/LeadController.php tests/Feature/LeadKanbanDateRangeTest.php)",
-      "Bash(./vendor/bin/pint tests/Feature/PersonIndexDateFilterTest.php tests/Feature/LeadKanbanDateRangeTest.php tests/Feature/DashboardLayoutTest.php)"
+      "Bash(./vendor/bin/pint tests/Feature/PersonIndexDateFilterTest.php tests/Feature/LeadKanbanDateRangeTest.php tests/Feature/DashboardLayoutTest.php)",
+      "Bash(su -s /bin/sh www-data -c \"php artisan config:clear\")",
+      "Bash(sudo -u www-data php artisan config:clear)",
+      "Bash(ip -o link show)"
     ]
   }
 }

@@ -142,7 +142,7 @@
                     </template>
 
                     <template v-else>
-                        <div class="row grid grid-cols-[.1fr_.25fr_.25fr_.25fr_.15fr] grid-rows-1 items-center border-b px-4 py-2.5 dark:border-gray-800 max-lg:hidden">
+                        <div class="row grid grid-rows-1 items-center border-b px-4 py-2.5 dark:border-gray-800 max-lg:hidden" style="grid-template-columns: .1fr .25fr .25fr .25fr .15fr;">
                             <div
                                 class="flex select-none items-center gap-2.5"
                                 v-for="(columnGroup, index) in [['id'], ['person_name'], ['emails'], ['contact_numbers']]"
@@ -283,7 +283,8 @@
 
                     <template v-else>
                         <div
-                            class="row grid grid-cols-[.1fr_.25fr_.25fr_.25fr_.15fr] grid-rows-1 border-b px-4 py-2.5 transition-all hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-950 max-lg:hidden"
+                            class="row grid grid-rows-1 border-b px-4 py-2.5 transition-all hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-950 max-lg:hidden"
+                            style="grid-template-columns: .1fr .25fr .25fr .25fr .15fr;"
                             v-for="record in available.records"
                         >
                             <!-- Mass Action and Person ID. -->
