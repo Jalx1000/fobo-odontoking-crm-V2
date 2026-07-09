@@ -38,27 +38,72 @@ class Person extends AbstractReporting
      */
     public function getTotalPersons($startDate, $endDate): int
     {
-        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
+        $pipelineId = is_numeric(request('pipeline_id')) ? (int) request('pipeline_id') : null;
 
-        // Persons aren't owned by a single pipeline, so when filtering by ciudad we count
-        // distinct persons that have at least one lead in that pipeline. El pipeline solo
-        // acota QUÉ personas entran; la ventana temporal se mide SIEMPRE por
-        // persons.created_at (fecha de registro del contacto), igual que sin filtro, para
-        // que este KPI de "contactos registrados" no cambie de base al filtrar por ciudad.
-        if ($pipelineId) {
-            return $this->personRepository
-                ->resetModel()
-                ->join('leads', 'persons.id', '=', 'leads.person_id')
-                ->where('leads.lead_pipeline_id', $pipelineId)
-                ->whereBetween('persons.created_at', [$startDate, $endDate])
-                ->distinct('persons.id')
-                ->count('persons.id');
+        // Este KPI cuenta CONTACTOS (personas registradas por persons.created_at) y debe
+        // cuadrar 1:1 con el módulo de Prospectos. Por eso la ciudad se filtra igual que
+        // la lista: por el atributo del contacto `cliente_ciudad` (NO por el pipeline del
+        // lead) y sin JOIN a leads, para no perder a las personas que aún no tienen ningún
+        // lead. "Sin ciudad" incluye además a las personas sin ese atributo (integer_value
+        // = pipeline "Sin ciudad" o NULL).
+        $query = $this->personRepository
+            ->resetModel()
+            ->whereBetween('persons.created_at', [$startDate, $endDate]);
+
+        if ($pipelineId && ($cityAttributeId = $this->getCityAttributeId())) {
+            $query->leftJoin('attribute_values as city_av', function ($join) use ($cityAttributeId) {
+                $join->on('city_av.entity_id', '=', 'persons.id')
+                    ->where('city_av.entity_type', 'persons')
+                    ->where('city_av.attribute_id', $cityAttributeId);
+            });
+
+            if ($pipelineId === $this->getNoCityPipelineId()) {
+                $query->where(function ($q) use ($pipelineId) {
+                    $q->where('city_av.integer_value', $pipelineId)
+                        ->orWhereNull('city_av.integer_value');
+                });
+            } else {
+                $query->where('city_av.integer_value', $pipelineId);
+            }
         }
 
-        return $this->personRepository
-            ->resetModel()
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->count();
+        return $query->distinct('persons.id')->count('persons.id');
+    }
+
+    /**
+     * Id del atributo custom "cliente_ciudad" de personas (la ciudad del contacto).
+     * Se resuelve por code, no hardcodeado, para que siga funcionando entre entornos.
+     * Mismo criterio que Webkul\Admin\DataGrids\Contact\PersonDataGrid.
+     */
+    protected function getCityAttributeId(): ?int
+    {
+        static $attributeId;
+
+        if ($attributeId === null) {
+            $attributeId = DB::table('attributes')
+                ->where('code', 'cliente_ciudad')
+                ->where('entity_type', 'persons')
+                ->value('id') ?? false;
+        }
+
+        return $attributeId ?: null;
+    }
+
+    /**
+     * Id del pipeline "Sin ciudad", usado como bucket de los prospectos que no tienen
+     * valor de `cliente_ciudad`. Se resuelve por nombre para no depender de un id fijo.
+     */
+    protected function getNoCityPipelineId(): ?int
+    {
+        static $pipelineId;
+
+        if ($pipelineId === null) {
+            $pipelineId = DB::table('lead_pipelines')
+                ->where('name', 'Sin ciudad')
+                ->value('id') ?? false;
+        }
+
+        return $pipelineId ?: null;
     }
 
     /**
