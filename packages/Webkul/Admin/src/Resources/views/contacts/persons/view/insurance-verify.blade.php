@@ -138,6 +138,30 @@
                     return data && data.success ? 'info' : 'warning';
                 },
 
+                // Auto-rellena el select "Estado de seguro" según el resultado (editable).
+                applyEstadoSeguro(status) {
+                    const map = {
+                        VIGENTE:       'Vigente',
+                        EN_MORA:       'Pagos pendientes',
+                        VENCIDO:       'Vencido',
+                        NO_REGISTRADO: 'No registrado',
+                        SIN_SEGURO:    'No registrado',
+                    };
+                    const label = map[status];
+                    if (! label) return;
+
+                    const select = document.querySelector('[name="estado_seguro_paciente"]');
+                    if (! select) return;
+
+                    const norm = (t) => (t || '').trim().toLowerCase();
+                    const option = [...select.options].find((o) => norm(o.textContent) === norm(label));
+                    if (! option) return;
+
+                    select.value = option.value;
+                    select.dispatchEvent(new Event('input',  { bubbles: true }));
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                },
+
                 handleInsuranceChange(newLabel) {
                     this.localInsuranceLabel = newLabel;
                     
@@ -195,7 +219,9 @@
                             // No re-inferir por status para no mostrar, p.ej., un seguro VENCIDO en verde.
                             const type = this.flashTypeFromBadge(res.data);
                             this.$emitter.emit('add-flash', { type: type, message: res.data.message });
-                            
+
+                            this.applyEstadoSeguro(res.data.status);
+
                             if (['VIGENTE', 'EN_MORA'].includes(res.data.status)) {
                                 this.$emitter.emit('refresh-activities');
                             }

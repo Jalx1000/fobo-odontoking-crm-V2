@@ -107,12 +107,18 @@
                         />
                     </div>
 
-                    <x-admin::attributes
-                        :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
-                            ['code', 'IN', ['ci_paciente', 'seguro_paciente', 'estado_seguro_paciente']],
+                    @php
+                        // Orden: primero CI y Seguro (se capturan/eligen), y al final
+                        // Estado de seguro, que el botón "Verificar Seguro" auto-rellena.
+                        $insuranceFieldOrder = ['ci_paciente', 'seguro_paciente', 'estado_seguro_paciente'];
+
+                        $insuranceAttributes = app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
+                            ['code', 'IN', $insuranceFieldOrder],
                             'entity_type' => 'persons',
-                        ])"
-                    />
+                        ])->sortBy(fn ($attribute) => array_search($attribute->code, $insuranceFieldOrder))->values();
+                    @endphp
+
+                    <x-admin::attributes :custom-attributes="$insuranceAttributes" />
 
                     {{-- Panel persistente con el resultado de la verificación de seguro --}}
                     <v-insurance-result class="mt-4"></v-insurance-result>
@@ -224,6 +230,7 @@
                             });
 
                             this.$emitter.emit('insurance-result', data);
+                            this.applyEstadoSeguro(data.status);
                             this.$emitter.emit('add-flash', {
                                 type:    insuranceFlashType[insuranceSeverity(data)] || 'info',
                                 message: data.message,
@@ -236,6 +243,32 @@
                         } finally {
                             this.loading = false;
                         }
+                    },
+
+                    // Auto-rellena el select "Estado de seguro" según el resultado de la
+                    // verificación. Sigue siendo editable por si hay que corregirlo a mano.
+                    applyEstadoSeguro(status) {
+                        // status del backend -> etiqueta de la opción del select
+                        const map = {
+                            VIGENTE:       'Vigente',
+                            EN_MORA:       'Pagos pendientes',
+                            VENCIDO:       'Vencido',
+                            NO_REGISTRADO: 'No registrado',
+                            SIN_SEGURO:    'No registrado',
+                        };
+                        const label = map[status];
+                        if (! label) return; // INDETERMINADO/ERROR: no tocar el campo
+
+                        const select = document.querySelector('[name="estado_seguro_paciente"]');
+                        if (! select) return;
+
+                        const norm = (t) => (t || '').trim().toLowerCase();
+                        const option = [...select.options].find((o) => norm(o.textContent) === norm(label));
+                        if (! option) return;
+
+                        select.value = option.value;
+                        select.dispatchEvent(new Event('input',  { bubbles: true }));
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
                     },
                 },
             });
