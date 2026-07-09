@@ -193,6 +193,14 @@
                 data() {
                     return { loading: false };
                 },
+                mounted() {
+                    // Permite que el autocompletar de SMD dispare la verificación de seguro
+                    // (para que "Estado de seguro" se rellene solo).
+                    window.__odkVerifyInsurance = () => this.verify();
+                },
+                beforeUnmount() {
+                    if (window.__odkVerifyInsurance) delete window.__odkVerifyInsurance;
+                },
                 template: `
                     <button
                         type="button"

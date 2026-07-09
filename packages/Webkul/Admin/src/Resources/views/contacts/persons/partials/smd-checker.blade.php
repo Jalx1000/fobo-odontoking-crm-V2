@@ -217,6 +217,18 @@
             setInputValue('[name="ci_paciente"]', smdData.ci);
             filled.push('CI');
         }
+        // Edad: se calcula a partir de la fecha de nacimiento que devuelve SMD.
+        if (smdData.birthday) {
+            const age = computeAge(smdData.birthday);
+            if (age !== null) {
+                setInputValue('[name="job_title"]', String(age));
+                filled.push('Edad');
+            }
+        }
+        // Seguro: se mapea el nombre de aseguradora de SMD a la opción del select.
+        if (smdData.insurance && setSelectByText('[name="seguro_paciente"]', smdData.insurance)) {
+            filled.push('Seguro');
+        }
 
         autofillBtn.textContent = '✓ ' + (MODE === 'edit' ? 'Actualizado' : 'Aplicado');
         autofillBtn.disabled    = true;
@@ -226,6 +238,14 @@
                 type:    'success',
                 message: 'Campos actualizados: ' + filled.join(', ') + '.',
             });
+        }
+
+        // Estado de seguro: dispara la verificación automáticamente si hay CI y Seguro,
+        // para que el estado se rellene solo (lo expone el componente de verificación).
+        const ciVal     = document.querySelector('[name="ci_paciente"]')?.value?.trim();
+        const seguroVal = document.querySelector('[name="seguro_paciente"]')?.value;
+        if (ciVal && seguroVal && typeof window.__odkVerifyInsurance === 'function') {
+            window.__odkVerifyInsurance();
         }
 
         setTimeout(() => {
@@ -253,6 +273,31 @@
         el.dispatchEvent(new Event('input',  { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
         el.dispatchEvent(new Event('blur',   { bubbles: true }));
+    }
+
+    // Setea un <select> buscando la opción por texto (case-insensitive).
+    function setSelectByText(selector, text) {
+        const el = document.querySelector(selector);
+        if (! el || el.tagName !== 'SELECT') return false;
+        const norm   = (t) => (t || '').trim().toLowerCase();
+        const option = [...el.options].find((o) => norm(o.textContent) === norm(text));
+        if (! option) return false;
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+        setter.call(el, option.value);
+        el.dispatchEvent(new Event('input',  { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+    }
+
+    // Calcula la edad (años cumplidos) a partir de una fecha de nacimiento (YYYY-MM-DD).
+    function computeAge(birthday) {
+        const d = new Date(birthday);
+        if (isNaN(d.getTime())) return null;
+        const now = new Date();
+        let age = now.getFullYear() - d.getFullYear();
+        const m = now.getMonth() - d.getMonth();
+        if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+        return (age >= 0 && age < 130) ? age : null;
     }
 
     function svgCheck(cls) {
