@@ -34,17 +34,27 @@
     let smdData       = null;
 
     // ── UI refs ──────────────────────────────────────────────────────────────
-    const chip         = document.getElementById('smd-status-chip');
-    const chipDot      = document.getElementById('smd-status-dot');
-    const chipText     = document.getElementById('smd-status-text');
-    const banner       = document.getElementById('smd-result-banner');
-    const bannerIcon   = document.getElementById('smd-banner-icon');
-    const bannerTitle  = document.getElementById('smd-banner-title');
-    const bannerDetail = document.getElementById('smd-banner-detail');
-    const autofillBtn  = document.getElementById('smd-autofill-btn');
+    // IMPORTANTE: este <script> es inline (no-module), así que corre durante el
+    // parseo del HTML, ANTES de que Vue monte la app (app.mount es type=module,
+    // diferido). Al montar, Vue re-renderiza y reemplaza el DOM, dejando huérfanas
+    // las referencias capturadas aquí. Por eso resolvemos los elementos de forma
+    // perezosa (al usarlos) vía resolveEls(), garantizando los nodos vivos.
+    let chip, chipDot, chipText, banner, bannerIcon, bannerTitle, bannerDetail, autofillBtn;
+
+    function resolveEls() {
+        chip         = document.getElementById('smd-status-chip');
+        chipDot      = document.getElementById('smd-status-dot');
+        chipText     = document.getElementById('smd-status-text');
+        banner       = document.getElementById('smd-result-banner');
+        bannerIcon   = document.getElementById('smd-banner-icon');
+        bannerTitle  = document.getElementById('smd-banner-title');
+        bannerDetail = document.getElementById('smd-banner-detail');
+        autofillBtn  = document.getElementById('smd-autofill-btn');
+    }
 
     // ── Chip ─────────────────────────────────────────────────────────────────
     function showChip(state) {
+        resolveEls();
         chip.classList.remove('hidden');
         chip.classList.add('flex');
         const states = {
@@ -72,6 +82,7 @@
 
     // ── Banner ────────────────────────────────────────────────────────────────
     function showBanner(state, patient) {
+        resolveEls();
         banner.classList.remove('hidden');
 
         if (state === 'found') {
@@ -151,6 +162,7 @@
                 }
             }
         } catch (e) {
+            resolveEls();
             chip.classList.add('hidden');
             chip.classList.remove('flex');
         }
@@ -190,6 +202,7 @@
     window.smdAutofill = function () {
         if (! smdData) return;
 
+        resolveEls();
         const filled = [];
 
         if (smdData.name) {
@@ -223,6 +236,7 @@
 
     // ── Dismiss ───────────────────────────────────────────────────────────────
     window.smdDismiss = function () {
+        resolveEls();
         banner.classList.add('hidden');
         chip.classList.add('hidden');
         chip.classList.remove('flex');

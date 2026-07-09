@@ -295,7 +295,9 @@
                         this.insurance.message    = data.message ?? null;
                         this.insurance.checked_at = new Date().toISOString();
                         this.insurance.checkedAgo = 'hace un momento';
-                        const type = data.status === 'VIGENTE' ? 'success' : (data.status === 'EN_MORA' ? 'warning' : 'error');
+                        // Severidad definida por el `badge` del backend (success|warning|danger|null).
+                        const type = { success: 'success', warning: 'warning', danger: 'error' }[data.badge]
+                            || (data.success ? 'info' : 'warning');
                         this.$emitter.emit('add-flash', { type, message: data.message });
                     } catch (err) {
                         const msg = err.response?.data?.message || 'Error al verificar seguro.';
