@@ -52,11 +52,19 @@
                         ])
                     </div>
 
-                    <x-admin::attributes
-                        :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
-                            ['code', 'IN', ['name', 'job_title', 'emails', 'contact_numbers']],
+                    @php
+                        // Orden de captura (buenas prácticas): primero identifica al paciente
+                        // (Nombre, Edad) y luego sus datos de contacto.
+                        $patientFieldOrder = ['name', 'job_title', 'contact_numbers', 'emails'];
+
+                        $patientAttributes = app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
+                            ['code', 'IN', $patientFieldOrder],
                             'entity_type' => 'persons',
-                        ])"
+                        ])->sortBy(fn ($attribute) => array_search($attribute->code, $patientFieldOrder))->values();
+                    @endphp
+
+                    <x-admin::attributes
+                        :custom-attributes="$patientAttributes"
                         :custom-validations="[
                             'name'      => ['min:2', 'max:100'],
                             'job_title' => ['max:100'],
@@ -105,6 +113,9 @@
                             'entity_type' => 'persons',
                         ])"
                     />
+
+                    {{-- Panel persistente con el resultado de la verificación de seguro --}}
+                    <v-insurance-result class="mt-4"></v-insurance-result>
                 </div>
 
                 <!-- Sección 3: Equipo de Atención -->
@@ -154,7 +165,23 @@
                 },
             });
 
-            // Componente verificación de seguro rápida (sin person_id)
+            // Mapa compartido: severidad -> tipo de flash de Krayin.
+            const insuranceFlashType = {
+                success: 'success',
+                warning: 'warning',
+                danger:  'error',
+                neutral: 'info',
+            };
+
+            // Resuelve la severidad usando el `badge` del backend como fuente de verdad.
+            function insuranceSeverity(result) {
+                if (! result) return 'neutral';
+                if (result.badge) return result.badge; // success | warning | danger
+                return result.success ? 'neutral' : 'warning';
+            }
+
+            // Botón "Verificar Seguro" (modo quick, sin person_id).
+            // Emite el resultado por el $emitter para que v-insurance-result lo pinte.
             app.component('v-insurance-quick', {
                 props: ['verifyUrl'],
                 data() {
@@ -188,26 +215,116 @@
                         }
 
                         this.loading = true;
+                        this.$emitter.emit('insurance-result', null); // limpia panel previo mientras carga
+
                         try {
                             const { data } = await this.$axios.post(this.verifyUrl, {
                                 ci_paciente:     ci,
                                 seguro_paciente: seguro,
                             });
 
-                            const type = data.status === 'VIGENTE'    ? 'success'
-                                       : data.status === 'EN_MORA'    ? 'warning'
-                                       : data.status === 'SIN_SEGURO' ? 'warning'
-                                       : 'info';
-
-                            this.$emitter.emit('add-flash', { type, message: data.message });
+                            this.$emitter.emit('insurance-result', data);
+                            this.$emitter.emit('add-flash', {
+                                type:    insuranceFlashType[insuranceSeverity(data)] || 'info',
+                                message: data.message,
+                            });
                         } catch (err) {
                             const msg = err.response?.data?.message || 'Error al verificar el seguro.';
+                            const result = { badge: 'danger', status: 'ERROR', message: msg, data: null, success: false };
+                            this.$emitter.emit('insurance-result', result);
                             this.$emitter.emit('add-flash', { type: 'error', message: msg });
                         } finally {
                             this.loading = false;
                         }
                     },
                 },
+            });
+
+            // Paletas de severidad. Se usan como estilos inline porque estas clases de
+            // color de Tailwind se generan en runtime y no siempre están en el CSS
+            // compilado (el purge no puede "verlas"). Inline garantiza el color correcto.
+            const INSURANCE_PALETTE = {
+                light: {
+                    success: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534', dot: '#22c55e' },
+                    warning: { bg: '#fefce8', border: '#fef08a', text: '#854d0e', dot: '#eab308' },
+                    danger:  { bg: '#fef2f2', border: '#fecaca', text: '#991b1b', dot: '#ef4444' },
+                    neutral: { bg: '#f9fafb', border: '#e5e7eb', text: '#374151', dot: '#9ca3af' },
+                },
+                dark: {
+                    success: { bg: 'rgba(20,83,45,0.30)',  border: '#166534', text: '#86efac', dot: '#22c55e' },
+                    warning: { bg: 'rgba(113,63,18,0.30)', border: '#854d0e', text: '#fde047', dot: '#eab308' },
+                    danger:  { bg: 'rgba(127,29,29,0.30)', border: '#991b1b', text: '#fca5a5', dot: '#ef4444' },
+                    neutral: { bg: '#1f2937',              border: '#374151', text: '#9ca3af', dot: '#9ca3af' },
+                },
+            };
+
+            // Panel persistente con el resultado de la verificación de seguro.
+            app.component('v-insurance-result', {
+                data() {
+                    return { result: null, isDark: false }; // { badge, status, message, data }
+                },
+                mounted() {
+                    this.$emitter.on('insurance-result', (payload) => {
+                        // Captura el tema en el momento de mostrar el resultado.
+                        this.isDark = document.documentElement.classList.contains('dark');
+                        this.result = payload;
+                    });
+                },
+                computed: {
+                    palette() {
+                        const theme = this.isDark ? 'dark' : 'light';
+                        return INSURANCE_PALETTE[theme][insuranceSeverity(this.result)];
+                    },
+                    bannerStyle() {
+                        return {
+                            backgroundColor: this.palette.bg,
+                            borderColor:     this.palette.border,
+                            color:           this.palette.text,
+                        };
+                    },
+                    dotStyle() {
+                        return { backgroundColor: this.palette.dot };
+                    },
+                    resultDetails() {
+                        const d = this.result?.data;
+                        if (! d || typeof d !== 'object') return [];
+                        return Object.entries(d)
+                            .filter(([, value]) => value !== null && value !== '' && value !== undefined)
+                            .map(([label, value]) => ({ label, value }));
+                    },
+                },
+                template: `
+                    <div
+                        v-if="result"
+                        :style="bannerStyle"
+                        class="rounded-lg border px-4 py-3 text-sm transition-all duration-300"
+                    >
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex items-start gap-2.5">
+                                <span :style="dotStyle" class="mt-1.5 h-2 w-2 shrink-0 rounded-full"></span>
+                                <div>
+                                    <p class="font-semibold">@{{ result.status }}</p>
+                                    <p class="mt-0.5 opacity-90">@{{ result.message }}</p>
+
+                                    <dl v-if="resultDetails.length" class="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+                                        <div v-for="item in resultDetails" :key="item.label" class="flex gap-1.5 text-xs">
+                                            <dt class="font-medium opacity-70">@{{ item.label }}:</dt>
+                                            <dd>@{{ item.value }}</dd>
+                                        </div>
+                                    </dl>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                class="shrink-0 text-xs opacity-60 transition hover:opacity-100 focus:outline-none"
+                                @click="result = null"
+                                aria-label="Cerrar"
+                            >
+                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                `,
             });
         </script>
     @endPushOnce

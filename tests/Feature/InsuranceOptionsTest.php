@@ -104,3 +104,34 @@ it('POST verify-insurance-quick valida campos requeridos', function () {
         ->assertStatus(422)
         ->assertJsonStructure(['errors']);
 });
+
+it('POST verify-insurance-quick devuelve el badge de severidad (contrato del formulario)', function () {
+    // El formulario de crear paciente usa `badge` como fuente única de severidad
+    // para pintar la alerta (success/warning/danger). Este test blinda ese contrato.
+    \Illuminate\Support\Facades\Http::fake([
+        'n8n.sofopolis.com/*' => \Illuminate\Support\Facades\Http::response([
+            'success' => true,
+            'data'    => [['ESTADO' => 'VIGENTE', 'NOMBRE COMPLETO' => 'PACIENTE QUICK']],
+        ], 200),
+    ]);
+
+    $nacionalVida = AttributeOption::where('attribute_id', $this->seguroAttr->id)
+        ->where('name', 'Nacional Vida')->first()
+        ?: AttributeOption::create([
+            'attribute_id' => $this->seguroAttr->id,
+            'name'         => 'Nacional Vida',
+            'sort_order'   => 1,
+        ]);
+
+    actingAs($this->adminUser, 'user')
+        ->postJson(route('admin.contacts.persons.verify_insurance_quick'), [
+            'ci_paciente'     => '5856583',
+            'seguro_paciente' => $nacionalVida->id,
+        ])
+        ->assertOk()
+        ->assertJsonStructure(['status', 'message', 'badge'])
+        ->assertJson([
+            'status' => 'VIGENTE',
+            'badge'  => 'success',
+        ]);
+});

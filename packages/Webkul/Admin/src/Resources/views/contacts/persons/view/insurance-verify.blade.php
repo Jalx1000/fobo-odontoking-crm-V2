@@ -130,6 +130,14 @@
             },
 
             methods: {
+                // Mapea el badge del backend (success|warning|danger|null) al tipo de flash.
+                // Fallback: si no hay badge, usar success/warning según el flag `success`.
+                flashTypeFromBadge(data) {
+                    const map = { success: 'success', warning: 'warning', danger: 'error' };
+                    if (data && data.badge && map[data.badge]) return map[data.badge];
+                    return data && data.success ? 'info' : 'warning';
+                },
+
                 handleInsuranceChange(newLabel) {
                     this.localInsuranceLabel = newLabel;
                     
@@ -183,7 +191,9 @@
                     this.isLoading = true;
                     this.$axios.post("{{ route('admin.contacts.persons.verify_insurance', $person->id) }}")
                         .then(res => {
-                            const type = res.data.status === 'SIN_SEGURO' ? 'warning' : 'success';
+                            // La severidad la define el backend vía `badge` (success|warning|danger|null).
+                            // No re-inferir por status para no mostrar, p.ej., un seguro VENCIDO en verde.
+                            const type = this.flashTypeFromBadge(res.data);
                             this.$emitter.emit('add-flash', { type: type, message: res.data.message });
                             
                             if (['VIGENTE', 'EN_MORA'].includes(res.data.status)) {
