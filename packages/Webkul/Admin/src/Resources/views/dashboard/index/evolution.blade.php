@@ -24,7 +24,7 @@
                 <div class="flex flex-col gap-3">
                     <div class="flex flex-col gap-0.5">
                         <p class="text-base font-semibold dark:text-gray-300">
-                            Evolución
+                            Ventas
                         </p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">
                             Período actual (@{{ active.current_range }}) vs. anterior (@{{ active.previous_range }})
@@ -116,7 +116,7 @@
 
                     tabs: [
                         { key: 'ventas',             label: 'Pedidos entregados' },
-                        { key: 'pedidos-creados',    label: 'Prospectos' },
+                        // { key: 'pedidos-creados',    label: 'Prospectos' },
                         { key: 'valor-ventas',       label: 'Valor de ventas' },
                         { key: 'productos-vendidos', label: 'Productos vendidos' },
                     ],

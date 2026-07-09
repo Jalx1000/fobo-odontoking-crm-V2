@@ -99,9 +99,9 @@ class Lead extends AbstractReporting
     }
 
     /**
-     * "Open" pipeline stages = Prospecto + Pedido confirmado (not yet delivered nor
-     * cancelled). The dashboard counts "Prospectos" as the leads currently in these
-     * stages, so the cards reconcile with the kanban (Prospecto + Confirmado columns).
+     * Etapas del proceso «Abierto» = Prospecto + Pedido confirmado (aún sin entregar ni
+     * cancelado). El panel de control contabiliza los «Prospectos» como los clientes potenciales que se encuentran actualmente en estas
+     * etapas, por lo que las fichas coinciden con el kanban (columnas «Prospecto» y «Confirmado»).
      */
     protected function openStageIds(): array
     {
@@ -109,11 +109,11 @@ class Lead extends AbstractReporting
     }
 
     /**
-     * SQL CASE expression for the "event date" of a lead based on its current
-     * stage (Option B): prospecto => created_at, confirmado => confirmed_at,
-     * entregado/cancelado => closed_at. Falls back to created_at when the event
-     * date is null (legacy rows). Used so every stage-based metric and the kanban
-     * count a lead on the date it reached its current stage.
+     * Expresión CASE de SQL para la «fecha del evento» de un cliente potencial en función de su
+     * fase actual (Opción B): prospecto => created_at, confirmado => confirmed_at,
+     * entregado/cancelado => closed_at. Recurre a created_at cuando la
+     * fecha del evento es nula (filas heredadas). Se utiliza para que todas las métricas basadas en la etapa y el kanban
+     * cuenten un cliente potencial en la fecha en que alcanzó su etapa actual.
      */
     protected function stageEventDateExpr(string $table = 'leads'): string
     {
@@ -156,8 +156,8 @@ class Lead extends AbstractReporting
      */
     public function getTotalLeadsOverTime($period = 'auto'): array
     {
-        // "Prospectos" = leads currently in Prospecto or Pedido confirmado, counted
-        // by each stage's event date so it reconciles with the kanban.
+        // «Prospectos» = clientes potenciales que se encuentran actualmente en «Prospecto» o «Pedido confirmado», contabilizados
+        // según la fecha del evento de cada fase, para que coincidan con el kanban.
         $this->stageIds = $this->openStageIds();
 
         $period = $this->determinePeriod($period);
@@ -166,10 +166,10 @@ class Lead extends AbstractReporting
     }
 
     /**
-     * Returns leads currently in the "Prospecto" stage over time (the pure
-     * prospecto segment of "Prospectos" B'), bucketed by created_at via the
-     * shared event-date expression. Summed with getTotalConfirmedLeadsOverTime
-     * it equals getTotalLeadsOverTime (the stacked bar total).
+     * Devuelve los clientes potenciales que se encuentran actualmente en la fase «Prospecto» a lo largo del tiempo (el segmento puro
+     * de «Prospectos» B'), agrupados por created_at mediante la
+     * expresión compartida event-date. Sumado a getTotalConfirmedLeadsOverTime
+     *, equivale a getTotalLeadsOverTime (el total del gráfico de barras apiladas).
      *
      * @param  string  $period
      */
@@ -183,9 +183,9 @@ class Lead extends AbstractReporting
     }
 
     /**
-     * Returns leads currently in the "Pedido confirmado" stage over time (the
-     * confirmed segment of "Prospectos" B'), bucketed by confirmed_at via the
-     * shared event-date expression.
+     * Muestra los clientes potenciales que se encuentran actualmente en la fase «Pedido confirmado» a lo largo del tiempo (el
+     * segmento «confirmado» de «Prospectos» B'), agrupados por confirmed_at mediante la
+     * expresión compartida event-date.
      *
      * @param  string  $period
      */
@@ -209,7 +209,10 @@ class Lead extends AbstractReporting
 
         $period = $this->determinePeriod($period);
 
-        return $this->getOverTimeStats($this->startDate, $this->endDate, 'leads.id', 'closed_at', $period);
+        // Contar los entregados por fecha de creación del lead (created_at), igual
+        // que el resto del tablero, para que la línea verde cuadre con la "Vista
+        // por etapa" y con Evolución.
+        return $this->getOverTimeStats($this->startDate, $this->endDate, 'leads.id', $this->stageEventDateExpr(), $period);
     }
 
     /**
@@ -223,12 +226,12 @@ class Lead extends AbstractReporting
 
         $period = $this->determinePeriod($period);
 
-        return $this->getOverTimeStats($this->startDate, $this->endDate, 'leads.id', 'closed_at', $period);
+        return $this->getOverTimeStats($this->startDate, $this->endDate, 'leads.id', $this->stageEventDateExpr(), $period);
     }
 
     /**
-     * Returns the evolution payload for a lead-based metric: the current period
-     * series per bucket plus the previous period's average per bucket as a baseline.
+     * Devuelve la carga útil de evolución para una métrica basada en valores líderes: el periodo actual
+     * serie por segmento, más la media del periodo anterior por segmento como referencia.
      *
      * @param  string  $metric  ventas | valor-ventas | pedidos-creados
      */
@@ -237,7 +240,7 @@ class Lead extends AbstractReporting
         switch ($metric) {
             case 'valor-ventas':
                 $this->stageIds = $this->wonStageIds;
-                $dateColumn = 'closed_at';
+                $dateColumn = $this->stageEventDateExpr();
                 $valueColumn = 'leads.lead_value';
                 $key = 'total';
                 $format = 'currency';
@@ -256,7 +259,7 @@ class Lead extends AbstractReporting
             case 'ventas':
             default:
                 $this->stageIds = $this->wonStageIds;
-                $dateColumn = 'closed_at';
+                $dateColumn = $this->stageEventDateExpr();
                 $valueColumn = 'leads.id';
                 $key = 'count';
                 $format = 'number';
@@ -272,9 +275,9 @@ class Lead extends AbstractReporting
     }
 
     /**
-     * Builds the evolution payload from current and previous over-time buckets:
-     * the current series, the previous series (aligned bucket-by-bucket), totals,
-     * per-bucket averages, the compared date ranges, progress and number format.
+     * Genera la carga útil de evolución a partir de los intervalos temporales actuales y anteriores:
+     * la serie actual, la serie anterior (alineadas intervalo por intervalo), los totales,
+     * las medias por intervalo, los intervalos de fechas comparados, el progreso y el formato numérico.
      */
     public function buildEvolutionPayload(array $current, array $previous, string $key, string $format, ?string $period = null): array
     {
@@ -285,9 +288,9 @@ class Lead extends AbstractReporting
         $previousValues = array_map(fn ($row) => $key === 'total' ? round((float) $row['total'], 2) : (int) $row['count'], $previous);
 
         /**
-         * Align the previous series to the current series length so the chart can
-         * compare bucket-by-bucket by position (día 1 vs día 1, ...). Pad with null
-         * or truncate when the bucket counts differ at the period boundaries.
+         * Ajusta la serie anterior a la longitud de la serie actual para que el gráfico pueda
+         * comparar cada intervalo por su posición (día 1 frente a día 1, ...). Rellena con valores nulos
+         * o trunca los datos cuando los recuentos de los intervalos difieran en los límites de los periodos.
          */
         $previousData = [];
 
@@ -405,7 +408,7 @@ class Lead extends AbstractReporting
 
         $intervals = $this->generateTimeIntervals($this->startDate, $this->endDate, $period);
 
-        $groupColumn = $this->getGroupColumn('closed_at', $period);
+        $groupColumn = $this->getGroupColumn('created_at', $period);
 
         $tablePrefix = DB::getTablePrefix();
 
@@ -420,7 +423,7 @@ class Lead extends AbstractReporting
                 DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.id END) AS count')
             )
             ->whereIn('leads.lead_pipeline_stage_id', $this->wonStageIds)
-            ->whereBetween('closed_at', [$this->startDate, $this->endDate])
+            ->whereBetween('created_at', [$this->startDate, $this->endDate])
             ->when($pipelineId, function ($q) use ($pipelineId) {
                 $q->where('leads.lead_pipeline_id', $pipelineId);
             })
@@ -541,6 +544,78 @@ class Lead extends AbstractReporting
         ];
     }
 
+    /**
+     * Cuenta pedidos por encargado divididos en dos categorías según su etapa
+     * actual, dentro del periodo actual (por created_at):
+     *   - "No atendidos" = pedidos en la etapa Prospecto ($prospectoStageIds).
+     *   - "Atendidos"    = pedidos en TODAS las demás etapas (Confirmado,
+     *                      Entregado y Cancelado/Perdido).
+     * Reemplaza la comparación actual-vs-anterior para este card; solo periodo
+     * actual. Mantiene el mismo filtro de pipeline, roles ignorados y ACL que
+     * las demás métricas por usuario.
+     */
+    public function getLeadsAttentionCountByUsers(): array
+    {
+        $tablePrefix = DB::getTablePrefix();
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
+
+        $prospectoIds = implode(',', $this->prospectoStageIds ?: [0]);
+
+        $query = $this->leadRepository
+            ->resetModel()
+            ->leftJoin('users', 'leads.user_id', '=', 'users.id')
+            ->select(
+                'users.id as user_id',
+                'users.name as user_name',
+                DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.$prospectoIds.') THEN '.$tablePrefix.'leads.id END) AS not_attended'),
+                DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id NOT IN ('.$prospectoIds.') THEN '.$tablePrefix.'leads.id END) AS attended')
+            )
+            ->whereRaw('('.$this->stageEventDateExpr().') BETWEEN ? AND ?', [$this->startDate, $this->endDate])
+            ->when($pipelineId, function ($q) use ($pipelineId) {
+                $q->where('leads.lead_pipeline_id', $pipelineId);
+            })
+            ->groupBy('users.id', 'users.name');
+
+        $query = $this->excludeIgnoredRoles($query, 'users.id');
+
+        if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
+            $query->whereIn('users.id', $userIds);
+        }
+
+        $attendedByUser = [];
+        $notAttendedByUser = [];
+
+        foreach ($query->get() as $row) {
+            $name = $row->user_name ?? '—';
+            $attendedByUser[$name] = (int) $row->attended;
+            $notAttendedByUser[$name] = (int) $row->not_attended;
+        }
+
+        $usersQuery = $this->userRepository->resetModel()->select('id', 'name');
+        $usersQuery = $this->excludeIgnoredRoles($usersQuery, 'id');
+
+        if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
+            $usersQuery->whereIn('id', $userIds);
+        }
+
+        $users = $usersQuery->orderBy('name')->pluck('name')->toArray();
+
+        $attended = [];
+        $notAttended = [];
+
+        foreach ($users as $u) {
+            $attended[] = $attendedByUser[$u] ?? 0;
+            $notAttended[] = $notAttendedByUser[$u] ?? 0;
+        }
+
+        return [
+            'labels'       => $users,
+            'attended'     => $attended,
+            'not_attended' => $notAttended,
+            'users'        => $users,
+        ];
+    }
+
     public function getLeadsCountByBranches(): array
     {
         $tablePrefix = DB::getTablePrefix();
@@ -631,7 +706,7 @@ class Lead extends AbstractReporting
                     'users.name as user_name',
                     DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.id END) AS count')
                 )
-                ->whereBetween('leads.closed_at', [$startDate, $endDate])
+                ->whereBetween('leads.created_at', [$startDate, $endDate])
                 ->when($pipelineId, function ($q) use ($pipelineId) {
                     $q->where('leads.lead_pipeline_id', $pipelineId);
                 })
@@ -802,7 +877,7 @@ class Lead extends AbstractReporting
                     DB::raw($tablePrefix.'av.text_value as branch_text'),
                     DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.id END) AS count')
                 )
-                ->whereBetween('leads.closed_at', [$startDate, $endDate])
+                ->whereBetween('leads.created_at', [$startDate, $endDate])
                 ->when($pipelineId, function ($q) use ($pipelineId) {
                     $q->where('leads.lead_pipeline_id', $pipelineId);
                 })
@@ -919,7 +994,7 @@ class Lead extends AbstractReporting
                     'leads.lead_pipeline_id as pipeline_id',
                     DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.id END) AS count')
                 )
-                ->whereBetween('leads.closed_at', [$startDate, $endDate])
+                ->whereBetween('leads.created_at', [$startDate, $endDate])
                 ->when($pipelineId, function ($q) use ($pipelineId) {
                     $q->where('leads.lead_pipeline_id', $pipelineId);
                 })
@@ -1031,11 +1106,13 @@ class Lead extends AbstractReporting
      */
     public function getAverageLeadsPerDay($startDate, $endDate): float
     {
-        $days = $startDate->diffInDays($endDate);
-
-        if ($days == 0) {
-            return 0;
-        }
+        /**
+         * Días INCLUSIVOS del período (08→09 = 2 días), igual que getDaysInterval()
+         * y que el número de buckets que usa "Evolución". Antes se dividía por
+         * diffInDays() (= días−1), por lo que en un rango de 2 días el "promedio"
+         * salía igual al total (9/1 = 9) en vez de 9/2 = 4.5.
+         */
+        $days = $startDate->diffInDays($endDate) + 1;
 
         return $this->getTotalLeads($startDate, $endDate) / $days;
     }
@@ -1162,7 +1239,7 @@ class Lead extends AbstractReporting
                 $q->where('lead_pipeline_id', $pipelineId);
             })
             ->whereIn('lead_pipeline_stage_id', $this->wonStageIds)
-            ->whereBetween('closed_at', [$startDate, $endDate])
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->count('id');
     }
 

@@ -174,6 +174,11 @@ class Dashboard
         return $this->leadReporting->getLeadsCountByUsers();
     }
 
+    public function getLeadsAttentionByUsersStats(): array
+    {
+        return $this->leadReporting->getLeadsAttentionCountByUsers();
+    }
+
     public function getResponseTimeByUsersStats(): array
     {
         return $this->leadReporting->getAverageResponseTimeByUsers();

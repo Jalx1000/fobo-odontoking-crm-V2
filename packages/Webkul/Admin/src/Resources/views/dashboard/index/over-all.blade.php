@@ -75,14 +75,11 @@
                                 class="text-xs font-semibold text-green-500"
                                 :class="[report.statistics.total_persons.progress < 0 ?  'text-red-500' : 'text-green-500']"
                             >
-                                @{{ Math.round(Math.abs(report.statistics.total_persons.progress)) }}%
+                                @{{ (report.statistics.total_persons.previous == 0 && report.statistics.total_persons.current > 0) ? 'Nuevo' : Math.round(Math.abs(report.statistics.total_persons.progress)) + '%' }}
                             </p>
                         </div>
                     </div>
 
-                    <p class="text-[11px] leading-tight text-gray-400 dark:text-gray-500">
-                        @lang('admin::app.dashboard.index.over-all.total-persons-caption')
-                    </p>
                 </div>
                 
                 <!-- Average Lead Per Day -->
@@ -106,7 +103,7 @@
                                 class="text-xs font-semibold text-green-500"
                                 :class="[report.statistics.average_leads_per_day.progress < 0 ?  'text-red-500' : 'text-green-500']"
                             >
-                                @{{ Math.round(Math.abs(report.statistics.average_leads_per_day.progress)) }}%
+                                @{{ (report.statistics.average_leads_per_day.previous == 0 && report.statistics.average_leads_per_day.current > 0) ? 'Nuevo' : Math.round(Math.abs(report.statistics.average_leads_per_day.progress)) + '%' }}
                             </p>
                         </div>
                     </div>
@@ -133,7 +130,7 @@
                                 class="text-xs font-semibold text-green-500"
                                 :class="[report.statistics.total_services.progress < 0 ?  'text-red-500' : 'text-green-500']"
                             >
-                                @{{ Math.round(Math.abs(report.statistics.total_services.progress)) }}%
+                                @{{ (report.statistics.total_services.previous == 0 && report.statistics.total_services.current > 0) ? 'Nuevo' : Math.round(Math.abs(report.statistics.total_services.progress)) + '%' }}
                             </p>
                         </div>
                     </div>
@@ -160,7 +157,7 @@
                                 class="text-xs font-semibold text-green-500"
                                 :class="[report.statistics.total_products_sold.progress < 0 ?  'text-red-500' : 'text-green-500']"
                             >
-                                @{{ Math.round(Math.abs(report.statistics.total_products_sold.progress)) }}%
+                                @{{ (report.statistics.total_products_sold.previous == 0 && report.statistics.total_products_sold.current > 0) ? 'Nuevo' : Math.round(Math.abs(report.statistics.total_products_sold.progress)) + '%' }}
                             </p>
                         </div>
                     </div>

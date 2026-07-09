@@ -60,7 +60,7 @@ class Product extends AbstractReporting
             ->leftJoin('products', 'lead_products.product_id', '=', 'products.id')
             ->select('*')
             ->addSelect(DB::raw('SUM('.$tablePrefix.'lead_products.amount) as revenue'))
-            ->whereBetween('leads.closed_at', [$this->startDate, $this->endDate])
+            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
             ->having(DB::raw('SUM('.$tablePrefix.'lead_products.amount)'), '>', 0)
             ->groupBy('product_id')
             ->orderBy('revenue', 'DESC')
@@ -164,9 +164,10 @@ class Product extends AbstractReporting
             )
             ->addSelect(DB::raw('SUM('.$tablePrefix.'lead_products.quantity) as total_qty_ordered'))
             ->whereIn('leads.lead_pipeline_stage_id', $this->wonStageIds)
-            // Option B: delivered products counted by delivery date (closed_at), to
-            // match the "Productos vendidos" KPI and the evolution card.
-            ->whereBetween('leads.closed_at', [$this->startDate, $this->endDate])
+            // Decisión de negocio: contar los entregados por FECHA DE CREACIÓN del
+            // lead (created_at), para que el tablero cuadre con Contactos/Leads y el
+            // embudo sume exactamente el total del período.
+            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
             ->having(DB::raw('SUM('.$tablePrefix.'lead_products.quantity)'), '>', 0)
             ->groupBy('products.id', 'products.name', 'products.price')
             ->orderBy('total_qty_ordered', 'DESC')
@@ -218,8 +219,9 @@ class Product extends AbstractReporting
 
     /**
      * Retrieves total products sold (delivered orders, i.e. won stage) and their
-     * progress. Counts quantity from leads delivered (closed_at) in the period,
-     * mirroring getTotalServicesProgress but restricted to the won/delivered stage.
+     * progress. Counts quantity from won/delivered leads CREATED in the period
+     * (created_at), mirroring getTotalServicesProgress but restricted to the
+     * won/delivered stage, so the KPI reconciles with the rest of the dashboard.
      */
     public function getTotalProductsSoldProgress(): array
     {
@@ -247,7 +249,7 @@ class Product extends AbstractReporting
                 $q->where('leads.lead_pipeline_id', $pipelineId);
             })
             ->whereIn('leads.lead_pipeline_stage_id', $this->wonStageIds)
-            ->whereBetween('leads.closed_at', [$startDate, $endDate])
+            ->whereBetween('leads.created_at', [$startDate, $endDate])
             ->sum(DB::raw($tablePrefix.'lead_products.quantity'));
     }
 
@@ -296,7 +298,7 @@ class Product extends AbstractReporting
 
     /**
      * Returns units sold (quantity) per bucket for delivered orders (won stage),
-     * filtered by closed_at and the optional pipeline (ciudad). Used by the
+     * filtered by created_at and the optional pipeline (ciudad). Used by the
      * dashboard evolution card. Returns the same shape as Lead::getOverTimeStats
      * so the evolution payload can be built consistently.
      *
@@ -310,7 +312,7 @@ class Product extends AbstractReporting
         $tablePrefix = DB::getTablePrefix();
 
         // Raw expression: qualify with the real (prefixed) table name since this is a joined query.
-        $groupColumn = $this->getGroupColumn($tablePrefix.'leads.closed_at', $period);
+        $groupColumn = $this->getGroupColumn($tablePrefix.'leads.created_at', $period);
 
         $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
@@ -325,7 +327,7 @@ class Product extends AbstractReporting
                 DB::raw('SUM('.$tablePrefix.'lead_products.quantity) AS count')
             )
             ->whereIn('leads.lead_pipeline_stage_id', $this->wonStageIds)
-            ->whereBetween('leads.closed_at', [$startDate, $endDate])
+            ->whereBetween('leads.created_at', [$startDate, $endDate])
             ->groupBy(DB::raw($groupColumn))
             ->orderBy(DB::raw($groupColumn))
             ->get()

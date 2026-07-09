@@ -59,7 +59,7 @@ class Organization extends AbstractReporting
             ->leftJoin('leads', 'persons.id', '=', 'leads.person_id')
             ->select('*', 'persons.id as id')
             ->addSelect(DB::raw('SUM('.$tablePrefix.'leads.lead_value) as revenue'))
-            ->whereBetween('leads.closed_at', [$this->startDate, $this->endDate])
+            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
             ->having(DB::raw('SUM('.$tablePrefix.'leads.lead_value)'), '>', 0)
             ->groupBy('organization_id')
             ->orderBy('revenue', 'DESC')

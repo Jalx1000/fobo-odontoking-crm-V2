@@ -1,0 +1,2 @@
+[      90ms] [ERROR] Access to fetch at 'https://kohlberg.sofopolis.com/admin/leads?pipeline_id=1&pagination[per_page]=1000&pagination[current_page]=1' from origin 'null' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ about:blank:0
+[      92ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://kohlberg.sofopolis.com/admin/leads?pipeline_id=1&pagination[per_page]=1000&pagination[current_page]=1:0

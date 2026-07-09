@@ -54,7 +54,20 @@
       "Bash(grep -n 'fillable\\\\|attributesToArray\\\\|protected $table\\\\|function name\\\\|getNameAttribute\\\\|'\\\\''name'\\\\''' packages/Webkul/Product/src/Models/Product.php)",
       "Bash(grep -n 'attributesToArray\\\\|function toArray\\\\|getAttribute\\\\|append\\\\|$appends\\\\|custom_attributes\\\\|function name' packages/Webkul/Attribute/src/Traits/CustomAttribute.php)",
       "Bash(git -C /etc/easypanel/projects/heaven/kolberg_laravel/code log --oneline -8 -- packages/Webkul/Admin/src/Resources/views/components/lookup/index.blade.php)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(npx -y @playwright/mcp@latest --version)",
+      "Bash(npx -y playwright@latest install chromium)",
+      "Bash(/root/.cache/ms-playwright/chromium_headless_shell-1228/chrome-linux/headless_shell --headless --no-sandbox --disable-gpu --dump-dom 'data:text/html,<h1>ok-test</h1>')",
+      "Bash(echo \"exit=$?\")",
+      "Bash(ldd /root/.cache/ms-playwright/chromium_headless_shell-1228/chrome-linux/headless_shell)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_fill_form",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_evaluate",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Helpers/Reporting/Lead.php packages/Webkul/Admin/src/Helpers/Reporting/Product.php packages/Webkul/Admin/src/Helpers/Reporting/Person.php packages/Webkul/Admin/src/Helpers/Reporting/Organization.php)",
+      "Bash(grep -rn 'protected $table' packages/Webkul/Lead/src/Models/Lead.php)"
     ]
   }
 }

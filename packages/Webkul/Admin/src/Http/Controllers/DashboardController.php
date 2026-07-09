@@ -30,6 +30,7 @@ class DashboardController extends Controller
         'vendedores'                      => 'getVendedoresStats',
         'ventas'                          => 'getVentasByUsersStats',
         'leads-by-users'                  => 'getLeadsByUsersStats',
+        'leads-attention-by-users'        => 'getLeadsAttentionByUsersStats',
         'tiempo-por-vendedor'             => 'getResponseTimeByUsersStats',
         'ventas-por-sucursal'             => 'getVentasByBranchesStats',
         'leads-por-sucursal'              => 'getLeadsByBranchesStats',

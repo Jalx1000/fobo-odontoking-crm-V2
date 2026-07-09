@@ -1,0 +1,21 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - img "kohlberg" [ref=e5]
+    - generic [ref=e7]:
+      - paragraph [ref=e8]: Iniciar sesión
+      - generic [ref=e9]:
+        - generic [ref=e10]:
+          - generic [ref=e11]: Dirección de correo electrónico *
+          - textbox "Dirección de correo electrónico" [ref=e12]
+        - generic [ref=e13]:
+          - generic [ref=e14]: Contraseña *
+          - textbox "Contraseña" [ref=e15]
+          - generic [ref=e16] [cursor=pointer]: 
+      - generic [ref=e17]:
+        - link "¿Olvidaste tu contraseña?" [ref=e18] [cursor=pointer]:
+          - /url: https://kohlberg.sofopolis.com/admin/forget-password
+        - button "Iniciar sesión" [ref=e19] [cursor=pointer]
+  - generic [ref=e20]:
+    - text: Desarrollado por
+    - link "Sofopolis" [ref=e22] [cursor=pointer]:
+      - /url: https://sofopolis.com/ai/
