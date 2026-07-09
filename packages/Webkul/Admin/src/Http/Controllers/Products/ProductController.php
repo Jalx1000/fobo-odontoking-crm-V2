@@ -159,8 +159,27 @@ class ProductController extends Controller
     {
         $limit = request()->get('limit') ?? 200;
 
-        $products = $this->productRepository
-            ->pushCriteria(app(RequestCriteria::class))
+        /**
+         * The lookup component sends the typed text as the "query" parameter,
+         * but RequestCriteria only filters using the "search" parameter, so the
+         * server never narrowed the results. We apply the filter explicitly here
+         * to actually search by name/sku instead of only returning the most
+         * recent products.
+         */
+        $searchTerm = request()->get('query');
+
+        $repository = $this->productRepository->pushCriteria(app(RequestCriteria::class));
+
+        if (! empty($searchTerm)) {
+            $repository = $repository->scopeQuery(function ($query) use ($searchTerm) {
+                return $query->where(function ($query) use ($searchTerm) {
+                    $query->where('name', 'like', '%'.$searchTerm.'%')
+                        ->orWhere('sku', 'like', '%'.$searchTerm.'%');
+                });
+            });
+        }
+
+        $products = $repository
             ->orderBy('created_at', 'desc')
             ->take((int) $limit)
             ->get();

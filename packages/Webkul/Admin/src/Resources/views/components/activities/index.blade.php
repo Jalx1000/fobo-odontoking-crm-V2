@@ -382,7 +382,10 @@
                     <template v-for="type in extraTypes">
                         {!! view_render_event('admin.components.activities.content.activity.extra_types.before') !!}
 
-                        <div v-show="selectedType == type.name">
+                        <div
+                            v-show="selectedType == type.name"
+                            class="flex min-h-[100vh] flex-col"
+                        >
                             <slot :name="type.name"></slot>
                         </div>
 

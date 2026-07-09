@@ -112,10 +112,10 @@
                                 <x-admin::form.control-group.error control-name="title" />
                             </x-admin::form.control-group>
 
-                            <!-- Product (Servicio) - Only for Meeting -->
+                            <!-- Product (Producto) - Only for Meeting -->
                             <x-admin::form.control-group v-if="selectedType.value === 'meeting'">
                                 <x-admin::form.control-group.label class="required">
-                                    Servicio o Tratamiento
+                                    Producto o Tratamiento
                                 </x-admin::form.control-group.label>
                                 
                                 <div class="relative">
@@ -127,7 +127,7 @@
                                         <input
                                             type="text"
                                             class="w-full rounded border border-gray-200 px-2.5 py-2 text-sm text-gray-800 transition-all hover:border-gray-400 focus:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400 dark:focus:border-gray-400"
-                                            placeholder="Buscar servicio..."
+                                            placeholder="Buscar producto..."
                                             v-model="productSearchTerm"
                                         />
                                         <div v-if="searchedProducts.length" class="absolute z-10 w-full rounded bg-white shadow-lg dark:bg-gray-900 border dark:border-gray-800 mt-1">

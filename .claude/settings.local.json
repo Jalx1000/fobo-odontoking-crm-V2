@@ -30,7 +30,31 @@
       "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Http/Controllers/Lead/LeadController.php packages/Webkul/Admin/src/DataGrids/Lead/LeadDataGrid.php)",
       "Bash(grep -vE \"\\\\.claude/|\\\\.sh$\")",
       "Bash(git commit -q -m ' *)",
-      "Bash(grep -iA8 \"error\\\\|exception\")"
+      "Bash(grep -iA8 \"error\\\\|exception\")",
+      "Bash(grep -n 'first_stage_change_at\\\\|currentLead = $this->find' packages/Webkul/Lead/src/Repositories/LeadRepository.php)",
+      "Bash(grep -n 'function getAverageResponseTimeByUsers\\\\|$now = now\\(\\)\\\\|first_stage_change_at, ?\\\\|avg_response_seconds' packages/Webkul/Admin/src/Helpers/Reporting/Lead.php)",
+      "Bash(git commit -m ' *)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/DataGrids/Contact/PersonDataGrid.php packages/Webkul/Admin/src/Http/Controllers/Contact/Persons/PersonController.php)",
+      "Bash(./vendor/bin/pint tests/Feature/PersonListFilterTest.php)",
+      "Bash(xargs sed -n '/Schema::create..lead_pipelines/,/}\\);/p')",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/DataGrids/Contact/PersonDataGrid.php tests/Feature/PersonListFilterTest.php)",
+      "Bash(git stash *)",
+      "Bash(./vendor/bin/pint packages/Webkul/Lead/src/Models/Lead.php)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Helpers/CustomAttributeValueResolver.php packages/Webkul/Admin/src/DataGrids/Lead/LeadDataGrid.php packages/Webkul/Admin/src/DataGrids/Contact/PersonDataGrid.php --test)",
+      "Bash(timeout 180 ./vendor/bin/pest tests/Feature/PersonListFilterTest.php)",
+      "Bash(timeout 120 ./vendor/bin/pest tests/Unit/CustomAttributeValueResolverTest.php)",
+      "Bash(./vendor/bin/pint tests/Feature/PersonExportTest.php tests/Unit/CustomAttributeValueResolverTest.php --test)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Helpers/CustomAttributeValueResolver.php packages/Webkul/Admin/src/DataGrids/Lead/LeadDataGrid.php packages/Webkul/Admin/src/DataGrids/Contact/PersonDataGrid.php tests/Unit/CustomAttributeValueResolverTest.php tests/Feature/PersonExportTest.php --test)",
+      "Bash(git --no-pager diff --stat -- packages tests)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Exports packages/Webkul/Admin/src/Http/Controllers/DashboardController.php packages/Webkul/Admin/src/Routes/Admin/rest-routes.php --test)",
+      "Bash(./vendor/bin/pint tests/Feature/DashboardExportTest.php --test)",
+      "Bash(timeout 120 ./vendor/bin/pest tests/Unit)",
+      "Bash(./vendor/bin/pint packages/Webkul/DataGrid/src/Exports/DataGridExport.php --test)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Http/Controllers/DashboardController.php --test)",
+      "Bash(grep -n 'fillable\\\\|attributesToArray\\\\|protected $table\\\\|function name\\\\|getNameAttribute\\\\|'\\\\''name'\\\\''' packages/Webkul/Product/src/Models/Product.php)",
+      "Bash(grep -n 'attributesToArray\\\\|function toArray\\\\|getAttribute\\\\|append\\\\|$appends\\\\|custom_attributes\\\\|function name' packages/Webkul/Attribute/src/Traits/CustomAttribute.php)",
+      "Bash(git -C /etc/easypanel/projects/heaven/kolberg_laravel/code log --oneline -8 -- packages/Webkul/Admin/src/Resources/views/components/lookup/index.blade.php)",
+      "Bash(git commit *)"
     ]
   }
 }

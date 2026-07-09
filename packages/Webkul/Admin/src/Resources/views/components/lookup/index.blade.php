@@ -209,8 +209,10 @@
                  * @return {Array}
                  */
                 filteredResults() {
+                    const term = (this.searchTerm || '').toLowerCase();
+
                     return this.searchedResults.filter(item =>
-                        item.name.toLowerCase().includes(this.searchTerm.toLowerCase())
+                        (item.name || '').toLowerCase().includes(term)
                     );
                 }
             },

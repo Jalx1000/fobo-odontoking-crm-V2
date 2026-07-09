@@ -436,7 +436,7 @@ return [
             'quote-items'       => 'Artículos de la Cotización',
             'search-products'   => 'Buscar Productos',
             'link-to-lead'      => 'Vincular a pedido',
-            'quote-item-info'   => 'Agregar Solicitud de Servicio para esta cotización.',
+            'quote-item-info'   => 'Agregar Solicitud de Producto para esta cotización.',
             'quote-name'        => 'Nombre de la Cotización',
             'quantity'          => 'Cantidad',
             'price'             => 'Precio',
@@ -465,7 +465,7 @@ return [
             'address-info-info' => 'Información sobre la dirección relacionada con la cotización.',
             'quote-items'       => 'Artículos de la Cotización',
             'link-to-lead'      => 'Vincular a pedido',
-            'quote-item-info'   => 'Agregar Solicitud de Servicio para esta cotización.',
+            'quote-item-info'   => 'Agregar Solicitud de Producto para esta cotización.',
             'quote-name'        => 'Nombre de la Cotización',
             'quantity'          => 'Cantidad',
             'price'             => 'Precio',
@@ -618,10 +618,10 @@ return [
         'index' => [
             'title'          => 'Productos',
             'create-btn'     => 'Crear Producto',
-            'create-success' => 'Servicio creado con éxito.',
-            'update-success' => 'Servicio actualizado con éxito.',
-            'delete-success' => 'Servicio eliminado con éxito.',
-            'delete-failed'  => 'No se puede eliminar el servicio.',
+            'create-success' => 'Producto creado con éxito.',
+            'update-success' => 'Producto actualizado con éxito.',
+            'delete-success' => 'Producto eliminado con éxito.',
+            'delete-failed'  => 'No se puede eliminar el producto.',
             'datagrid'       => [
                 'allocated' => 'Asignado',
                 'delete'    => 'Eliminar',
@@ -658,7 +658,7 @@ return [
             'inventories' => 'Inventario',
             'change-logs' => 'Registros de Cambios',
             'attributes'  => [
-                'about-product' => 'Sobre el Servicio',
+                'about-product' => 'Sobre el Producto',
             ],
             'inventory' => [
                 'source'     => 'Fuente',
@@ -1717,7 +1717,7 @@ return [
             'linked-lead'                => 'Pedido Vinculado',
             'lead-details'               => 'Detalles del Lead',
             'contact-person'             => 'Contacto del Prospecto',
-            'product'                    => 'Servicio',
+            'product'                    => 'Producto',
             'tags'                       => [
                 'create-success'  => 'Etiqueta creada con éxito.',
                 'destroy-success' => 'Etiqueta eliminada con éxito.',
@@ -1914,7 +1914,7 @@ return [
                 'total'        => 'Total',
                 'empty-title'  => 'No se Encontraron Productos',
                 'empty-info'   => 'No se Encontraron Productos para este Lead',
-                'add-product'  => 'Agregar Servicio',
+                'add-product'  => 'Agregar Producto',
             ],
             'persons' => [
                 'title'     => 'Sobre los Prospectos',
@@ -2063,7 +2063,7 @@ return [
                 'lost'  => 'Pedidos cancelados',
             ],
             'leads-vs-entregados' => [
-                'title'     => 'Prospectos vs. Pedidos entregados',
+                'title'     => 'Prospectos | Pedidos confirmados | Pedidos entregados',
                 'prospects' => 'Prospecto',
                 'confirmed' => 'Pedido confirmado',
                 'delivered' => 'Pedidos entregados',
@@ -2131,7 +2131,7 @@ return [
         'organizations'        => 'Organizaciones',
         'organization'         => 'Organización',
         'products'             => 'Productos',
-        'product'              => 'Servicio',
+        'product'              => 'Producto',
         'settings'             => 'Configuraciones',
         'user'                 => 'Usuario',
         'user-info'            => 'Administra todos tus usuarios y sus permisos en el CRM, lo que están autorizados a hacer.',
@@ -2245,8 +2245,8 @@ return [
             'title'       => '500 Error Interno del Servidor',
         ],
         '503' => [
-            'description' => '¡Ups! Parece que estamos temporalmente fuera de servicio por mantenimiento. Vuelve a intentarlo en un rato.',
-            'title'       => '503 Servicio No Disponible',
+            'description' => '¡Ups! Parece que estamos temporalmente fuera de producto por mantenimiento. Vuelve a intentarlo en un rato.',
+            'title'       => '503 Producto No Disponible',
         ],
     ],
     'export' => [

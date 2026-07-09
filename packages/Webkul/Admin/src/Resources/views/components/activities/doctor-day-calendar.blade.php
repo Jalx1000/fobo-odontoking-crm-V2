@@ -405,13 +405,13 @@
                         </div>
 
                         <div class="flex flex-col gap-1">
-                            <div class="text-xs text-gray-600 dark:text-gray-300">Servicio</div>
+                            <div class="text-xs text-gray-600 dark:text-gray-300">Producto</div>
                             <x-admin::lookup
                                 class="col-span-1"
                                 ::src="productSearchUrl"
                                 ::params="{ limit: 200 }"
                                 name="appointment_product"
-                                placeholder="Servicio"
+                                placeholder="Producto"
                                 @on-selected="onSelectService"
                                 ::value="{ id: appointmentForm.product_id, name: appointmentForm.product_name }"
                             />
@@ -705,7 +705,7 @@
                             </span>
                         </div>
                         <div class="flex flex-col">
-                            <span class="text-xs text-gray-500 font-medium uppercase">Servicio</span>
+                            <span class="text-xs text-gray-500 font-medium uppercase">Producto</span>
                             <span class="text-sm font-semibold dark:text-white">
                                 @{{ viewAppointment.data.product_name || (viewAppointment.data.product ? viewAppointment.data.product.name : '-') }}
                             </span>
@@ -1687,7 +1687,7 @@
 
                 if (!this.appointmentForm.product_id) {
                     this.modalSaving = false;
-                    this.modalError = 'Debes seleccionar un servicio.';
+                    this.modalError = 'Debes seleccionar un producto.';
                     return;
                 }
 

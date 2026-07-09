@@ -9,7 +9,7 @@
         type="text/x-template"
         id="v-lead-products-template"
     >
-        <div v-if="products.length" class="flex flex-col gap-4 p-3 min-h-[100vh]">
+        <div v-if="products.length" class="flex flex-1 flex-col gap-4 p-3">
             {!! view_render_event('admin.leads.view.products.table.before', ['lead' => $lead]) !!}
 
             <!-- Table -->
@@ -81,8 +81,8 @@
             {!! view_render_event('admin.leads.view.products.table.add_more.after', ['lead' => $lead]) !!}
         </div>
 
-        <div v-else>
-            <div class="grid justify-center justify-items-center gap-3.5 py-12 min-h-[100vh]">
+        <div v-else class="flex flex-1 flex-col">
+            <div class="h-full grid flex-1 content-center justify-center justify-items-center gap-3.5 py-12">
                 <img
                     class="dark:mix-blend-exclusion dark:invert"
                     src="{{ vite()->asset('images/empty-placeholders/products.svg') }}"
