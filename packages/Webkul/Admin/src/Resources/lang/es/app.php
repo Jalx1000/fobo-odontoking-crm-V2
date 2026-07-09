@@ -2054,6 +2054,8 @@ return [
                 'average-leads-per-day' => 'Prospectos Promedio por Día',
                 'total-quotations'      => 'Total de Cotizaciones',
                 'total-persons'         => 'Total de contactos',
+                'total-persons-caption' => 'Personas registradas en el período (por fecha de registro).',
+                'total-persons-hint'    => 'Cuenta las personas registradas en el período por su fecha de registro. Es un indicador distinto de "Prospectos": no cuadra con la vista por etapa ni con Evolución, que cuentan pedidos en etapas abiertas.',
                 'total-organizations'   => 'Total de Organizaciones',
             ],
             'total-leads' => [

@@ -41,13 +41,16 @@ class Person extends AbstractReporting
         $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
         // Persons aren't owned by a single pipeline, so when filtering by ciudad we count
-        // distinct persons that have at least one lead in that pipeline within the date range.
+        // distinct persons that have at least one lead in that pipeline. El pipeline solo
+        // acota QUÉ personas entran; la ventana temporal se mide SIEMPRE por
+        // persons.created_at (fecha de registro del contacto), igual que sin filtro, para
+        // que este KPI de "contactos registrados" no cambie de base al filtrar por ciudad.
         if ($pipelineId) {
             return $this->personRepository
                 ->resetModel()
                 ->join('leads', 'persons.id', '=', 'leads.person_id')
                 ->where('leads.lead_pipeline_id', $pipelineId)
-                ->whereBetween('leads.created_at', [$startDate, $endDate])
+                ->whereBetween('persons.created_at', [$startDate, $endDate])
                 ->distinct('persons.id')
                 ->count('persons.id');
         }

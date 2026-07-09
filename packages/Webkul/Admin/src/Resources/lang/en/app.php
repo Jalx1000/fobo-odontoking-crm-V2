@@ -2236,6 +2236,8 @@ return [
                 'average-leads-per-day' => 'Average Leads Per Day',
                 'total-quotations'      => 'Total Quotations',
                 'total-persons'         => 'Total Persons',
+                'total-persons-caption' => 'People registered in the period (by registration date).',
+                'total-persons-hint'    => 'Counts people registered in the period by their registration date. This is a different metric from "Prospects": it does not reconcile with the by-stage view or Evolution, which count leads in open stages.',
                 'total-organizations'   => 'Total Organizations',
             ],
 

@@ -53,7 +53,10 @@
                 
                 <!-- Total de Contactos (personas registradas en el intervalo) -->
                 <div class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-5 dark:border-gray-800 dark:bg-gray-900">
-                    <p class="text-xs font-medium text-gray-600 dark:text-gray-300">
+                    <p
+                        class="text-xs font-medium text-gray-600 dark:text-gray-300"
+                        title="@lang('admin::app.dashboard.index.over-all.total-persons-hint')"
+                    >
                         @lang('admin::app.dashboard.index.over-all.total-persons')
                     </p>
 
@@ -76,6 +79,10 @@
                             </p>
                         </div>
                     </div>
+
+                    <p class="text-[11px] leading-tight text-gray-400 dark:text-gray-500">
+                        @lang('admin::app.dashboard.index.over-all.total-persons-caption')
+                    </p>
                 </div>
                 
                 <!-- Average Lead Per Day -->
