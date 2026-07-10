@@ -43,6 +43,13 @@ class Lead extends AbstractReporting
     protected array $prospectoStageIds;
 
     /**
+     * The "No atendido" stage ids (primera etapa del pipeline, lead aún sin
+     * trabajar). En esta base no existe una etapa "Prospecto": la etapa inicial
+     * se llama literalmente "No atendido" (code `no-atendido`).
+     */
+    protected array $notAttendedStageIds;
+
+    /**
      * Role names excluded from vendor/sales statistics. Must match `roles.name` in the database exactly.
      */
     protected array $ignoredRoleNames = ['Supervisores', 'Administrador'];
@@ -92,6 +99,13 @@ class Lead extends AbstractReporting
             ->resetModel()
             ->where('code', 'prospectos')
             ->orWhereRaw("LOWER(name) LIKE '%prospecto%'")
+            ->pluck('id')
+            ->toArray();
+
+        $this->notAttendedStageIds = $this->stageRepository
+            ->resetModel()
+            ->where('code', 'like', '%no-atendido%')
+            ->orWhereRaw("LOWER(name) LIKE '%no atendido%'")
             ->pluck('id')
             ->toArray();
 
@@ -547,9 +561,10 @@ class Lead extends AbstractReporting
     /**
      * Cuenta pedidos por encargado divididos en dos categorías según su etapa
      * actual, dentro del periodo actual (por created_at):
-     *   - "No atendidos" = pedidos en la etapa Prospecto ($prospectoStageIds).
+     *   - "No atendidos" = pedidos en la etapa "No atendido"
+     *                      ($notAttendedStageIds), es decir el lead aún sin trabajar.
      *   - "Atendidos"    = pedidos en TODAS las demás etapas (Confirmado,
-     *                      Entregado y Cancelado/Perdido).
+     *                      Entregado, Cancelado y Sin interés).
      * Reemplaza la comparación actual-vs-anterior para este card; solo periodo
      * actual. Mantiene el mismo filtro de pipeline, roles ignorados y ACL que
      * las demás métricas por usuario.
@@ -559,16 +574,16 @@ class Lead extends AbstractReporting
         $tablePrefix = DB::getTablePrefix();
         $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
-        $prospectoIds = implode(',', $this->prospectoStageIds ?: [0]);
-        
+        $notAttendedIds = implode(',', $this->notAttendedStageIds ?: [0]);
+
         $query = $this->leadRepository
             ->resetModel()
             ->leftJoin('users', 'leads.user_id', '=', 'users.id')
             ->select(
                 'users.id as user_id',
                 'users.name as user_name',
-                DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.$prospectoIds.') THEN '.$tablePrefix.'leads.id END) AS not_attended'),
-                DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id NOT IN ('.$prospectoIds.') THEN '.$tablePrefix.'leads.id END) AS attended')
+                DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.$notAttendedIds.') THEN '.$tablePrefix.'leads.id END) AS not_attended'),
+                DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id NOT IN ('.$notAttendedIds.') THEN '.$tablePrefix.'leads.id END) AS attended')
             )
             ->whereRaw('('.$this->stageEventDateExpr().') BETWEEN ? AND ?', [$this->startDate, $this->endDate])
             ->when($pipelineId, function ($q) use ($pipelineId) {
@@ -582,13 +597,14 @@ class Lead extends AbstractReporting
             $query->whereIn('users.id', $userIds);
         }
 
-        $attendedByUser = [];
-        $notAttendedByUser = [];
+        // Se indexa por user_id (no por nombre) para que dos asesores homónimos
+        // no colisionen ni se sobreescriban sus conteos.
+        $attendedById = [];
+        $notAttendedById = [];
 
         foreach ($query->get() as $row) {
-            $name = $row->user_name ?? '—';
-            $attendedByUser[$name] = (int) $row->attended;
-            $notAttendedByUser[$name] = (int) $row->not_attended;
+            $attendedById[$row->user_id] = (int) $row->attended;
+            $notAttendedById[$row->user_id] = (int) $row->not_attended;
         }
 
         $usersQuery = $this->userRepository->resetModel()->select('id', 'name');
@@ -598,21 +614,32 @@ class Lead extends AbstractReporting
             $usersQuery->whereIn('id', $userIds);
         }
 
-        $users = $usersQuery->orderBy('name')->pluck('name')->toArray();
+        $users = $usersQuery->orderBy('name')->get(['id', 'name']);
 
+        // Nombres que aparecen más de una vez: se desambiguan con el id para que
+        // dos asesores homónimos no se muestren como barras idénticas en el chart.
+        $duplicateNames = $users->groupBy('name')
+            ->filter(fn ($group) => $group->count() > 1)
+            ->keys()
+            ->flip();
+
+        $labels = [];
         $attended = [];
         $notAttended = [];
 
         foreach ($users as $u) {
-            $attended[] = $attendedByUser[$u] ?? 0;
-            $notAttended[] = $notAttendedByUser[$u] ?? 0;
+            $labels[] = $duplicateNames->has($u->name)
+                ? $u->name.' (#'.$u->id.')'
+                : $u->name;
+            $attended[] = $attendedById[$u->id] ?? 0;
+            $notAttended[] = $notAttendedById[$u->id] ?? 0;
         }
 
         return [
-            'labels'       => $users,
+            'labels'       => $labels,
             'attended'     => $attended,
             'not_attended' => $notAttended,
-            'users'        => $users,
+            'users'        => $labels,
         ];
     }
 
