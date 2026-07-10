@@ -297,11 +297,15 @@ class LeadController extends Controller
 
             if ($allPipelines) {
                 /**
-                 * In "all pipelines" mode we merge same-coded stages across every
-                 * city, so the column gathers leads from all pipelines whose stage
-                 * shares this stage's code.
+                 * In "all pipelines" mode we merge each city's stage that sits in the
+                 * same position (sort_order) into a single column. We intentionally
+                 * match by sort_order rather than by `code`: every city shares the
+                 * same stage structure by position, but stored codes can be dirty
+                 * (e.g. a stray leading dash "-no-atendido" produced by the pipeline
+                 * form's slugify), which would silently drop that city's leads from
+                 * the combined column.
                  */
-                $stageIds = $this->stageRepository->findWhere(['code' => $stage->code])->pluck('id')->toArray();
+                $stageIds = $this->stageRepository->findWhere(['sort_order' => $stage->sort_order])->pluck('id')->toArray();
 
                 $query = $query->whereIn('leads.lead_pipeline_stage_id', $stageIds);
             } else {
@@ -359,7 +363,7 @@ class LeadController extends Controller
                     'pipeline.stages',
                     'stage',
                     'attribute_values',
-                ])->paginate(10)),
+                ])->paginate(100)),
 
                 'meta' => [
                     'current_page' => $paginator->currentPage(),

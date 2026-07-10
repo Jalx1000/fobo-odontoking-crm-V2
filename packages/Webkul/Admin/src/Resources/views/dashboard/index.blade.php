@@ -47,7 +47,7 @@
         <div class="flex flex-1 flex-col gap-4 max-xl:flex-auto">
             {{-- @include('admin::dashboard.index.revenue') --}}
             @include('admin::dashboard.index.over-all')
-            @include('admin::dashboard.index.total-leads-vs-entregados')
+            @include('admin::dashboard.index.leads-by-users')
             @include('admin::dashboard.index.evolution')
 
             @if ($isAdminRole)
@@ -66,7 +66,6 @@
                     </div>
                 </div>
             @else
-                @include('admin::dashboard.index.leads-by-users')
                 @include('admin::dashboard.index.tiempo-por-vendedor')
             @endif
         </div>
@@ -164,7 +163,6 @@
                 <x-admin::flat-picker.date
                     class="!w-[140px]"
                     ::allow-input="false"
-                    ::max-date="filters.end"
                 >
                     <input
                         class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"
@@ -176,7 +174,6 @@
                 <x-admin::flat-picker.date
                     class="!w-[140px]"
                     ::allow-input="false"
-                    ::max-date="filters.end"
                 >
                     <input
                         class="flex min-h-[39px] w-full rounded-md border px-3 py-2 text-sm text-gray-600 transition-all hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-400"

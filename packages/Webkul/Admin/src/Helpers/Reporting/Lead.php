@@ -560,7 +560,7 @@ class Lead extends AbstractReporting
         $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
         $prospectoIds = implode(',', $this->prospectoStageIds ?: [0]);
-
+        
         $query = $this->leadRepository
             ->resetModel()
             ->leftJoin('users', 'leads.user_id', '=', 'users.id')

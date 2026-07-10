@@ -21,12 +21,12 @@
                 </div>
 
                 <div class="relative flex w-full max-w-full flex-col gap-4" v-if="report.statistics.length">
-                    <canvas :id="$.uid + '_chart'" class="w-full max-w-full items-end px-12" :style="{ height: report.statistics.length * 40 + 'px' }"></canvas>
+                    <canvas :id="$.uid + '_chart'" class="w-full max-w-full items-end px-16" :style="{ height: report.statistics.length * 50 + 'px' }"></canvas>
 
                     <ul class="absolute flex w-full flex-col">
-                        <li class="flex w-full flex-col border-b border-gray-200 pb-[2px] pt-1 last:border-none dark:border-gray-800" v-for="(stat, index) in report.statistics">
-                            <span class="text-[10px] font-semibold dark:text-gray-100">@{{ stat.name }}</span>
-                            <span class="text-[10px] font-semibold dark:text-gray-100">@{{ stat.total }}</span>
+                        <li class="flex w-full flex-col border-b border-gray-200 pb-[2px] pt-2 last:border-none dark:border-gray-800" v-for="(stat, index) in report.statistics">
+                            <span class="text-[13px] font-semibold dark:text-gray-100">@{{ stat.name }}</span>
+                            <span class="text-[13px] font-semibold dark:text-gray-100">@{{ stat.total }}</span>
                         </li>
                     </ul>
                 </div>
