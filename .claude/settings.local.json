@@ -67,7 +67,9 @@
       "mcp__playwright__browser_take_screenshot",
       "mcp__playwright__browser_evaluate",
       "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Helpers/Reporting/Lead.php packages/Webkul/Admin/src/Helpers/Reporting/Product.php packages/Webkul/Admin/src/Helpers/Reporting/Person.php packages/Webkul/Admin/src/Helpers/Reporting/Organization.php)",
-      "Bash(grep -rn 'protected $table' packages/Webkul/Lead/src/Models/Lead.php)"
+      "Bash(grep -rn 'protected $table' packages/Webkul/Lead/src/Models/Lead.php)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Exports/Dashboard/DashboardOrdersSheet.php packages/Webkul/Admin/src/Exports/Dashboard/DashboardExport.php)",
+      "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Exports/Dashboard/DashboardOrdersSheet.php)"
     ]
   }
 }
