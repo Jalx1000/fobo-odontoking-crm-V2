@@ -1006,6 +1006,62 @@ class Lead extends AbstractReporting
         ];
     }
 
+    /**
+     * Leads "No atendidos" (etapa inicial "No atendido", $notAttendedStageIds)
+     * agrupados por ciudad — cada pipeline representa una ciudad. Alimenta el
+     * card doughnut "No atendidos por Ciudad". Cuenta por created_at y respeta
+     * el filtro de pipeline, los roles ignorados y el ACL, igual que el resto
+     * de métricas. Solo incluye ciudades con al menos un lead no atendido.
+     */
+    public function getNotAttendedLeadsCountByPipelines(): array
+    {
+        $tablePrefix = DB::getTablePrefix();
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
+
+        $pipelines = $this->pipelineRepository->all();
+
+        $query = $this->leadRepository
+            ->resetModel()
+            ->leftJoin('users', 'leads.user_id', '=', 'users.id')
+            ->select(
+                'leads.lead_pipeline_id as pipeline_id',
+                DB::raw('COUNT(DISTINCT '.$tablePrefix.'leads.id) AS count')
+            )
+            ->whereIn('leads.lead_pipeline_stage_id', $this->notAttendedStageIds ?: [0])
+            ->whereRaw('('.$this->stageEventDateExpr().') BETWEEN ? AND ?', [$this->startDate, $this->endDate])
+            ->when($pipelineId, function ($q) use ($pipelineId) {
+                $q->where('leads.lead_pipeline_id', $pipelineId);
+            })
+            ->groupBy('leads.lead_pipeline_id');
+
+        $query = $this->excludeIgnoredRoles($query, 'users.id');
+
+        if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
+            $query->whereIn('users.id', $userIds);
+        }
+
+        $results = $query->get()->keyBy('pipeline_id');
+
+        $labels = [];
+        $data = [];
+
+        foreach ($pipelines as $pipeline) {
+            $count = (int) ($results->get($pipeline->id)->count ?? 0);
+
+            if ($count === 0) {
+                continue;
+            }
+
+            $labels[] = $pipeline->name;
+            $data[] = $count;
+        }
+
+        return [
+            'labels' => $labels,
+            'data'   => $data,
+        ];
+    }
+
     public function getVentasCountByPipelines(): array
     {
         $tablePrefix = DB::getTablePrefix();

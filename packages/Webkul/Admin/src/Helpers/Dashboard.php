@@ -204,6 +204,11 @@ class Dashboard
         return $this->leadReporting->getLeadsCountByPipelines();
     }
 
+    public function getNotAttendedLeadsByCityStats(): array
+    {
+        return $this->leadReporting->getNotAttendedLeadsCountByPipelines();
+    }
+
     /**
      * Returns the evolution statistics for all metrics: each one carries the
      * current period series plus the previous period's daily average as baseline.

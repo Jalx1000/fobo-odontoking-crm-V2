@@ -67,7 +67,8 @@
                 },
 
                 chartDatasets() {
-                    const labels = this.report.statistics?.labels ?? [];
+                    let labels = this.report.statistics?.labels ?? [];
+                    labels[0]= 'Sin ciudad'
                     const data = this.dataMinutesPerLead;
                     const previousData = this.previousMinutesPerLead;
                     this.colors = labels.map((l) => this.getColorForLabel(l));
@@ -157,7 +158,7 @@
                     ])
                     .then(([r1, r2]) => {
                         this.report = r1.data;
-                        const labels = r2.data?.statistics?.labels ?? [];
+                        let labels = r2.data?.statistics?.labels ?? [];
                         const counts = r2.data?.statistics?.data ?? [];
                         this.leadCountsByUser = {};
                         labels.forEach((label, i) => {

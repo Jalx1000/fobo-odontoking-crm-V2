@@ -37,10 +37,10 @@
                             v-for="tab in tabs"
                             :key="tab.key"
                             type="button"
-                            class="rounded-md border px-3 py-1 text-xs transition-all"
+                            class="rounded-md border px-3 py-1 text-xs transition-all duration-300 ease-out focus:outline-none"
                             :class="activeMetric === tab.key
-                                ? 'border-violet-500 bg-violet-50 text-violet-700 dark:border-violet-500 dark:bg-violet-950 dark:text-violet-200'
-                                : 'border-gray-200 text-gray-600 hover:border-gray-400 dark:border-gray-800 dark:text-gray-300 dark:hover:border-gray-400'"
+                                ? 'border-violet-500 bg-violet-50 text-violet-700 opacity-100 blur-0 scale-105 dark:border-violet-500 dark:bg-violet-950 dark:text-violet-200'
+                                : 'border-gray-200 text-gray-600 opacity-50 blur-[1.5px] hover:opacity-100 hover:blur-0 hover:border-gray-400 dark:border-gray-800 dark:text-gray-300 dark:hover:border-gray-400'"
                             @click="activeMetric = tab.key"
                         >
                             @{{ tab.label }}

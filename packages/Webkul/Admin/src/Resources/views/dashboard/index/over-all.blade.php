@@ -21,7 +21,7 @@
         <!-- Total Sales Section -->
         <template v-else>
             <!-- Stats Cards -->
-            <div class="grid grid-cols-4 gap-4 max-lg:grid-cols-2 max-sm:grid-cols-1">
+            <div class="grid grid-cols-3 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
                 <!-- Average Revenue Card (Oculto) -->
                 <!--
                 <div class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-5 dark:border-gray-800 dark:bg-gray-900">
@@ -82,7 +82,7 @@
 
                 </div>
                 
-                <!-- Average Lead Per Day -->
+                <!-- Average Lead Per Day
                 <div class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-5 dark:border-gray-800 dark:bg-gray-900">
                     <p class="text-xs font-medium text-gray-600 dark:text-gray-300">
                         @lang('admin::app.dashboard.index.over-all.average-leads-per-day')
@@ -107,7 +107,7 @@
                             </p>
                         </div>
                     </div>
-                </div>
+                </div> -->
 
                 <!-- Total Services -->
                 <div class="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white px-4 py-5 dark:border-gray-800 dark:bg-gray-900">
