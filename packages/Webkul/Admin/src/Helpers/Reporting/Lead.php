@@ -55,6 +55,13 @@ class Lead extends AbstractReporting
     protected array $ignoredRoleNames = ['Supervisores', 'Administrador'];
 
     /**
+     * User names excluded from vendor/sales statistics (e.g. the catch-all
+     * "Agente" account used for unassigned leads). Must match `users.name`
+     * exactly.
+     */
+    protected array $ignoredUserNames = ['Agente'];
+
+    /**
      * Create a helper instance.
      *
      * @return void
@@ -839,6 +846,10 @@ class Lead extends AbstractReporting
 
             $query = $this->excludeIgnoredRoles($query, 'users.id');
 
+            if ($this->ignoredUserNames) {
+                $query->whereNotIn('users.name', $this->ignoredUserNames);
+            }
+
             if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
                 $query->whereIn('users.id', $userIds);
             }
@@ -857,6 +868,10 @@ class Lead extends AbstractReporting
 
         $usersQuery = $this->userRepository->resetModel()->select('id', 'name');
         $usersQuery = $this->excludeIgnoredRoles($usersQuery, 'id');
+
+        if ($this->ignoredUserNames) {
+            $usersQuery->whereNotIn('name', $this->ignoredUserNames);
+        }
 
         if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
             $usersQuery->whereIn('id', $userIds);

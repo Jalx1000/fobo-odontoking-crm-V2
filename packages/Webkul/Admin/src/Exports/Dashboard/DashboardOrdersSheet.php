@@ -4,6 +4,8 @@ namespace Webkul\Admin\Exports\Dashboard;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithColumnFormatting;
@@ -107,6 +109,7 @@ class DashboardOrdersSheet extends DefaultValueBinder implements FromArray, Shou
             'Etapa',
             'Asesor asignado',
             'Fecha de creación del contacto',
+            'Fecha de última etapa',
         ];
     }
 
@@ -120,6 +123,8 @@ class DashboardOrdersSheet extends DefaultValueBinder implements FromArray, Shou
             ->scopeQuery(fn ($query) => $this->applyFilters($query))
             ->all();
 
+        $lastStageDates = $this->lastStageChangeDates($leads->pluck('id'));
+
         return $leads->map(fn ($lead) => [
             $lead->pipeline?->name,
             $lead->person?->name,
@@ -130,7 +135,39 @@ class DashboardOrdersSheet extends DefaultValueBinder implements FromArray, Shou
             $this->resolveStage($lead),
             $lead->user?->name,
             $lead->person?->created_at?->format('Y-m-d H:i'),
+            $this->formatDate($lastStageDates[$lead->id] ?? $lead->created_at),
         ])->all();
+    }
+
+    /**
+     * Date each lead entered its CURRENT stage: the most recent stage-change
+     * activity. Stage moves are logged by LogsActivity as a 'system' activity
+     * whose `additional.attribute` is the stage attribute's DISPLAY NAME ("Etapa")
+     * — not its code — so we match on that and take MAX(created_at) per lead in a
+     * single grouped query (no N+1).
+     *
+     * Leads that never left their initial stage have no such activity, so the
+     * caller falls back to the lead's own created_at (when it entered that stage).
+     */
+    protected function lastStageChangeDates(Collection $leadIds): Collection
+    {
+        if ($leadIds->isEmpty()) {
+            return collect();
+        }
+
+        $prefix = DB::getTablePrefix();
+
+        return DB::table('lead_activities')
+            ->join('activities', 'lead_activities.activity_id', '=', 'activities.id')
+            ->whereIn('lead_activities.lead_id', $leadIds)
+            ->where('activities.type', 'system')
+            ->where('activities.additional->attribute', 'Etapa')
+            ->groupBy('lead_activities.lead_id')
+            ->select(
+                'lead_activities.lead_id',
+                DB::raw('MAX('.$prefix.'activities.created_at) as last_stage_at'),
+            )
+            ->pluck('last_stage_at', 'lead_id');
     }
 
     /**
@@ -176,6 +213,23 @@ class DashboardOrdersSheet extends DefaultValueBinder implements FromArray, Shou
     protected function resolveStage($lead): ?string
     {
         return self::STAGE_LABELS[$lead->lead_pipeline_stage_id] ?? $lead->stage?->name;
+    }
+
+    /**
+     * Normalize a date coming either from the grouped query (string) or the
+     * fallback lead created_at (Carbon) into a consistent cell value.
+     */
+    protected function formatDate($value): ?string
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value)->format('Y-m-d H:i');
+        } catch (\Exception $e) {
+            return (string) $value;
+        }
     }
 
     /**

@@ -68,7 +68,6 @@
 
                 chartDatasets() {
                     let labels = this.report.statistics?.labels ?? [];
-                    labels[0]= 'Sin ciudad'
                     const data = this.dataMinutesPerLead;
                     const previousData = this.previousMinutesPerLead;
                     this.colors = labels.map((l) => this.getColorForLabel(l));
