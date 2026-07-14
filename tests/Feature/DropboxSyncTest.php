@@ -213,7 +213,7 @@ it('comando smd:sync-dropbox llama cancelDropbox cuando status es CANCELED y exi
     DB::table('smd_synced_events')->insert([
         'external_id'  => $externalId,
         'source_file'  => '/smd-events/2026-05-12/'.$externalId.'.json',
-        'raw_payload'  => json_encode($json),
+        'raw_payload'  => json_encode(array_merge($json, ['status' => '', 'archived' => false])),
         'status'       => '',
         'activity_id'  => null,
         'lead_id'      => null,
@@ -260,7 +260,7 @@ it('comando smd:sync-dropbox llama cancelDropbox cuando archived es true', funct
     DB::table('smd_synced_events')->insert([
         'external_id'  => $externalId,
         'source_file'  => '/smd-events/2026-05-12/'.$externalId.'.json',
-        'raw_payload'  => json_encode($json),
+        'raw_payload'  => json_encode(array_merge($json, ['status' => '', 'archived' => false])),
         'status'       => '',
         'activity_id'  => null,
         'lead_id'      => null,

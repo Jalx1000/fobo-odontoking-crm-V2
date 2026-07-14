@@ -227,7 +227,7 @@ it('ProcessDropboxNotification cancela evento con status CANCELED y marca archiv
     DB::table('smd_synced_events')->insert([
         'external_id'  => $payload['_id'],
         'source_file'  => '/smd-events/2026-05-12/'.$payload['_id'].'.json',
-        'raw_payload'  => json_encode($payload),
+        'raw_payload'  => json_encode(array_merge($payload, ['status' => '', 'archived' => false])),
         'status'       => '',
         'activity_id'  => null,
         'lead_id'      => null,
@@ -273,7 +273,7 @@ it('ProcessDropboxNotification cancela evento con archived true aunque status es
     DB::table('smd_synced_events')->insert([
         'external_id'  => $payload['_id'],
         'source_file'  => '/smd-events/2026-05-12/'.$payload['_id'].'.json',
-        'raw_payload'  => json_encode($payload),
+        'raw_payload'  => json_encode(array_merge($payload, ['status' => '', 'archived' => false])),
         'status'       => '',
         'activity_id'  => null,
         'lead_id'      => null,

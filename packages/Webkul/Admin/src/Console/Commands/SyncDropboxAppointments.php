@@ -16,17 +16,18 @@ class SyncDropboxAppointments extends Command
 
     public function handle(SmdAppointmentSyncService $service): int
     {
-        $days     = (int) $this->option('days');
+        $days = (int) $this->option('days');
         $baseDate = $this->option('date') ? Carbon::parse($this->option('date')) : null;
 
         $summary = $service->run($days, fn (string $line) => $this->line($line), $baseDate);
 
         $this->info(sprintf(
-            'Creados: %d | Actualizados: %d | Cancelados: %d | Sin cambios: %d | Errores: %d',
+            'Creados: %d | Actualizados: %d | Cancelados: %d | Sin cambios: %d | Obsoletos: %d | Errores: %d',
             $summary['creados'],
             $summary['actualizados'],
             $summary['cancelados'],
             $summary['sin_cambios'],
+            $summary['obsoletos'],
             $summary['errores'],
         ));
 

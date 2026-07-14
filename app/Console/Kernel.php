@@ -16,8 +16,10 @@ class Kernel extends ConsoleKernel
         $schedule->command('inbound-emails:process')->everyFiveMinutes();
 
         // El sync automático respeta el flag de pausa (toggle desde la UI).
+        // withoutOverlapping: una corrida lenta no debe solaparse con la siguiente.
         $schedule->command('smd:sync-dropbox --days=2')
             ->everyFiveMinutes()
+            ->withoutOverlapping(10)
             ->when(fn () => ! SmdSyncState::isPaused());
     }
 

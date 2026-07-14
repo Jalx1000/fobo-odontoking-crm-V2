@@ -15,13 +15,13 @@ use Webkul\Tag\Repositories\TagRepository;
 class IncomingAppointmentService
 {
     public function __construct(
-        protected DoctorRepository    $doctorRepository,
+        protected DoctorRepository $doctorRepository,
         protected SpecialtyRepository $specialtyRepository,
-        protected PersonRepository    $personRepository,
-        protected LeadRepository      $leadRepository,
-        protected ActivityRepository  $activityRepository,
-        protected TagRepository       $tagRepository,
-        protected SmdStatusMapper     $statusMapper,
+        protected PersonRepository $personRepository,
+        protected LeadRepository $leadRepository,
+        protected ActivityRepository $activityRepository,
+        protected TagRepository $tagRepository,
+        protected SmdStatusMapper $statusMapper,
     ) {}
 
     /**
@@ -61,7 +61,7 @@ class IncomingAppointmentService
     public function updateDropbox(array $data, object $existing): array
     {
         $activityId = $existing->activity_id;
-        $leadId     = $existing->lead_id;
+        $leadId = $existing->lead_id;
 
         if (! $activityId) {
             Log::warning('[IncomingAppointment] updateDropbox sin activity_id, creando nuevo', [
@@ -76,17 +76,51 @@ class IncomingAppointmentService
 
             $activity = $this->activityRepository->find($activityId);
 
+            // Si en SMD cambian el paciente o el profesional, la cita del CRM debe
+            // seguirlos. resolvePerson() da de alta al paciente si todavía no está
+            // registrado, y resolveDoctor() busca al médico por unique_id y, si no,
+            // por nombre. Solo se resuelven cuando el payload los identifica: un
+            // payload sin médico/paciente reconocible no debe pisar a los actuales.
+            $doctor = $normalized['doctor_identified'] ? $this->resolveDoctor($normalized) : null;
+
+            $person = $normalized['patient_identified']
+                ? $this->resolvePerson(
+                    $normalized['patient_phone'] ?? null,
+                    $normalized['patient_external_id'] ?? null,
+                    $normalized['patient_name']
+                )
+                : null;
+
             if ($activity) {
+                $doctorIds = $doctor
+                    ? [$doctor->id]
+                    : $activity->doctors->pluck('id')->all();
+
+                $personIds = $person
+                    ? [$person->id]
+                    : $activity->participants->pluck('person_id')->filter()->values()->all();
+
                 $this->activityRepository->update([
                     'title'         => $normalized['summary'] ?: $activity->title,
                     'comment'       => $normalized['summary'] ?? $activity->comment,
                     'schedule_from' => Carbon::parse($normalized['schedule_from'])->setTimezone(config('app.timezone'))->format('Y-m-d H:i:s'),
                     'schedule_to'   => Carbon::parse($normalized['schedule_to'])->setTimezone(config('app.timezone'))->format('Y-m-d H:i:s'),
+                    // Ambas claves siempre: el repositorio hace doctors()->sync([])
+                    // cuando falta `doctors`, lo que borraría al médico de la cita.
+                    'participants'  => [
+                        'doctors' => $doctorIds,
+                        'persons' => $personIds,
+                    ],
                 ], $activityId);
             }
 
             if ($leadId) {
                 $updateData = [];
+
+                // El lead debe apuntar al paciente vigente si en SMD lo cambiaron.
+                if ($person) {
+                    $updateData['person'] = ['id' => $person->id];
+                }
 
                 if ($normalized['summary']) {
                     $updateData['description'] = $normalized['summary'];
@@ -99,9 +133,9 @@ class IncomingAppointmentService
                 }
 
                 if ($this->statusMapper->isCancelled($normalized['status'])) {
-                    $updateData['status']      = 0;
+                    $updateData['status'] = 0;
                     $updateData['lost_reason'] = 'Cita '.$normalized['status'].' en SMD';
-                    $updateData['closed_at']   = now();
+                    $updateData['closed_at'] = now();
                 }
 
                 if (! empty($updateData)) {
@@ -124,7 +158,7 @@ class IncomingAppointmentService
     public function cancelDropbox(string $externalId, object $existing): array
     {
         return DB::transaction(function () use ($externalId, $existing) {
-            $leadId     = $existing->lead_id;
+            $leadId = $existing->lead_id;
             $activityId = $existing->activity_id;
 
             if ($leadId) {
@@ -153,7 +187,7 @@ class IncomingAppointmentService
     private function process(array $data): array
     {
         return DB::transaction(function () use ($data) {
-            $doctor    = $this->resolveDoctor($data);
+            $doctor = $this->resolveDoctor($data);
             $specialty = $this->specialtyRepository->fetchOrCreateByName($data['specialty'] ?? 'General');
 
             if (! $doctor->specialties->contains($specialty->id)) {
@@ -208,76 +242,97 @@ class IncomingAppointmentService
     {
         $attendances = $data['attendances'] ?? [];
 
-        // Doctor: buscar en attendances el de type "physician"
-        $physicianRaw = collect($attendances)
-            ->first(fn ($a) => in_array(strtolower($a['type'] ?? $a['virtualType'] ?? ''), ['physician', 'doctor']));
+        // Los payloads UPDATED de SMD vienen deshidratados: no traen `type` ni
+        // `phone` (verificado sobre datos reales: 45 de 52 asistentes sin `type`).
+        // El `_id` del asistente sí es estable y coincide con doctors.unique_id,
+        // así que el médico se identifica cruzando ids contra la tabla y no por
+        // `type`, que en la mayoría de los payloads no existe.
+        $knownDoctorIds = $this->knownDoctorIds($attendances);
 
-        // Fallback: usar owner si no hay physician en attendances
+        $physicianRaw = collect($attendances)
+            ->first(fn ($a) => isset($a['_id']) && isset($knownDoctorIds[$a['_id']]));
+
+        // Fallback: `type` explícito. Cubre los CREATED hidratados y al médico que
+        // todavía no está registrado en el CRM (resolveDoctor lo dará de alta).
         if (! $physicianRaw) {
-            $owner        = $this->parseOwner($data['owner'] ?? null);
-            $physicianRaw = $owner['_id'] ? ['_id' => $owner['_id'], 'name' => $owner['name'], 'lastName' => $owner['lastName']] : null;
+            $physicianRaw = collect($attendances)
+                ->first(fn ($a) => in_array(strtolower($a['type'] ?? $a['virtualType'] ?? ''), ['physician', 'doctor']));
         }
 
+        // No se cae al `owner`: es quien creó el evento en SMD (la recepcionista),
+        // no el profesional. Hacerlo colgaba las citas del doctor basura
+        // "Recepcionista Odontoking".
         $physician = $physicianRaw ? $this->parseAttendance($physicianRaw) : ['_id' => null, 'name' => 'Doctor SMD', 'lastName' => '', 'phone' => null, 'birthday' => null];
 
-        // Paciente: primer attendance de type "patient" (o el que no sea physician)
+        // Paciente: primer attendance de type "patient"
         $patientRaw = collect($attendances)
             ->first(fn ($a) => in_array(strtolower($a['type'] ?? $a['virtualType'] ?? ''), ['patient']));
 
-        // Fallback: primer attendance que no sea el physician
+        // Fallback: el primero que no sea el médico elegido ni otro doctor conocido.
         if (! $patientRaw) {
             $patientRaw = collect($attendances)
-                ->first(fn ($a) => ($a['_id'] ?? null) !== ($physician['_id'] ?? null));
+                ->first(fn ($a) => ($a['_id'] ?? null) !== ($physician['_id'] ?? null)
+                    && ! isset($knownDoctorIds[$a['_id'] ?? '']));
         }
 
         $patient = $patientRaw ? $this->parseAttendance($patientRaw) : ['_id' => null, 'name' => 'Paciente', 'lastName' => '', 'phone' => null, 'birthday' => null];
 
         return [
+            // Distinguen "el payload trae este actor" de "usamos el placeholder".
+            // updateDropbox() solo reasigna participantes cuando son identificables;
+            // si no, conserva los que ya tiene la cita en vez de pisarlos con
+            // "Doctor SMD" / "Paciente".
+            'doctor_identified'   => (bool) $physicianRaw,
+            'patient_identified'  => (bool) $patientRaw,
             'doctor_external_id'  => $physician['_id'],
             'doctor_name'         => trim(($physician['name'] ?? '').' '.($physician['lastName'] ?? '')),
             'patient_name'        => trim(($patient['name'] ?? 'Paciente').' '.($patient['lastName'] ?? '')),
             'patient_phone'       => $patient['phone'],
             'patient_external_id' => $patient['_id'],
             'patient_birthday'    => $patient['birthday'],
-            'schedule_from'       => $data['startDate']  ?? null,
-            'schedule_to'         => $data['endDate']    ?? null,
+            'schedule_from'       => $data['startDate'] ?? null,
+            'schedule_to'         => $data['endDate'] ?? null,
             'specialty'           => 'General',
-            'summary'             => $data['summary']    ?? '',
-            'external_id'         => $data['_id']        ?? null,
-            'archived'            => $data['archived']   ?? false,
-            'status'              => $data['status']     ?? '',
+            'summary'             => $data['summary'] ?? '',
+            'external_id'         => $data['_id'] ?? null,
+            'archived'            => $data['archived'] ?? false,
+            'status'              => $data['status'] ?? '',
         ];
     }
 
     /**
-     * owner puede ser objeto O string (solo el _id) en eventos cancelados.
+     * Ids de `attendances[]` que corresponden a doctores ya registrados
+     * (doctors.unique_id), indexados por id para un lookup directo.
+     *
+     * Es lo que permite identificar al médico en los payloads UPDATED, que no
+     * traen `type`. Una sola consulta por payload.
      */
-    private function parseOwner(mixed $owner): array
+    private function knownDoctorIds(array $attendances): array
     {
-        if (is_string($owner)) {
-            return ['_id' => $owner, 'name' => null, 'lastName' => null, 'phone' => null];
+        $ids = array_values(array_filter(array_map(
+            fn ($a) => is_array($a) ? ($a['_id'] ?? null) : null,
+            $attendances
+        )));
+
+        if (! $ids) {
+            return [];
         }
 
-        if (is_array($owner)) {
-            return [
-                '_id'      => $owner['_id']      ?? null,
-                'name'     => $owner['name']     ?? null,
-                'lastName' => $owner['lastName'] ?? null,
-                'phone'    => $owner['phone']    ?? null,
-            ];
-        }
-
-        return ['_id' => null, 'name' => null, 'lastName' => null, 'phone' => null];
+        return DB::table('doctors')
+            ->whereIn('unique_id', $ids)
+            ->pluck('unique_id')
+            ->flip()
+            ->all();
     }
 
     private function parseAttendance(array $attendance): array
     {
         return [
-            'name'     => $attendance['name']     ?? 'Paciente',
+            'name'     => $attendance['name'] ?? 'Paciente',
             'lastName' => $attendance['lastName'] ?? '',
-            'phone'    => $attendance['phone']    ?? null,
+            'phone'    => $attendance['phone'] ?? null,
             'birthday' => $attendance['birthday'] ?? null,
-            '_id'      => $attendance['_id']      ?? null,
+            '_id'      => $attendance['_id'] ?? null,
         ];
     }
 
@@ -297,7 +352,9 @@ class IncomingAppointmentService
         if (! $doctor && ! empty($data['doctor_name'])) {
             $nameParts = array_filter(explode(' ', trim($data['doctor_name'])));
             foreach ($nameParts as $part) {
-                if (strlen($part) <= 2) continue;
+                if (strlen($part) <= 2) {
+                    continue;
+                }
                 $found = DB::table('doctors')
                     ->where('name', 'like', "%{$part}%")
                     ->where('is_active', 1)
@@ -344,6 +401,18 @@ class IncomingAppointmentService
 
             if ($person) {
                 if (! ($person instanceof \Webkul\Contact\Contracts\Person)) {
+                    $person = $this->personRepository->find($person->id);
+                }
+
+                // Guardar el id de SMD si todavía no lo tiene: los payloads UPDATED
+                // vienen sin `phone`, así que sin esto una modificación posterior no
+                // encontraría a este paciente y crearía un duplicado.
+                if ($smdPatientId && ! $person->smd_patient_id) {
+                    $this->personRepository->update([
+                        'smd_patient_id' => $smdPatientId,
+                        'entity_type'    => 'persons',
+                    ], $person->id);
+
                     $person = $this->personRepository->find($person->id);
                 }
 

@@ -11,41 +11,68 @@ class DropboxService
     private string $folder;
 
     private const TOKEN_CACHE_KEY = 'dropbox_access_token';
-    private const TOKEN_TTL       = 12600; // 3h30m — refresca antes de las 4h de expiración
+
+    private const TOKEN_TTL = 12600; // 3h30m — refresca antes de las 4h de expiración
 
     public function __construct()
     {
         $this->folder = config('smd.dropbox.appointments_folder') ?? '/smd-events';
     }
 
+    /**
+     * Token de acceso, renovado via refresh_token y cacheado.
+     *
+     * Solo se cachea un token renovado con exito: si el refresh falla se devuelve
+     * el fallback sin guardarlo, porque cachear el fallo dejaria el sync caido
+     * durante TOKEN_TTL aun despues de que Dropbox se recupere.
+     */
     private function token(): string
     {
-        return Cache::remember(self::TOKEN_CACHE_KEY, self::TOKEN_TTL, function () {
-            $refreshToken = config('smd.dropbox.refresh_token');
-            $appKey       = config('smd.dropbox.app_key');
-            $appSecret    = config('smd.dropbox.app_secret');
+        $cached = Cache::get(self::TOKEN_CACHE_KEY);
 
-            if (! $refreshToken || ! $appKey || ! $appSecret) {
-                return config('smd.dropbox.access_token') ?? '';
-            }
+        if ($cached) {
+            return $cached;
+        }
 
+        $refreshToken = config('smd.dropbox.refresh_token');
+        $appKey = config('smd.dropbox.app_key');
+        $appSecret = config('smd.dropbox.app_secret');
+
+        if (! $refreshToken || ! $appKey || ! $appSecret) {
+            return config('smd.dropbox.access_token') ?? '';
+        }
+
+        try {
             $response = Http::asForm()->post('https://api.dropboxapi.com/oauth2/token', [
                 'grant_type'    => 'refresh_token',
                 'refresh_token' => $refreshToken,
                 'client_id'     => $appKey,
                 'client_secret' => $appSecret,
             ]);
+        } catch (\Throwable $e) {
+            Log::error('[Dropbox] Excepcion refrescando token', ['error' => $e->getMessage()]);
 
-            if (! $response->successful()) {
-                Log::error('[Dropbox] Error refrescando token', ['body' => $response->body()]);
-                return config('smd.dropbox.access_token') ?? '';
-            }
+            return config('smd.dropbox.access_token') ?? '';
+        }
 
-            $newToken = $response->json('access_token');
-            Log::info('[Dropbox] Token renovado correctamente');
+        if (! $response->successful()) {
+            Log::error('[Dropbox] Error refrescando token', ['body' => $response->body()]);
 
-            return $newToken;
-        });
+            return config('smd.dropbox.access_token') ?? '';
+        }
+
+        $newToken = $response->json('access_token');
+
+        if (! $newToken) {
+            Log::error('[Dropbox] El refresh no devolvio access_token', ['body' => $response->body()]);
+
+            return config('smd.dropbox.access_token') ?? '';
+        }
+
+        Cache::put(self::TOKEN_CACHE_KEY, $newToken, self::TOKEN_TTL);
+        Log::info('[Dropbox] Token renovado correctamente');
+
+        return $newToken;
     }
 
     /**
@@ -66,6 +93,7 @@ class DropboxService
         // Si después del retry sigue siendo el marcador, devolver default
         if (is_array($result) && isset($result['_expired'])) {
             Log::error('[Dropbox] Token expirado incluso después de renovar.');
+
             return $default;
         }
 
@@ -78,7 +106,7 @@ class DropboxService
      */
     public function listFilesForDate(string $date): array
     {
-        $path = rtrim($this->folder, '/') . '/' . $date;
+        $path = rtrim($this->folder, '/').'/'.$date;
 
         return $this->retryWithFreshToken(function (string $token) use ($path) {
             try {
@@ -140,12 +168,12 @@ class DropboxService
                 return null;
             }
 
-            $cursor  = $response->json('cursor');
+            $cursor = $response->json('cursor');
             $hasMore = $response->json('has_more', false);
 
             while ($hasMore) {
-                $next    = $this->listChanges($cursor);
-                $cursor  = $next['cursor']   ?? $cursor;
+                $next = $this->listChanges($cursor);
+                $cursor = $next['cursor'] ?? $cursor;
                 $hasMore = $next['has_more'] ?? false;
             }
 
@@ -164,7 +192,7 @@ class DropboxService
      */
     public function listChanges(string $cursor): array
     {
-        $result = $this->retryWithFreshToken(function (string $token) use ($cursor) {
+        return $this->retryWithFreshToken(function (string $token) use ($cursor) {
             try {
                 $response = Http::withToken($token)
                     ->withHeaders(['Content-Type' => 'application/json'])
@@ -199,9 +227,7 @@ class DropboxService
 
                 return ['entries' => [], 'cursor' => $cursor, 'has_more' => false];
             }
-        });
-
-        return $result;
+        }, default: ['entries' => [], 'cursor' => $cursor, 'has_more' => false]);
     }
 
     /**

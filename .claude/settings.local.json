@@ -107,7 +107,20 @@
       "mcp__playwright__browser_network_request",
       "Bash(php -l packages/Webkul/Admin/src/Resources/views/contacts/persons/create.blade.php)",
       "Bash(APP_ENV=testing php artisan route:list --env=testing)",
-      "Bash(./vendor/bin/pint packages/Webkul/Doctor/src/Http/Controllers/Api/SpecialtyController.php packages/Webkul/Doctor/src/Repositories/SpecialtyRepository.php packages/Webkul/Doctor/src/Routes/api.php tests/Feature/SpecialtyDoctorsApiTest.php)"
+      "Bash(./vendor/bin/pint packages/Webkul/Doctor/src/Http/Controllers/Api/SpecialtyController.php packages/Webkul/Doctor/src/Repositories/SpecialtyRepository.php packages/Webkul/Doctor/src/Routes/api.php tests/Feature/SpecialtyDoctorsApiTest.php)",
+      "Bash(timeout 120 env DB_HOST=172.17.0.1 CACHE_DRIVER=file php -r ' *)",
+      "Bash(timeout 300 env DB_HOST=172.17.0.1 CACHE_DRIVER=file php artisan smd:sync-dropbox --days=1)",
+      "Bash(sed -i '/dump\\(\\\\['\\\\''summary'\\\\'' => $summary, '\\\\''titulo'\\\\'' => activityFor\\($id\\)?->title\\\\]\\);/d' tests/Feature/SmdStalePayloadSyncTest.php)",
+      "Bash(./vendor/bin/pint tests/Feature/SmdStalePayloadSyncTest.php packages/Webkul/Admin/src/Services/SmdAppointmentSyncService.php)",
+      "Bash(timeout 580 env DB_HOST=172.17.0.1 CACHE_DRIVER=file php artisan smd:sync-dropbox --days=2)",
+      "Bash(sed -i '216s|.*|        '\\\\''raw_payload'\\\\''  => json_encode\\(array_merge\\($json, ['\\\\''status'\\\\'' => '\\\\'''\\\\'', '\\\\''archived'\\\\'' => false]\\)\\),|' tests/Feature/DropboxSyncTest.php)",
+      "Bash(sed -i '263s|.*|        '\\\\''raw_payload'\\\\''  => json_encode\\(array_merge\\($json, ['\\\\''status'\\\\'' => '\\\\'''\\\\'', '\\\\''archived'\\\\'' => false]\\)\\),|' tests/Feature/DropboxSyncTest.php)",
+      "Bash(sed -i '230s|.*|        '\\\\''raw_payload'\\\\''  => json_encode\\(array_merge\\($payload, ['\\\\''status'\\\\'' => '\\\\'''\\\\'', '\\\\''archived'\\\\'' => false]\\)\\),|' tests/Feature/ProcessDropboxNotificationTest.php)",
+      "Bash(sed -i '276s|.*|        '\\\\''raw_payload'\\\\''  => json_encode\\(array_merge\\($payload, ['\\\\''status'\\\\'' => '\\\\'''\\\\'', '\\\\''archived'\\\\'' => false]\\)\\),|' tests/Feature/ProcessDropboxNotificationTest.php)",
+      "Bash(sed -i 's/\\\\bfunction smdEvent\\(/function smdSyncEvent\\(/; s/\\\\bfunction sync\\(\\)/function smdSyncService\\(\\)/; s/\\\\bfunction makeDoctor\\(\\)/function smdSyncDoctor\\(\\)/' tests/Feature/SmdParticipantsSyncTest.php)",
+      "Bash(sed -i 's/\\\\bsmdEvent\\(\\\\[/smdSyncEvent\\([/g; s/\\\\bsync\\(\\)->processPayload/smdSyncService\\(\\)->processPayload/g; s/\\\\bmakeDoctor\\(\\)/smdSyncDoctor\\(\\)/g' tests/Feature/SmdParticipantsSyncTest.php)",
+      "Bash(sed -i '340s|# 139 tests|# 144 tests|' docs/README-integracion-smd.md)",
+      "Bash(sed -i '372s|^`139` en verde para `Dropbox|`144` en verde para `Dropbox|' docs/README-integracion-smd.md)"
     ]
   }
 }

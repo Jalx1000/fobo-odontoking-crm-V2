@@ -165,6 +165,10 @@ class ActivityController extends Controller
                     'products.name as product_name',
                     DB::raw('MAX('.$prefix.'p.id) as person_id'),
                     DB::raw('MAX('.$prefix.'p.name) as person_name'),
+                    // Se extraen con JSON_EXTRACT porque MAX() no acepta columnas JSON.
+                    // Alimentan person_whatsapp (ver resolveWhatsappNumber).
+                    DB::raw('MAX(JSON_UNQUOTE(JSON_EXTRACT('.$prefix.'p.emails, \'$[0].value\'))) as person_email'),
+                    DB::raw('MAX(JSON_UNQUOTE(JSON_EXTRACT('.$prefix.'p.contact_numbers, \'$[0].value\'))) as person_contact_number'),
                 ])
                 ->whereBetween('activities.schedule_from', [$startDate, $endDate])
                 ->whereIn('activities.type', (function () {
