@@ -89,7 +89,25 @@
       "Bash(./vendor/bin/pint tests/Feature/PersonIndexDateFilterTest.php tests/Feature/LeadKanbanDateRangeTest.php tests/Feature/DashboardLayoutTest.php)",
       "Bash(su -s /bin/sh www-data -c \"php artisan config:clear\")",
       "Bash(sudo -u www-data php artisan config:clear)",
-      "Bash(ip -o link show)"
+      "Bash(ip -o link show)",
+      "Bash(claude --version)",
+      "Bash(npx -y playwright@latest install --with-deps chromium)",
+      "mcp__playwright__browser_navigate",
+      "Bash(npx -y playwright@latest install chrome)",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_fill_form",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_take_screenshot",
+      "Read(//root/.cache/ms-playwright-mcp/**)",
+      "Read(//root/**)",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_network_requests",
+      "mcp__playwright__browser_network_request",
+      "Bash(php -l packages/Webkul/Admin/src/Resources/views/contacts/persons/create.blade.php)",
+      "Bash(APP_ENV=testing php artisan route:list --env=testing)",
+      "Bash(./vendor/bin/pint packages/Webkul/Doctor/src/Http/Controllers/Api/SpecialtyController.php packages/Webkul/Doctor/src/Repositories/SpecialtyRepository.php packages/Webkul/Doctor/src/Routes/api.php tests/Feature/SpecialtyDoctorsApiTest.php)"
     ]
   }
 }
