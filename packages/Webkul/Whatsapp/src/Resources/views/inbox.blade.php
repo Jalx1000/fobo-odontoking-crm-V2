@@ -146,10 +146,17 @@
 
                             <div v-else class="italic text-gray-500">Tipo no soportado</div>
 
+                            <!-- why it failed: the agent is who needs this, not the log -->
+                            <div v-if="msg.status === 'failed' && msg.error"
+                                 class="mt-1 rounded border border-red-300 bg-red-50 px-2 py-1 text-[11px] text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
+                                <span class="font-semibold">No se envió:</span> @{{ msg.error }}
+                            </div>
+
                             <!-- meta row -->
                             <div class="mt-0.5 flex items-center justify-end gap-1 text-[10px] text-gray-500 dark:text-gray-300">
                                 <span>@{{ msg.time }}</span>
-                                <span v-if="msg.direction === 'outbound'" :class="msg.status === 'read' ? 'text-sky-500' : ''">
+                                <span v-if="msg.direction === 'outbound'"
+                                      :class="msg.status === 'read' ? 'text-sky-500' : (msg.status === 'failed' ? 'text-red-500' : '')">
                                     @{{ statusTick(msg.status) }}
                                 </span>
                             </div>
@@ -174,19 +181,20 @@
                 </div>
 
                 <div v-else class="flex items-end gap-2">
-                    <div class="relative">
+                    <!-- Only rendered when the active provider can actually send attachments -->
+                    <div v-if="canAttach" class="relative">
                         <button type="button" @click="showAttach = !showAttach"
                                 class="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700">
                             <span class="icon-attachment text-xl"></span>
                         </button>
                         <div v-if="showAttach" class="absolute bottom-11 left-0 z-10 w-40 rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-gray-700 dark:bg-gray-800">
-                            <button class="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700" @click="mockAttach('image')">
+                            <button v-if="canSend('image')" class="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700" @click="mockAttach('image')">
                                 <span class="icon-image"></span> Imagen
                             </button>
-                            <button class="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700" @click="mockAttach('document')">
+                            <button v-if="canSend('document')" class="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700" @click="mockAttach('document')">
                                 <span class="icon-file"></span> Documento
                             </button>
-                            <button class="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700" @click="mockAttach('audio')">
+                            <button v-if="canSend('audio')" class="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700" @click="mockAttach('audio')">
                                 <span class="icon-microphone"></span> Audio
                             </button>
                         </div>
@@ -230,6 +238,9 @@
                     showAttach: false,
                     since: null,
                     pollTimer: null,
+                    // What the active provider can do. Conservative default:
+                    // text only, until the server says otherwise.
+                    capabilities: { send: ['text'], receive: [] },
                 };
             },
 
@@ -237,6 +248,10 @@
                 initials() {
                     return (this.context.name || '?')
                         .split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+                },
+
+                canAttach() {
+                    return ['image', 'document', 'audio'].some(type => this.canSend(type));
                 },
             },
 
@@ -253,6 +268,10 @@
             },
 
             methods: {
+                canSend(type) {
+                    return (this.capabilities?.send ?? []).includes(type);
+                },
+
                 loadMock() {
                     const t = (h, m) => `${h}:${m}`;
                     this.messages = [
@@ -268,6 +287,12 @@
                         { id: 9, direction: 'outbound', sender: 'human', type: 'text', text: 'Perfecto, te envío la cotización. ¿Confirmamos?', time: t('14', '15'), status: 'sent' },
                     ];
                     this.aiEnabled = true;
+                    // The mock showcases every type; real capabilities come from
+                    // the server, which only reports what a driver implements.
+                    this.capabilities = {
+                        send: ['text', 'image', 'document', 'audio', 'reply'],
+                        receive: ['text', 'image', 'document', 'audio'],
+                    };
                     this.scrollToBottom();
                 },
 
@@ -292,6 +317,7 @@
                         })
                         .then(res => {
                             if (res.data?.server_time) this.since = res.data.server_time;
+                            if (res.data?.capabilities) this.capabilities = res.data.capabilities;
 
                             const incoming = res.data?.messages ?? [];
                             if (!incoming.length) return;

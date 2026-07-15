@@ -26,6 +26,7 @@ class Message extends Model implements MessageContract
         'wa_message_id',
         'reply_to_id',
         'status',
+        'error',
         'sender',
         'payload',
     ];

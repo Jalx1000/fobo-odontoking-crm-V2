@@ -6,63 +6,50 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Log;
+use Webkul\Whatsapp\Gateways\GatewayManager;
 use Webkul\Whatsapp\Jobs\IngestInboundPayload;
 
+/**
+ * Single inbound webhook, provider-agnostic. The active gateway decides how to
+ * handshake, how to authenticate, and how to read the payload.
+ */
 class WebhookController extends Controller
 {
+    public function __construct(protected GatewayManager $gateways) {}
+
     /**
-     * Webhook verification handshake (Meta calls this once on subscription).
-     *
-     * Query params arrive as hub.mode / hub.verify_token / hub.challenge; PHP
-     * converts the dots to underscores.
+     * Registration handshake. Providers without one (Kommo) get a 403.
      */
     public function verify(Request $request): Response
     {
-        $mode = $request->query('hub_mode');
-        $token = (string) $request->query('hub_verify_token', '');
-        $challenge = (string) $request->query('hub_challenge', '');
-
-        $expected = (string) config('whatsapp.cloud.verify_token');
-
-        if ($mode === 'subscribe' && $expected !== '' && hash_equals($expected, $token)) {
-            return response($challenge, 200)->header('Content-Type', 'text/plain');
-        }
-
-        return response('Forbidden', 403);
+        return $this->gateways->active()->verifyWebhook($request)
+            ?? response('Forbidden', 403);
     }
 
     /**
-     * Receive inbound events. Validates the payload signature, then queues the
-     * raw payload for processing and returns 200 fast.
+     * Authenticate, queue, and get out of the way — the provider expects a fast
+     * 200 and will unsubscribe us if we do work here.
      */
     public function receive(Request $request): JsonResponse
     {
-        if (! $this->isValidSignature($request)) {
+        $gateway = $this->gateways->active();
+
+        $auth = $gateway->authenticateWebhook($request);
+
+        if (! $auth->ok) {
+            Log::warning('WhatsApp webhook rejected', [
+                'gateway' => $gateway->key(),
+                'reason'  => $auth->reason,
+                'ip'      => $request->ip(),
+            ]);
+
             return response()->json(['message' => 'Invalid signature'], 401);
         }
 
-        IngestInboundPayload::dispatch($request->all())
+        IngestInboundPayload::dispatch($gateway->key(), $request->all())
             ->onQueue(config('whatsapp.queue'));
 
         return response()->json(['status' => 'ok']);
-    }
-
-    /**
-     * Verify the X-Hub-Signature-256 header against the raw request body using
-     * the app secret (HMAC SHA-256).
-     */
-    protected function isValidSignature(Request $request): bool
-    {
-        $secret = (string) config('whatsapp.cloud.app_secret');
-
-        if ($secret === '') {
-            return false;
-        }
-
-        $signature = (string) $request->header('X-Hub-Signature-256', '');
-
-        $expected = 'sha256='.hash_hmac('sha256', $request->getContent(), $secret);
-
-        return hash_equals($expected, $signature);
     }
 }

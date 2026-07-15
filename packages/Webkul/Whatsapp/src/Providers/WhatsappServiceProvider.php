@@ -5,7 +5,10 @@ namespace Webkul\Whatsapp\Providers;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Webkul\Whatsapp\Console\Commands\KommoCheck;
 use Webkul\Whatsapp\Console\Commands\NormalizePhones;
+use Webkul\Whatsapp\Console\Commands\RepairGateway;
+use Webkul\Whatsapp\Console\Commands\WebhookInfo;
 
 class WhatsappServiceProvider extends ServiceProvider
 {
@@ -28,7 +31,10 @@ class WhatsappServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->commands([
+                KommoCheck::class,
                 NormalizePhones::class,
+                RepairGateway::class,
+                WebhookInfo::class,
             ]);
         }
     }

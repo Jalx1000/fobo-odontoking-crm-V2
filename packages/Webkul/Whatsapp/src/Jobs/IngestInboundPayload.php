@@ -7,100 +7,83 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
+use Webkul\Whatsapp\Gateways\Dto\InboundMessage;
+use Webkul\Whatsapp\Gateways\Dto\StatusUpdate;
+use Webkul\Whatsapp\Gateways\GatewayManager;
 use Webkul\Whatsapp\Models\MessageProxy;
 use Webkul\Whatsapp\Services\ConversationResolver;
 
+/**
+ * Persists whatever the active gateway hands back. Knows nothing about any
+ * provider's payload shape — that lives in the driver.
+ */
 class IngestInboundPayload implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
-     * @param  array  $payload  Raw WhatsApp Cloud API webhook payload.
+     * @param  string  $gatewayKey  Driver that received the payload.
+     * @param  array  $payload  Raw provider payload.
      */
-    public function __construct(public array $payload) {}
+    public function __construct(
+        public string $gatewayKey,
+        public array $payload,
+    ) {}
 
-    public function handle(ConversationResolver $resolver): void
+    public function handle(GatewayManager $gateways, ConversationResolver $resolver): void
     {
-        foreach ($this->payload['entry'] ?? [] as $entry) {
-            foreach ($entry['changes'] ?? [] as $change) {
-                $value = $change['value'] ?? [];
+        $batch = $gateways->driver($this->gatewayKey)->parseWebhook($this->payload);
 
-                $profileName = $value['contacts'][0]['profile']['name'] ?? null;
+        if (! $batch->messages && ! $batch->statuses) {
+            // An authenticated delivery that yields nothing almost always means
+            // the active gateway does not match the traffic hitting the webhook
+            // (e.g. WHATSAPP_GATEWAY=kommo while Meta posts here). Dropping it
+            // silently loses real customer messages, so say so loudly.
+            Log::warning('WhatsApp: webhook payload produced no events — is WHATSAPP_GATEWAY correct for this traffic?', [
+                'gateway'      => $this->gatewayKey,
+                'payload_keys' => array_keys($this->payload),
+            ]);
 
-                foreach ($value['messages'] ?? [] as $message) {
-                    $this->ingestMessage($message, $profileName, $resolver);
-                }
+            return;
+        }
 
-                foreach ($value['statuses'] ?? [] as $status) {
-                    $this->ingestStatus($status);
-                }
-            }
+        foreach ($batch->messages as $message) {
+            $this->persistMessage($message, $resolver);
+        }
+
+        foreach ($batch->statuses as $status) {
+            $this->applyStatus($status);
         }
     }
 
     /**
-     * Apply an outbound delivery status update (sent/delivered/read/failed) to
-     * the matching message, never regressing to an earlier state.
+     * Idempotent by the provider's message id: webhooks get retried.
      */
-    protected function ingestStatus(array $status): void
+    protected function persistMessage(InboundMessage $inbound, ConversationResolver $resolver): void
     {
-        $waMessageId = $status['id'] ?? null;
-        $newStatus = $status['status'] ?? null;
-
-        if (! $waMessageId || ! $newStatus) {
-            return;
-        }
-
         $model = MessageProxy::modelClass();
 
-        $message = $model::where('wa_message_id', $waMessageId)->first();
-
-        if (! $message) {
+        if ($model::where('wa_message_id', $inbound->providerMessageId)->exists()) {
             return;
         }
 
-        $rank = ['queued' => 0, 'sent' => 1, 'delivered' => 2, 'read' => 3, 'failed' => 3];
+        $conversation = $resolver->resolve($inbound->contact, $inbound->providerConversationId, $this->gatewayKey);
 
-        if (($rank[$newStatus] ?? 0) < ($rank[$message->status] ?? 0)) {
-            return; // don't regress (e.g. a late "delivered" after "read")
-        }
-
-        $message->update(['status' => $newStatus]);
-    }
-
-    /**
-     * Persist a single inbound message idempotently.
-     */
-    protected function ingestMessage(array $message, ?string $profileName, ConversationResolver $resolver): void
-    {
-        $waMessageId = $message['id'] ?? null;
-
-        $model = MessageProxy::modelClass();
-
-        if ($waMessageId && $model::where('wa_message_id', $waMessageId)->exists()) {
-            return; // already processed
-        }
-
-        $from = $message['from'] ?? null;
-
-        if (! $from) {
+        if (! $conversation) {
             return;
         }
-
-        $conversation = $resolver->findOrCreate($from, $profileName);
-
-        $type = $this->normalizeType($message['type'] ?? 'unknown');
 
         $model::create([
             'conversation_id' => $conversation->id,
             'direction'       => 'inbound',
-            'type'            => $type,
-            'body'            => $this->extractBody($message, $type),
-            'wa_message_id'   => $waMessageId,
-            'reply_to_id'     => $this->resolveReplyTo($message),
+            'type'            => $inbound->type,
+            'body'            => $inbound->body,
+            'wa_message_id'   => $inbound->providerMessageId,
+            'reply_to_id'     => $this->resolveReplyTo($inbound->replyToProviderId),
             'status'          => 'delivered',
             'sender'          => 'contact',
-            'payload'         => $message,
+            'payload'         => $inbound->raw,
         ]);
 
         $conversation->forceFill([
@@ -110,42 +93,31 @@ class IngestInboundPayload implements ShouldQueue
     }
 
     /**
-     * Map Meta's message type to our stored type.
+     * Never regress: providers can deliver receipts out of order.
      */
-    protected function normalizeType(string $type): string
+    protected function applyStatus(StatusUpdate $update): void
     {
-        return match ($type) {
-            'text', 'image', 'video', 'audio', 'document', 'sticker', 'location' => $type,
-            'contacts' => 'contact',
-            default    => $type, // button, interactive, unknown, ...
-        };
+        $message = MessageProxy::modelClass()::where('wa_message_id', $update->providerMessageId)->first();
+
+        if (! $message) {
+            return;
+        }
+
+        $rank = ['queued' => 0, 'sent' => 1, 'delivered' => 2, 'read' => 3, 'failed' => 3];
+
+        if (($rank[$update->status] ?? 0) < ($rank[$message->status] ?? 0)) {
+            return;
+        }
+
+        $message->update(['status' => $update->status]);
     }
 
-    /**
-     * Best-effort human-readable body (caption for media, text for text, etc.).
-     * Media files themselves are downloaded in Sprint 1 (HU-06).
-     */
-    protected function extractBody(array $message, string $type): ?string
+    protected function resolveReplyTo(?string $providerId): ?int
     {
-        return match ($type) {
-            'text'     => $message['text']['body'] ?? null,
-            'image', 'video', 'document', 'audio' => $message[$message['type']]['caption'] ?? null,
-            'button'   => $message['button']['text'] ?? null,
-            default    => null,
-        };
-    }
-
-    /**
-     * Resolve the local message a reply refers to (Meta sends context.id = wamid).
-     */
-    protected function resolveReplyTo(array $message): ?int
-    {
-        $contextId = $message['context']['id'] ?? null;
-
-        if (! $contextId) {
+        if (! $providerId) {
             return null;
         }
 
-        return MessageProxy::modelClass()::where('wa_message_id', $contextId)->value('id');
+        return MessageProxy::modelClass()::where('wa_message_id', $providerId)->value('id');
     }
 }

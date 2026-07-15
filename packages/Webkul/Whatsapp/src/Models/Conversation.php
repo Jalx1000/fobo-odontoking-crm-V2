@@ -20,7 +20,9 @@ class Conversation extends Model implements ConversationContract
      * @var array
      */
     protected $fillable = [
+        'gateway',
         'wa_phone',
+        'provider_conversation_id',
         'wa_name',
         'ai_enabled',
         'status',

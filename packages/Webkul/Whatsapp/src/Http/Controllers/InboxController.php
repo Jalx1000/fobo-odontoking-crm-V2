@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Webkul\Whatsapp\Gateways\GatewayManager;
 use Webkul\Whatsapp\Jobs\SendMessage;
 use Webkul\Whatsapp\Models\ConversationProxy;
 use Webkul\Whatsapp\Models\MessageProxy;
@@ -14,8 +15,11 @@ use Webkul\Whatsapp\Services\PhoneNumber;
 
 class InboxController extends Controller
 {
+    public function __construct(protected GatewayManager $gateways) {}
+
     /**
-     * Return the conversation for a phone and its messages (incremental with after_id).
+     * Return the conversation, its messages (incremental via the `since` cursor)
+     * and what the active provider can actually do.
      */
     public function thread(Request $request): JsonResponse
     {
@@ -46,10 +50,17 @@ class InboxController extends Controller
             $messages = $messages->map(fn ($message) => $this->transform($message));
         }
 
+        // Resolve against the conversation's own gateway so history created
+        // under a previous provider still reports the right abilities.
+        $gateway = $conversation
+            ? $this->gateways->for($conversation)
+            : $this->gateways->active();
+
         return response()->json([
             'conversation' => $conversation,
             'messages'     => $messages->values(),
             'server_time'  => $serverTime->toDateTimeString(),
+            'capabilities' => $gateway->capabilities()->toArray(),
         ]);
     }
 
@@ -109,9 +120,7 @@ class InboxController extends Controller
         $model = ConversationProxy::modelClass();
 
         if ($personId = $request->input('person_id')) {
-            $conversation = $model::where('person_id', $personId)
-                ->orderByDesc('last_message_at')
-                ->first();
+            $conversation = $this->preferActiveGateway($model::where('person_id', $personId))->first();
 
             if ($conversation) {
                 return $conversation;
@@ -119,9 +128,7 @@ class InboxController extends Controller
         }
 
         if ($leadId = $request->input('lead_id')) {
-            $conversation = $model::where('lead_id', $leadId)
-                ->orderByDesc('last_message_at')
-                ->first();
+            $conversation = $this->preferActiveGateway($model::where('lead_id', $leadId))->first();
 
             if ($conversation) {
                 return $conversation;
@@ -136,6 +143,19 @@ class InboxController extends Controller
     }
 
     /**
+     * A contact can end up with several conversations — one per provider after a
+     * migration, or one per phone format. Show the one on the active gateway:
+     * it is the only one the agent can actually reply through. Recency alone
+     * would surface a dead conversation from a decommissioned provider.
+     */
+    protected function preferActiveGateway($query)
+    {
+        return $query
+            ->orderByRaw('gateway = ? desc', [(string) config('whatsapp.gateway')])
+            ->orderByDesc('last_message_at');
+    }
+
+    /**
      * Shape a message for the inbox front-end.
      */
     protected function transform($message): array
@@ -147,6 +167,7 @@ class InboxController extends Controller
             'text'      => $message->body,
             'sender'    => $message->sender,
             'status'    => $message->status,
+            'error'     => $message->error,
             'time'      => optional($message->created_at)->format('H:i'),
             'media'     => $message->media_path ? [
                 'url'      => $message->media_path,

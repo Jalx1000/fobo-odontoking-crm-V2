@@ -80,7 +80,9 @@
       "Bash(./vendor/bin/pint packages/Webkul/Whatsapp/)",
       "Bash(node -e ' *)",
       "Skill(artifact-design)",
-      "Artifact"
+      "Artifact",
+      "Bash(python3 -)",
+      "Bash(awk '{print \"  \"$1\" \"$11\" \"$12}')"
     ]
   }
 }

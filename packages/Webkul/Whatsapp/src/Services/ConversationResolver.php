@@ -4,37 +4,98 @@ namespace Webkul\Whatsapp\Services;
 
 use Illuminate\Database\Eloquent\Model;
 use Webkul\Contact\Models\PersonProxy;
+use Webkul\Whatsapp\Gateways\Dto\ContactIdentity;
 use Webkul\Whatsapp\Models\ConversationProxy;
 
 class ConversationResolver
 {
     /**
-     * Find the conversation for a WhatsApp number, creating it (and linking the
-     * matching Person/Lead) when it does not yet exist.
+     * Resolve the conversation for an inbound message.
+     *
+     * Identity is provider-dependent: Cloud API gives a phone, Kommo gives its
+     * lead id (and the phone only after a lookup, which may fail). Match on
+     * whichever is available, preferring the provider's own id since it is
+     * exact.
+     */
+    public function resolve(ContactIdentity $contact, ?string $providerConversationId, string $gateway): ?Model
+    {
+        $model = ConversationProxy::modelClass();
+
+        if ($providerConversationId) {
+            // Key STRICTLY by the provider's id. Falling back to the phone here
+            // would merge a second Kommo lead into the first lead's thread, and
+            // replies would then be addressed to the wrong lead.
+            $conversation = $model::where('gateway', $gateway)
+                ->where('provider_conversation_id', $providerConversationId)
+                ->first();
+        } elseif ($contact->phone) {
+            $conversation = $model::where('wa_phone', PhoneNumber::normalize($contact->phone))->first();
+        } else {
+            return null; // nothing to key on
+        }
+
+        if ($conversation) {
+            return $this->backfill($conversation, $contact, $providerConversationId);
+        }
+
+        $person = $contact->phone ? $this->resolvePerson($contact->phone) : null;
+
+        return $model::create([
+            'gateway'                  => $gateway,
+            'wa_phone'                 => PhoneNumber::normalize($contact->phone) ?: null,
+            'provider_conversation_id' => $providerConversationId,
+            'wa_name'                  => $contact->name,
+            'person_id'                => $person?->id,
+            'lead_id'                  => $person ? optional($person->leads()->latest()->first())->id : null,
+            'status'                   => $person ? 'open' : 'unassigned',
+        ]);
+    }
+
+    /**
+     * Fill in details we learn later (the provider id on a phone-matched
+     * conversation, a name, or a Person once the number gets registered).
+     */
+    protected function backfill(Model $conversation, ContactIdentity $contact, ?string $providerConversationId): Model
+    {
+        $updates = [];
+
+        if ($providerConversationId && ! $conversation->provider_conversation_id) {
+            $updates['provider_conversation_id'] = $providerConversationId;
+        }
+
+        if ($contact->name && ! $conversation->wa_name) {
+            $updates['wa_name'] = $contact->name;
+        }
+
+        if ($contact->phone && ! $conversation->wa_phone) {
+            $updates['wa_phone'] = PhoneNumber::normalize($contact->phone);
+        }
+
+        if (! $conversation->person_id && $contact->phone) {
+            if ($person = $this->resolvePerson($contact->phone)) {
+                $updates['person_id'] = $person->id;
+                $updates['lead_id'] = optional($person->leads()->latest()->first())->id;
+                $updates['status'] = 'open';
+            }
+        }
+
+        if ($updates) {
+            $conversation->update($updates);
+        }
+
+        return $conversation;
+    }
+
+    /**
+     * Find or create the conversation for an outbound message addressed by phone.
      */
     public function findOrCreate(string $phone, ?string $name = null): Model
     {
-        $normalized = PhoneNumber::normalize($phone);
-
-        $conversation = ConversationProxy::modelClass()::where('wa_phone', $normalized)->first();
-
-        if ($conversation) {
-            if ($name && ! $conversation->wa_name) {
-                $conversation->update(['wa_name' => $name]);
-            }
-
-            return $conversation;
-        }
-
-        $person = $this->resolvePerson($normalized);
-
-        return ConversationProxy::modelClass()::create([
-            'wa_phone'   => $normalized,
-            'wa_name'    => $name,
-            'person_id'  => $person?->id,
-            'lead_id'    => $person ? optional($person->leads()->latest()->first())->id : null,
-            'status'     => $person ? 'open' : 'unassigned',
-        ]);
+        return $this->resolve(
+            new ContactIdentity(phone: $phone, name: $name),
+            null,
+            (string) config('whatsapp.gateway'),
+        );
     }
 
     /**
