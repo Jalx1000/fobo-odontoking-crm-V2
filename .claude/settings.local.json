@@ -72,7 +72,15 @@
       "Bash(./vendor/bin/pint packages/Webkul/Admin/src/Exports/Dashboard/DashboardOrdersSheet.php)",
       "Bash(grep -v \"^$\")",
       "Bash(echo \"exit: $?\")",
-      "Bash(grep -v \"Psy\\\\|^$\")"
+      "Bash(grep -v \"Psy\\\\|^$\")",
+      "Bash(git checkout *)",
+      "Bash(composer dump-autoload *)",
+      "Bash(grep -rn 'extraTypes\\\\|extra-types\\\\|$slots\\\\|$type\\\\['\\\\''name'\\\\''\\\\]\\\\|${{ $' packages/Webkul/Admin/src/Resources/views/components/activities/index.blade.php)",
+      "Bash(npm install *)",
+      "Bash(./vendor/bin/pint packages/Webkul/Whatsapp/)",
+      "Bash(node -e ' *)",
+      "Skill(artifact-design)",
+      "Artifact"
     ]
   }
 }
