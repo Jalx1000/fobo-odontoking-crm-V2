@@ -226,6 +226,13 @@ class ActivityController extends Controller
                 // coincidieran (no deberían, son stages distintos en stage_map).
                 $appointment->is_completed = (bool) $appointment->lead_id && $stageIsCompleted && ! $appointment->is_cancelled;
 
+                $appointment->person_whatsapp = $this->resolveWhatsappNumber(
+                    $appointment->person_email,
+                    $appointment->person_contact_number
+                );
+
+                unset($appointment->person_email, $appointment->person_contact_number);
+
                 return $appointment;
             });
 
@@ -765,6 +772,49 @@ class ActivityController extends Controller
                 'message' => trans('admin::app.activities.mass-delete-failed'),
             ], 400);
         }
+    }
+
+    /**
+     * Devuelve el número del paciente en el formato que exige wa.me: solo
+     * dígitos y con código de país.
+     *
+     * Misma prioridad que PersonController::extractWaId(): primero el email
+     * `<wa_id>@whatsapp.*`, que IncomingAppointmentService ya guarda
+     * normalizado, y como respaldo el teléfono de contacto, que puede venir
+     * capturado a mano con espacios, guiones o sin prefijo.
+     */
+    private function resolveWhatsappNumber(?string $email, ?string $contactNumber): ?string
+    {
+        if ($email && str_contains($email, '@whatsapp.')) {
+            $waId = $this->normalizePhone(explode('@', $email)[0]);
+
+            if ($waId !== null) {
+                return $waId;
+            }
+        }
+
+        return $this->normalizePhone($contactNumber ?? '');
+    }
+
+    /**
+     * Un número local boliviano tiene 8 dígitos; con el prefijo 591 llega a 11.
+     * Por eso solo se antepone el código de país cuando el número no lo trae ya.
+     */
+    private function normalizePhone(string $value): ?string
+    {
+        $digits = ltrim(preg_replace('/[^0-9]/', '', $value), '0');
+
+        if ($digits === '') {
+            return null;
+        }
+
+        $countryCode = (string) config('smd.whatsapp_country_code', '591');
+
+        if ($countryCode !== '' && ! str_starts_with($digits, $countryCode)) {
+            $digits = $countryCode.$digits;
+        }
+
+        return $digits;
     }
 
     /**

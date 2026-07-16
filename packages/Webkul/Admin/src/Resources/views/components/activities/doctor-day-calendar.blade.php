@@ -835,6 +835,35 @@
 
             <x-slot:footer>
                 <div class="flex items-center gap-2 justify-end">
+                    <div class="ddc-wa-wrap" v-if="viewAppointment.data">
+                        <div v-if="whatsappMenuOpen" class="ddc-wa-overlay" @click="closeWhatsappMenu"></div>
+
+                        <button
+                            type="button"
+                            class="secondary-button flex items-center gap-1"
+                            :disabled="!viewAppointment.data.person_whatsapp"
+                            :class="{ 'opacity-50 cursor-not-allowed': !viewAppointment.data.person_whatsapp }"
+                            :title="viewAppointment.data.person_whatsapp ? 'Enviar mensaje por WhatsApp' : 'El paciente no tiene teléfono registrado'"
+                            @click="toggleWhatsappMenu"
+                        >
+                            <span class="icon-call text-lg"></span>
+                            <span>WhatsApp</span>
+                            <span class="icon-up-arrow text-lg"></span>
+                        </button>
+
+                        <div v-if="whatsappMenuOpen" class="ddc-wa-menu" @click.stop>
+                            <button
+                                v-for="tpl in whatsappTemplates"
+                                :key="'wa-'+tpl.key"
+                                type="button"
+                                class="ddc-wa-menu-item"
+                                @click="openWhatsapp(tpl)"
+                            >
+                                @{{ tpl.label }}
+                            </button>
+                        </div>
+                    </div>
+
                     <button type="button" class="secondary-button" @click="$refs.viewModal.close()">Cerrar</button>
                     <button type="button" class="primary-button" v-if="viewAppointment.data" @click="editFromView">
                         Editar Cita
@@ -1444,6 +1473,34 @@
                 editUrlTemplate: "{{ route('admin.activities.edit', 'replaceId') }}",
                 deleteUrlTemplate: "{{ route('admin.activities.delete', 'replaceId') }}",
                 leadUrlTemplate: "{{ route('admin.leads.view', 'replaceId') }}",
+                whatsappMenuOpen: false,
+                // Plantillas del boton WhatsApp del detalle de cita. Los
+                // placeholders :fecha, :hora y :doctor los sustituye
+                // buildWhatsappMessage() con los datos de la cita abierta.
+                clinicAddress: 'Av Roca y  Coronado 3er anillo interno entrando por  el surtidor El Arroyo Calle Burapacú Nro 2888,  lado Taller  Bavaria',
+                surveyUrl: 'https://forms.gle/z6zbPMPzPYU1knKZ9',
+                whatsappTemplates: [
+                    {
+                        key: 'appointment_reminder',
+                        label: 'Recordatorio de cita',
+                        body: 'Buenos días! \nRecordarle que tiene cita el :fecha a horas :hora con el Dr(a). :doctor en la clínica Odontoking :direccion!\nEs obligatorio confirmar su asistencia para evitar disponer de su espacio! Gracias!!',
+                    },
+                    {
+                        key: 'appointment_confirmation',
+                        label: 'Confirmación de Cita',
+                        body: 'Buenos días! \nSu cita ha sido agendada para el :fecha a horas :hora con el Dr(a) :doctor en la clínica Odontoking \n:direccion! Gracias!!',
+                    },
+                    {
+                        key: 'survey',
+                        label: 'Encuesta',
+                        body: 'Muy estimado paciente de ODONTOKING, comprometidos con la mejora constante queremos que nos colaboré con su opinión en la siguiente encuesta, muchas gracias de antemano.\n:encuesta',
+                    },
+                    {
+                        key: 'first_appointment_reminder',
+                        label: 'Recordatorio Primera Cita',
+                        body: 'Buenos días! \nRecordarle que tiene cita el :fecha a horas :hora con el Dr(a). :doctor en la clínica Odontoking :direccion! Es obligatorio confirmar su asistencia para evitar disponer de su espacio! \nPor ser su primera cita por favor se le pide estar 15min  antes de la hora agendada para poder realizar su historia clínica de inicio.\nGracias!!',
+                    },
+                ],
                 hoveredEventId: null,
                 hoveredEvent: null,
                 tooltipPos: { top: 0, left: 0 },
@@ -2243,6 +2300,7 @@
             openViewModal(ev) {
                 this.viewAppointment.data = ev;
                 this.viewAppointment.visible = true;
+                this.whatsappMenuOpen = false;
                 this.$refs.viewModal.open();
             },
             editFromView() {
@@ -2250,6 +2308,38 @@
                 if (!ev) return;
                 this.$refs.viewModal.close();
                 this.openEditModal(ev);
+            },
+            toggleWhatsappMenu() {
+                this.whatsappMenuOpen = !this.whatsappMenuOpen;
+            },
+            closeWhatsappMenu() {
+                this.whatsappMenuOpen = false;
+            },
+            // "Martes 14 de Julio". Distinto de formatDate(), que da el formato
+            // corto que usa el resto del calendario.
+            formatLongDate(dt) {
+                const d = new Date(dt);
+                const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                return `${days[d.getDay()]} ${d.getDate()} de ${months[d.getMonth()]}`;
+            },
+            buildWhatsappMessage(tpl, ev) {
+                return tpl.body
+                    .split(':fecha').join(this.formatLongDate(ev.start))
+                    .split(':hora').join(this.formatTime(ev.start))
+                    .split(':doctor').join(ev.doctor_name || '')
+                    .split(':direccion').join(this.clinicAddress)
+                    .split(':encuesta').join(this.surveyUrl);
+            },
+            openWhatsapp(tpl) {
+                const ev = this.viewAppointment.data;
+                if (!ev || !ev.person_whatsapp) return;
+
+                const url = `https://wa.me/${ev.person_whatsapp}?text=${encodeURIComponent(this.buildWhatsappMessage(tpl, ev))}`;
+
+                window.open(url, '_blank', 'noopener');
+
+                this.closeWhatsappMenu();
             },
             openGroupModal() {
                 this.modalError = '';
@@ -2767,6 +2857,64 @@
         box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
         z-index: 9999;
         overflow: hidden
+    }
+
+    .ddc-wa-wrap {
+        position: relative;
+        margin-right: auto
+    }
+
+    /* Captura el click fuera para cerrar el desplegable, igual que ddc-quick-overlay. */
+    .ddc-wa-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        background: transparent
+    }
+
+    /* Se abre hacia arriba: el boton vive en el footer del modal. */
+    .ddc-wa-menu {
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 0;
+        min-width: 230px;
+        background: #fff;
+        border: 1px solid var(--border-color, #e5e7eb);
+        border-radius: 10px;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+        padding: 4px;
+        z-index: 20;
+        overflow: hidden
+    }
+
+    .dark .ddc-wa-menu {
+        background: #1f2937;
+        border-color: #374151
+    }
+
+    .ddc-wa-menu-item {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 9px 12px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        font-size: 14px;
+        color: #111827;
+        cursor: pointer
+    }
+
+    .ddc-wa-menu-item:hover {
+        background: #f3f4f6
+    }
+
+    .dark .ddc-wa-menu-item {
+        color: #f3f4f6
+    }
+
+    .dark .ddc-wa-menu-item:hover {
+        background: #374151
     }
 
     .ddc-quick-menu-head {
