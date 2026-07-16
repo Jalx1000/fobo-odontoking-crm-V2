@@ -36,8 +36,19 @@ class PersonDataGrid extends DataGrid
             $queryBuilder->whereIn('persons.user_id', $userIds);
         }
 
+        // Filtro por rango de fechas de registro (created_at) desde la barra
+        // de filtros del listado (persistido por cookie en el front).
+        if ($startDate = request('start_date')) {
+            $queryBuilder->whereDate('persons.created_at', '>=', $startDate);
+        }
+
+        if ($endDate = request('end_date')) {
+            $queryBuilder->whereDate('persons.created_at', '<=', $endDate);
+        }
+
         $this->addFilter('id', 'persons.id');
         $this->addFilter('person_name', 'persons.name');
+        $this->addFilter('organization', 'organizations.name');
 
         return $queryBuilder;
     }

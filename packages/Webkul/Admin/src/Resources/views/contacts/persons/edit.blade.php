@@ -113,11 +113,19 @@
                         @include ('admin::contacts.persons.view.insurance-verify', ['currentInsurance' => $seguroLabel])
                     </div>
                     
-                    <x-admin::attributes
-                        :custom-attributes="app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
-                            ['code', 'IN', ['ci_paciente', 'seguro_paciente', 'estado_seguro_paciente']],
+                    @php
+                        // Orden: CI y Seguro primero; Estado de seguro al final (lo auto-rellena
+                        // el botón de verificación, aunque queda editable).
+                        $insuranceFieldOrder = ['ci_paciente', 'seguro_paciente', 'estado_seguro_paciente'];
+
+                        $insuranceAttributes = app('Webkul\Attribute\Repositories\AttributeRepository')->findWhere([
+                            ['code', 'IN', $insuranceFieldOrder],
                             'entity_type' => 'persons',
-                        ])"
+                        ])->sortBy(fn ($attribute) => array_search($attribute->code, $insuranceFieldOrder))->values();
+                    @endphp
+
+                    <x-admin::attributes
+                        :custom-attributes="$insuranceAttributes"
                         :entity="$person"
                     />
                 </div>

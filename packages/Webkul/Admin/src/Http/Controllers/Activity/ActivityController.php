@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -13,18 +14,16 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use Webkul\Activity\Repositories\ActivityRepository;
 use Webkul\Activity\Repositories\FileRepository;
 use Webkul\Admin\DataGrids\Activity\ActivityDataGrid;
+use Webkul\Admin\Exceptions\AppointmentException;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Admin\Http\Requests\MassDestroyRequest;
 use Webkul\Admin\Http\Requests\MassUpdateRequest;
 use Webkul\Admin\Http\Resources\ActivityResource;
+use Webkul\Admin\Services\AppointmentService;
 use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\Contact\Repositories\PersonRepository;
 use Webkul\Lead\Repositories\LeadRepository;
 use Webkul\Lead\Repositories\PipelineRepository;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
-use Webkul\Admin\Exceptions\AppointmentException;
-use Webkul\Admin\Services\AppointmentService;
 
 class ActivityController extends Controller
 {
@@ -34,13 +33,13 @@ class ActivityController extends Controller
      * @return void
      */
     public function __construct(
-        protected ActivityRepository  $activityRepository,
-        protected FileRepository      $fileRepository,
+        protected ActivityRepository $activityRepository,
+        protected FileRepository $fileRepository,
         protected AttributeRepository $attributeRepository,
-        protected LeadRepository      $leadRepository,
-        protected PipelineRepository  $pipelineRepository,
-        protected PersonRepository    $personRepository,
-        protected AppointmentService  $appointmentService,
+        protected LeadRepository $leadRepository,
+        protected PipelineRepository $pipelineRepository,
+        protected PersonRepository $personRepository,
+        protected AppointmentService $appointmentService,
     ) {}
 
     /**
@@ -57,8 +56,21 @@ class ActivityController extends Controller
     public function get(): JsonResponse
     {
         if (request()->get('view_type') === 'calendar' && request()->get('calendar_mode') === 'doctor') {
-            $view = request()->get('calendar_view', 'week'); // 'week' | 'month' | 'day'
-            if ($view === 'month') {
+            $view = request()->get('calendar_view', 'week'); // 'week' | 'month' | 'day' | 'list'
+            if ($view === 'list') {
+                // Vista lista por rango arbitrario (filtro Desde/Hasta).
+                $start = request()->get('range_start')
+                    ? Carbon::parse(request()->get('range_start'))->startOfDay()
+                    : Carbon::now()->startOfDay();
+                $end = request()->get('range_end')
+                    ? Carbon::parse(request()->get('range_end'))->endOfDay()
+                    : Carbon::now()->copy()->addDays(30)->endOfDay();
+
+                // Si el usuario invierte las fechas, las normalizamos.
+                if ($end->lt($start)) {
+                    [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+                }
+            } elseif ($view === 'month') {
                 $cursor = request()->get('start')
                     ? Carbon::parse(request()->get('start'))->startOfMonth()
                     : Carbon::now()->startOfMonth();
@@ -99,7 +111,7 @@ class ActivityController extends Controller
                     'activities.schedule_to as end',
                     'activities.location',
                     'doctor_activities.doctor_id',
-                    DB::raw('GROUP_CONCAT(' . $prefix . 'p.name SEPARATOR ", ") as participants'),
+                    DB::raw('GROUP_CONCAT('.$prefix.'p.name SEPARATOR ", ") as participants'),
                 ])
                 ->whereBetween('activities.schedule_from', [$startDate, $endDate])
                 ->whereIn('activities.type', (function () {
@@ -107,8 +119,10 @@ class ActivityController extends Controller
                     $types = request()->get('activity_types');
                     if (is_array($types)) {
                         $filtered = array_values(array_intersect($types, $allowed));
+
                         return count($filtered) ? $filtered : $allowed;
                     }
+
                     return $allowed;
                 })())
                 ->groupBy('activities.id')
@@ -145,11 +159,16 @@ class ActivityController extends Controller
                     'doctor_activities.doctor_id',
                     'doctors.name as doctor_name',
                     'leads.id as lead_id',
+                    'leads.status as lead_status',
                     'leads.lead_pipeline_stage_id',
                     'products.id as product_id',
                     'products.name as product_name',
-                    DB::raw('MAX(' . $prefix . 'p.id) as person_id'),
-                    DB::raw('MAX(' . $prefix . 'p.name) as person_name'),
+                    DB::raw('MAX('.$prefix.'p.id) as person_id'),
+                    DB::raw('MAX('.$prefix.'p.name) as person_name'),
+                    // Se extraen con JSON_EXTRACT porque MAX() no acepta columnas JSON.
+                    // Alimentan person_whatsapp (ver resolveWhatsappNumber).
+                    DB::raw('MAX(JSON_UNQUOTE(JSON_EXTRACT('.$prefix.'p.emails, \'$[0].value\'))) as person_email'),
+                    DB::raw('MAX(JSON_UNQUOTE(JSON_EXTRACT('.$prefix.'p.contact_numbers, \'$[0].value\'))) as person_contact_number'),
                 ])
                 ->whereBetween('activities.schedule_from', [$startDate, $endDate])
                 ->whereIn('activities.type', (function () {
@@ -157,8 +176,10 @@ class ActivityController extends Controller
                     $types = request()->get('activity_types');
                     if (is_array($types)) {
                         $filtered = array_values(array_intersect($types, $allowed));
+
                         return count($filtered) ? $filtered : $allowed;
                     }
+
                     return $allowed;
                 })())
                 ->groupBy([
@@ -172,12 +193,48 @@ class ActivityController extends Controller
                     'doctor_activities.doctor_id',
                     'doctors.name',
                     'leads.id',
+                    'leads.status',
                     'leads.lead_pipeline_stage_id',
                     'products.id',
                     'products.name',
                 ])
                 ->orderBy('activities.schedule_from')
                 ->get();
+
+            // Misma regla de "cancelado" que usa AppointmentService::process() para
+            // liberar el slot: status=0 o stage en smd.stage_map.cancelled/no_show.
+            // Se calcula aqui (no en el query) porque solo aplica a la visualizacion.
+            $cancelledStageIds = array_filter([
+                (int) config('smd.stage_map.cancelled'),
+                (int) config('smd.stage_map.no_show'),
+            ]);
+            $completedStageIds = array_filter([
+                (int) config('smd.stage_map.completed'),
+            ]);
+
+            $appointments = $appointments->map(function ($appointment) use ($cancelledStageIds, $completedStageIds) {
+                // lead_status puede ser NULL (lead abierto): (int) null === 0 daría un
+                // falso positivo, por eso se compara contra el string/valor crudo primero.
+                $statusIsZero = $appointment->lead_status !== null && (int) $appointment->lead_status === 0;
+                $stageIsCancelled = $appointment->lead_pipeline_stage_id !== null
+                    && in_array((int) $appointment->lead_pipeline_stage_id, $cancelledStageIds, true);
+                $stageIsCompleted = $appointment->lead_pipeline_stage_id !== null
+                    && in_array((int) $appointment->lead_pipeline_stage_id, $completedStageIds, true);
+
+                $appointment->is_cancelled = (bool) $appointment->lead_id && ($statusIsZero || $stageIsCancelled);
+                // Cancelado tiene prioridad visual sobre completado si por algún motivo
+                // coincidieran (no deberían, son stages distintos en stage_map).
+                $appointment->is_completed = (bool) $appointment->lead_id && $stageIsCompleted && ! $appointment->is_cancelled;
+
+                $appointment->person_whatsapp = $this->resolveWhatsappNumber(
+                    $appointment->person_email,
+                    $appointment->person_contact_number
+                );
+
+                unset($appointment->person_email, $appointment->person_contact_number);
+
+                return $appointment;
+            });
 
             $availability = DB::table('doctor_shifts')
                 ->select(['id', 'doctor_id', 'date', 'start_time', 'end_time'])
@@ -195,9 +252,12 @@ class ActivityController extends Controller
                     'start' => $start->format('Y-m-d'),
                     'end'   => $end->format('Y-m-d'),
                 ],
-                'days'         => $view === 'month'
+                'days'         => $view === 'list'
+                    ? collect([])
+                    : ($view === 'month'
                     ? collect(range(0, $start->daysInMonth - 1))->map(function ($i) use ($start) {
                         $d = $start->copy()->addDays($i);
+
                         return [
                             'date'  => $d->format('Y-m-d'),
                             'label' => $d->locale(app()->getLocale())->isoFormat('ddd D/MM'),
@@ -210,17 +270,18 @@ class ActivityController extends Controller
                         ]])
                         : collect(range(0, 6))->map(function ($i) use ($start) {
                             $d = $start->copy()->addDays($i);
+
                             return [
                                 'date'  => $d->format('Y-m-d'),
                                 'label' => $d->locale(app()->getLocale())->isoFormat('ddd D/MM'),
                             ];
                         })
-                    ),
-                'doctors'      => $doctors,
-                'appointments' => $appointments,
-                'availability' => $availability,
+                    )),
+                'doctors'       => $doctors,
+                'appointments'  => $appointments,
+                'availability'  => $availability,
                 'calendar_view' => $view,
-                'stages'       => $stages,
+                'stages'        => $stages,
             ]);
         }
 
@@ -229,11 +290,11 @@ class ActivityController extends Controller
         }
 
         $startDate = request()->get('startDate')
-            ? Carbon::createFromTimeString(request()->get('startDate') . ' 00:00:01')
+            ? Carbon::createFromTimeString(request()->get('startDate').' 00:00:01')
             : Carbon::now()->startOfWeek()->format('Y-m-d H:i:s');
 
         $endDate = request()->get('endDate')
-            ? Carbon::createFromTimeString(request()->get('endDate') . ' 23:59:59')
+            ? Carbon::createFromTimeString(request()->get('endDate').' 23:59:59')
             : Carbon::now()->endOfWeek()->format('Y-m-d H:i:s');
 
         $activities = $this->activityRepository->getActivities([$startDate, $endDate])->toArray();
@@ -241,7 +302,7 @@ class ActivityController extends Controller
         return response()->json([
             'activities' => $activities,
         ]);
-    } 
+    }
 
     /**
      * Store a newly created resource in storage.
@@ -262,10 +323,13 @@ class ActivityController extends Controller
             $doctorId = ($participants['doctors'] ?? [])[0] ?? null;
             $personId = ($participants['persons'] ?? [])[0] ?? null;
 
-            if (!$doctorId || !$personId) {
-                $msg = "Debes seleccionar al menos un Doctor y un Paciente para agendar una consulta.";
-                if (request()->ajax()) return response()->json(['message' => $msg], 422);
+            if (! $doctorId || ! $personId) {
+                $msg = 'Debes seleccionar al menos un Doctor y un Paciente para agendar una consulta.';
+                if (request()->ajax()) {
+                    return response()->json(['message' => $msg], 422);
+                }
                 session()->flash('error', $msg);
+
                 return redirect()->back();
             }
 
@@ -328,7 +392,7 @@ class ActivityController extends Controller
         if (! empty(request('duration_minutes'))) {
             $scheduleTo = $scheduleFrom->copy()->addMinutes((int) request('duration_minutes'));
         } else {
-            $scheduleTo = Carbon::createFromFormat('Y-m-d H:i', "{$date} " . request('end_time'));
+            $scheduleTo = Carbon::createFromFormat('Y-m-d H:i', "{$date} ".request('end_time'));
         }
 
         $appointmentData = [
@@ -380,9 +444,9 @@ class ActivityController extends Controller
 
             return redirect()->back();
         } catch (\Exception $e) {
-            Log::error('AppointmentService error: ' . $e->getMessage());
+            Log::error('AppointmentService error: '.$e->getMessage());
 
-            $msg = "Error interno al crear la cita.";
+            $msg = 'Error interno al crear la cita.';
 
             if (request()->ajax()) {
                 return response()->json(['message' => $msg], 500);
@@ -429,7 +493,7 @@ class ActivityController extends Controller
             && (isset($data['schedule_from']) || isset($data['schedule_to']))
         ) {
             $scheduleFrom = Carbon::parse($data['schedule_from'] ?? $existing->schedule_from);
-            $scheduleTo   = Carbon::parse($data['schedule_to']   ?? $existing->schedule_to);
+            $scheduleTo = Carbon::parse($data['schedule_to'] ?? $existing->schedule_to);
 
             // Obtener doctor_id actual o del request (ignorar string vacío)
             $doctorId = (! empty($data['doctor_id']) ? $data['doctor_id'] : null)
@@ -463,13 +527,13 @@ class ActivityController extends Controller
                     ->where(function ($query) use ($scheduleFrom, $scheduleTo) {
                         $query->where(function ($q) use ($scheduleFrom, $scheduleTo) {
                             $q->where('schedule_from', '>=', $scheduleFrom)
-                              ->where('schedule_from', '<', $scheduleTo);
+                                ->where('schedule_from', '<', $scheduleTo);
                         })->orWhere(function ($q) use ($scheduleFrom, $scheduleTo) {
                             $q->where('schedule_to', '>', $scheduleFrom)
-                              ->where('schedule_to', '<=', $scheduleTo);
+                                ->where('schedule_to', '<=', $scheduleTo);
                         })->orWhere(function ($q) use ($scheduleFrom, $scheduleTo) {
                             $q->where('schedule_from', '<=', $scheduleFrom)
-                              ->where('schedule_to', '>=', $scheduleTo);
+                                ->where('schedule_to', '>=', $scheduleTo);
                         });
                     })
                     ->exists();
@@ -564,7 +628,7 @@ class ActivityController extends Controller
             }
 
             $oldRaw = $original[$field] ?? null;
-            $newRaw = $newData[$field]  ?? null;
+            $newRaw = $newData[$field] ?? null;
 
             // Normalizar valores de fecha para comparación sin segundos y timezone
             if (in_array($field, ['schedule_from', 'schedule_to'])) {
@@ -585,7 +649,7 @@ class ActivityController extends Controller
         }
 
         // Obtener leads y persons asociados para adjuntar el log
-        $leads   = $activity->leads()->pluck('leads.id')->toArray();
+        $leads = $activity->leads()->pluck('leads.id')->toArray();
         $persons = $activity->persons()->pluck('persons.id')->toArray();
 
         foreach ($changed as $field => $info) {
@@ -616,7 +680,7 @@ class ActivityController extends Controller
                     ]);
                 }
             } catch (\Exception $e) {
-                Log::error('Error registrando historial de cambio en Activity: ' . $e->getMessage(), [
+                Log::error('Error registrando historial de cambio en Activity: '.$e->getMessage(), [
                     'activity_id' => $activity->id,
                     'field'       => $field,
                 ]);
@@ -711,6 +775,49 @@ class ActivityController extends Controller
     }
 
     /**
+     * Devuelve el número del paciente en el formato que exige wa.me: solo
+     * dígitos y con código de país.
+     *
+     * Misma prioridad que PersonController::extractWaId(): primero el email
+     * `<wa_id>@whatsapp.*`, que IncomingAppointmentService ya guarda
+     * normalizado, y como respaldo el teléfono de contacto, que puede venir
+     * capturado a mano con espacios, guiones o sin prefijo.
+     */
+    private function resolveWhatsappNumber(?string $email, ?string $contactNumber): ?string
+    {
+        if ($email && str_contains($email, '@whatsapp.')) {
+            $waId = $this->normalizePhone(explode('@', $email)[0]);
+
+            if ($waId !== null) {
+                return $waId;
+            }
+        }
+
+        return $this->normalizePhone($contactNumber ?? '');
+    }
+
+    /**
+     * Un número local boliviano tiene 8 dígitos; con el prefijo 591 llega a 11.
+     * Por eso solo se antepone el código de país cuando el número no lo trae ya.
+     */
+    private function normalizePhone(string $value): ?string
+    {
+        $digits = ltrim(preg_replace('/[^0-9]/', '', $value), '0');
+
+        if ($digits === '') {
+            return null;
+        }
+
+        $countryCode = (string) config('smd.whatsapp_country_code', '591');
+
+        if ($countryCode !== '' && ! str_starts_with($digits, $countryCode)) {
+            $digits = $countryCode.$digits;
+        }
+
+        return $digits;
+    }
+
+    /**
      * Transforma bloques continuos de disponibilidad en slots de tiempo fijos.
      *
      * @param  \Illuminate\Support\Collection  $availability
@@ -722,8 +829,8 @@ class ActivityController extends Controller
         $slots = collect();
 
         foreach ($availability as $block) {
-            $current = Carbon::parse($block->date . ' ' . $block->start_time);
-            $end = Carbon::parse($block->date . ' ' . $block->end_time);
+            $current = Carbon::parse($block->date.' '.$block->start_time);
+            $end = Carbon::parse($block->date.' '.$block->end_time);
 
             while ($current->copy()->addMinutes($durationMinutes)->lte($end)) {
                 $slots->push([

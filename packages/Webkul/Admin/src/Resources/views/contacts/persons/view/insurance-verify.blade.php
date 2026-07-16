@@ -130,6 +130,38 @@
             },
 
             methods: {
+                // Mapea el badge del backend (success|warning|danger|null) al tipo de flash.
+                // Fallback: si no hay badge, usar success/warning según el flag `success`.
+                flashTypeFromBadge(data) {
+                    const map = { success: 'success', warning: 'warning', danger: 'error' };
+                    if (data && data.badge && map[data.badge]) return map[data.badge];
+                    return data && data.success ? 'info' : 'warning';
+                },
+
+                // Auto-rellena el select "Estado de seguro" según el resultado (editable).
+                applyEstadoSeguro(status) {
+                    const map = {
+                        VIGENTE:       'Vigente',
+                        EN_MORA:       'Pagos pendientes',
+                        VENCIDO:       'Vencido',
+                        NO_REGISTRADO: 'No registrado',
+                        SIN_SEGURO:    'No registrado',
+                    };
+                    const label = map[status];
+                    if (! label) return;
+
+                    const select = document.querySelector('[name="estado_seguro_paciente"]');
+                    if (! select) return;
+
+                    const norm = (t) => (t || '').trim().toLowerCase();
+                    const option = [...select.options].find((o) => norm(o.textContent) === norm(label));
+                    if (! option) return;
+
+                    select.value = option.value;
+                    select.dispatchEvent(new Event('input',  { bubbles: true }));
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                },
+
                 handleInsuranceChange(newLabel) {
                     this.localInsuranceLabel = newLabel;
                     
@@ -183,9 +215,13 @@
                     this.isLoading = true;
                     this.$axios.post("{{ route('admin.contacts.persons.verify_insurance', $person->id) }}")
                         .then(res => {
-                            const type = res.data.status === 'SIN_SEGURO' ? 'warning' : 'success';
+                            // La severidad la define el backend vía `badge` (success|warning|danger|null).
+                            // No re-inferir por status para no mostrar, p.ej., un seguro VENCIDO en verde.
+                            const type = this.flashTypeFromBadge(res.data);
                             this.$emitter.emit('add-flash', { type: type, message: res.data.message });
-                            
+
+                            this.applyEstadoSeguro(res.data.status);
+
                             if (['VIGENTE', 'EN_MORA'].includes(res.data.status)) {
                                 this.$emitter.emit('refresh-activities');
                             }

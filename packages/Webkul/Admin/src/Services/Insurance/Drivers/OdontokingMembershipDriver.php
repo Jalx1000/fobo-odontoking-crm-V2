@@ -97,6 +97,8 @@ class OdontokingMembershipDriver implements InsuranceDriverInterface
             'ESTADO'      => $estado,
             'TELEFONO'    => $insuranceData['Telefono']     ?? '',
             'OBSERVACIONES' => $insuranceData['Observaciones'] ?? '',
+            'SEGURO'      => $insuranceData['Seguro']        ?? '',
+            'SEGURO2'     => $insuranceData['Seguro2']       ?? '',
         ];
 
         if ($vigenciaHasta) {
@@ -123,11 +125,21 @@ class OdontokingMembershipDriver implements InsuranceDriverInterface
             ];
         }
 
+        if ($estado === 'EN_MORA') {
+            return [
+                'status'  => 'EN_MORA',
+                'message' => 'Atención: La membresía Odontoking está suspendida. El paciente podría tener pagos pendientes.',
+                'badge'   => 'danger',
+                'success' => true,
+                'data'    => $displayData,
+            ];
+        }
+
         return [
-            'status'  => 'EN_MORA',
-            'message' => 'Atención: La membresía Odontoking está suspendida. El paciente podría tener pagos pendientes.',
-            'badge'   => 'danger',
-            'success' => true,
+            'status'  => 'INDETERMINADO',
+            'message' => 'La membresía Odontoking fue encontrada, pero el estado no pudo interpretarse con seguridad.',
+            'badge'   => null,
+            'success' => false,
             'data'    => $displayData,
         ];
     }
@@ -159,7 +171,7 @@ class OdontokingMembershipDriver implements InsuranceDriverInterface
                 ->where('entity_type', 'leads')
                 ->first();
 
-            if ($leadAttribute && $person instanceof \Webkul\Contact\Models\Person && $person->leads->count() > 0) {
+            if ($leadAttribute && isset($person->leads) && $person->leads->count() > 0) {
                 foreach ($person->leads as $lead) {
                     app(\Webkul\Attribute\Repositories\AttributeValueRepository::class)->save([
                         'entity_id'                   => $lead->id,
@@ -215,27 +227,101 @@ class OdontokingMembershipDriver implements InsuranceDriverInterface
     }
 
     /**
-     * Extrae el estado y la fecha de vigencia desde el campo Observaciones.
-     * Soporta: "MF HASTA EL DD/MM/YYYY" dentro del texto libre.
-     * Retorna [$estado, ?\Carbon\Carbon $vigenciaHasta]
+     * Extrae el estado desde el registro de Membresía Odontoking.
+     * Una fila encontrada con Seguro/Seguro2 de Membresía y sin observaciones
+     * negativas se considera vigente.
      */
     protected function resolveEstado(array $row): array
     {
-        $observaciones = $row['Observaciones'] ?? '';
+        $observaciones = trim((string) ($row['Observaciones'] ?? ''));
+        $observacionesNormalizadas = $this->normalizeText($observaciones);
 
-        // Buscar patrón "MF HASTA EL DD/MM/YYYY" (Membresía Fija)
         if (preg_match('/MF HASTA EL\s+(\d{2}\/\d{2}\/\d{4})/i', $observaciones, $m)) {
             $fecha = \Carbon\Carbon::createFromFormat('d/m/Y', $m[1])->startOfDay();
             $estado = $fecha->isFuture() ? 'VIGENTE' : 'VENCIDO';
             return [$estado, $fecha];
         }
 
-        // Si hay un campo ESTADO explícito (futuras versiones del webhook)
-        $estadoExplicito = strtoupper($row['ESTADO'] ?? '');
+        $estadoExplicito = $this->normalizeText((string) ($row['ESTADO'] ?? ''));
         if ($estadoExplicito) {
-            return [$estadoExplicito, null];
+            return [$this->mapEstadoText($estadoExplicito), null];
         }
 
-        return ['EN_MORA', null];
+        if ($observacionesNormalizadas) {
+            if (str_contains($observacionesNormalizadas, 'VENCID')) {
+                return ['VENCIDO', null];
+            }
+
+            if (
+                str_contains($observacionesNormalizadas, 'MORA')
+                || str_contains($observacionesNormalizadas, 'PAGO PENDIENTE')
+                || str_contains($observacionesNormalizadas, 'PAGOS PENDIENTES')
+                || str_contains($observacionesNormalizadas, 'SUSPENDID')
+            ) {
+                return ['EN_MORA', null];
+            }
+
+            if (
+                str_contains($observacionesNormalizadas, 'VIGENTE')
+                || str_contains($observacionesNormalizadas, 'ACTIV')
+                || str_contains($observacionesNormalizadas, 'HABILITAD')
+            ) {
+                return ['VIGENTE', null];
+            }
+        }
+
+        if ($this->hasMembershipInsurance($row)) {
+            return ['VIGENTE', null];
+        }
+
+        return ['INDETERMINADO', null];
+    }
+
+    protected function hasMembershipInsurance(array $row): bool
+    {
+        $insuranceNames = [
+            $row['Seguro']  ?? '',
+            $row['Seguro2'] ?? '',
+        ];
+
+        foreach ($insuranceNames as $insuranceName) {
+            $normalized = $this->normalizeText((string) $insuranceName);
+
+            if (str_contains($normalized, 'MEMBRESIA') && str_contains($normalized, 'ODONTOKING')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function mapEstadoText(string $estado): string
+    {
+        if (str_contains($estado, 'VIGENTE') || str_contains($estado, 'ACTIV') || str_contains($estado, 'HABILITAD')) {
+            return 'VIGENTE';
+        }
+
+        if (str_contains($estado, 'VENCID')) {
+            return 'VENCIDO';
+        }
+
+        if (str_contains($estado, 'MORA') || str_contains($estado, 'PENDIENTE') || str_contains($estado, 'SUSPENDID')) {
+            return 'EN_MORA';
+        }
+
+        return 'INDETERMINADO';
+    }
+
+    protected function normalizeText(string $value): string
+    {
+        $value = trim($value);
+
+        if ($value === '') {
+            return '';
+        }
+
+        $value = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value) ?: $value;
+
+        return strtoupper($value);
     }
 }

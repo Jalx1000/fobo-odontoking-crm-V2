@@ -53,6 +53,8 @@
                                 @endif
                             </div>
 
+                            {{-- Oculto por requerimiento: Valor total por etapa (no eliminar) --}}
+                            {{--
                             <!-- Stage Total Leads and Amount -->
                             <div class="flex items-center justify-between gap-2">
                                 <span class="text-xs font-medium dark:text-white">
@@ -67,6 +69,7 @@
                                     ></div>
                                 </div>
                             </div>
+                            --}}
                         </div>
 
                         {!! view_render_event('admin.leads.index.kanban.content.stage.header.after') !!}
@@ -182,9 +185,12 @@
                                             @{{ element.user?.name || '' }}
                                         </div>
 
+                                        {{-- Oculto por requerimiento: Valor total en la tarjeta del lead (no eliminar) --}}
+                                        {{--
                                         <div class="rounded-xl bg-gray-200 px-2 py-1 text-xs font-medium dark:bg-gray-800 dark:text-white">
                                             @{{ element.formatted_lead_value }}
                                         </div>
+                                        --}}
 
                                         <div 
                                             class="rounded-xl bg-gray-200 px-2 py-1 text-xs font-medium dark:bg-gray-800 dark:text-white"
@@ -331,7 +337,16 @@
                     applied: {
                         filters: {
                             columns: [],
-                        }
+                        },
+
+                        // Botón rápido activo ('7'|'30'|'90'|'month'|'') para resaltar.
+                        quick: '',
+
+                        // Rango de fechas efectivo (created_at). Fuente de verdad,
+                        // sincronizado con Tablero y Pacientes vía cookie compartida
+                        // (window.OdontoDateRange / global_date_range).
+                        dateFrom: null,
+                        dateTo: null,
                     },
 
                     finalized: {
@@ -345,6 +360,8 @@
                     stageLeads: {},
 
                     isLoading: true,
+
+                    appendingStages: {},
 
                     tagTextColor: {
                         '#FEE2E2': '#DC2626',
@@ -385,6 +402,13 @@
                  * @returns {void}
                  */
                 boot() {
+                    // Restaurar el rango desde la cookie compartida (sincronizada con
+                    // Tablero y Pacientes) para que la primera carga ya lo refleje.
+                    const saved = window.OdontoDateRange.read();
+                    this.applied.quick = saved.quick;
+                    this.applied.dateFrom = saved.from || null;
+                    this.applied.dateTo = saved.to || null;
+
                     let kanbans = this.getKanbans();
 
                     if (kanbans?.length) {
@@ -425,6 +449,18 @@
                         pipeline_id: "{{ request('pipeline_id') }}",
                         limit: 20,
                     };
+
+                    // Rango de fechas efectivo (start_date/end_date) en cada request
+                    // (carga inicial, filtrado y scroll infinito) para mantener todo
+                    // consistente. Tanto los rápidos como el personalizado resuelven a
+                    // estas fechas, idénticas a Tablero y Pacientes.
+                    if (this.applied.dateFrom) {
+                        params.start_date = this.applied.dateFrom;
+                    }
+
+                    if (this.applied.dateTo) {
+                        params.end_date = this.applied.dateTo;
+                    }
 
                     this.applied.filters.columns.forEach((column) => {
                         if (column.index === 'all') {
@@ -516,8 +552,14 @@
                  * @returns {void}
                  */
                 append(params) {
-                    this.get(params)
+                    return this.get(params)
                         .then(response => {
+                            // get() swallows request errors and resolves to undefined.
+                            // Bail out instead of throwing on response.data.
+                            if (! response) {
+                                return;
+                            }
+
                             for (let [sortOrder, data] of Object.entries(response.data)) {
                                 if (! this.stageLeads[sortOrder]) {
                                     this.stageLeads[sortOrder] = data;
@@ -669,22 +711,146 @@
                  * @returns {void}
                  */
                 handleScroll(stage, event) {
-                    const bottom = event.target.scrollHeight - event.target.scrollTop === event.target.clientHeight;
+                    // Tolerancia: scrollTop puede ser fraccionario (pantallas HiDPI / zoom /
+                    // subpixel), por lo que comparar con === casi nunca dispara y las columnas
+                    // con muchos leads nunca cargan las páginas siguientes. Usamos un umbral
+                    // que además precarga un poco antes de llegar al fondo.
+                    const THRESHOLD = 150;
+                    const distanceToBottom = event.target.scrollHeight - event.target.scrollTop - event.target.clientHeight;
 
-                    if (! bottom) {
+                    if (distanceToBottom > THRESHOLD) {
                         return;
                     }
 
-                    if (this.stageLeads[stage.sort_order].leads.meta.current_page == this.stageLeads[stage.sort_order].leads.meta.last_page) {
+                    const sortOrder = stage.sort_order;
+
+                    // Guard de concurrencia: evita disparar la misma página varias veces
+                    // mientras la petición anterior sigue en vuelo (precarga + scroll rápido).
+                    if (this.appendingStages[sortOrder]) {
                         return;
                     }
+
+                    if (this.stageLeads[sortOrder].leads.meta.current_page >= this.stageLeads[sortOrder].leads.meta.last_page) {
+                        return;
+                    }
+
+                    this.appendingStages[sortOrder] = true;
 
                     this.append({
                         pipeline_stage_id: stage.id,
                         pipeline_id: stage.lead_pipeline_id,
-                        page: this.stageLeads[stage.sort_order].leads.meta.current_page + 1,
+                        page: this.stageLeads[sortOrder].leads.meta.current_page + 1,
                         limit: 20,
+                    }).finally(() => {
+                        this.appendingStages[sortOrder] = false;
                     });
+                },
+
+                /**
+                 * Applies (or toggles off) a quick date-range filter and reloads every column.
+                 *
+                 * @param {string} range - One of '7', '30', '90', 'month'.
+                 * @returns {void}
+                 */
+                applyQuick(range) {
+                    // Pulsar el rango activo de nuevo lo limpia.
+                    if (this.applied.quick === range) {
+                        return this.clearDateFilters();
+                    }
+
+                    const r = window.OdontoDateRange.resolve(range);
+
+                    this.applied.quick = range;
+                    this.applied.dateFrom = r.from;
+                    this.applied.dateTo = r.to;
+
+                    this.persistDateRange();
+
+                    this.reloadColumns();
+                },
+
+                /**
+                 * Aplica el rango personalizado Desde/Hasta (desactiva el quick range).
+                 *
+                 * @returns {void}
+                 */
+                applyCustomRange() {
+                    this.applied.quick = '';
+
+                    this.persistDateRange();
+
+                    this.reloadColumns();
+                },
+
+                /**
+                 * Limpia cualquier filtro de fecha (rápido o personalizado).
+                 *
+                 * @returns {void}
+                 */
+                clearDateFilters() {
+                    this.applied.quick = '';
+                    this.applied.dateFrom = null;
+                    this.applied.dateTo = null;
+
+                    this.persistDateRange();
+
+                    this.reloadColumns();
+                },
+
+                /**
+                 * Recarga todas las columnas del kanban con los filtros vigentes.
+                 *
+                 * @returns {void}
+                 */
+                reloadColumns() {
+                    this.get()
+                        .then(response => {
+                            if (! response) {
+                                return;
+                            }
+
+                            for (let [sortOrder, data] of Object.entries(response.data)) {
+                                this.stageLeads[sortOrder] = data;
+                            }
+                        });
+                },
+
+                /**
+                 * Estilo inline del botón rápido activo (resaltado teal), solo cuando
+                 * no hay un rango personalizado vigente.
+                 *
+                 * @param {string} value
+                 * @returns {object}
+                 */
+                quickRangeStyle(value) {
+                    if (this.applied.quick !== value) {
+                        return {};
+                    }
+
+                    return {
+                        borderColor: '#2AA8B3',
+                        backgroundColor: 'rgba(42, 168, 179, 0.12)',
+                        color: '#2AA8B3',
+                        fontWeight: '600',
+                    };
+                },
+
+                //=======================================================================================
+                // Persistencia del filtro de fechas: cookie compartida global_date_range
+                // (window.OdontoDateRange), sincronizada con Tablero y Pacientes.
+                //=======================================================================================
+
+                /**
+                 * Guarda el rango vigente (desde/hasta/quick) en la cookie compartida.
+                 *
+                 * @returns {void}
+                 */
+                persistDateRange() {
+                    window.OdontoDateRange.write(
+                        this.applied.dateFrom,
+                        this.applied.dateTo,
+                        this.applied.quick
+                    );
                 },
 
                 //=======================================================================================

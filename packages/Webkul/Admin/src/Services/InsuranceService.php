@@ -15,14 +15,16 @@ use Webkul\Contact\Repositories\PersonRepository;
 
 class InsuranceService
 {
-    protected int $cacheTtl = 3600;
+    protected int $cacheTtl;
 
     public function __construct(
         protected PersonRepository         $personRepository,
         protected AttributeRepository      $attributeRepository,
         protected AttributeValueRepository $attributeValueRepository,
         protected ActivityRepository       $activityRepository,
-    ) {}
+    ) {
+        $this->cacheTtl = (int) config('services.insurance.cache_ttl', 3600);
+    }
 
     /**
      * Verifica el seguro del paciente delegando al driver correspondiente.
@@ -68,9 +70,7 @@ class InsuranceService
             );
         }
 
-        $cacheKey = "insurance_verify_{$personId}_" . md5($seguroId . '|' . $ci);
-
-        $result = \Illuminate\Support\Facades\Cache::remember($cacheKey, $this->cacheTtl, function () use ($driver, $person, $ci) {
+        $result = $this->remember("insurance_verify_{$personId}_" . md5($seguroId . '|' . $ci), function () use ($driver, $person, $ci) {
             return $driver->verify($person, (string) $ci);
         });
 
@@ -133,10 +133,7 @@ class InsuranceService
             return $this->indeterminate('Por favor, completa el CI del paciente para verificar el seguro.');
         }
 
-        // Sin person_id usamos el CI como clave de caché
-        $cacheKey = 'insurance_verify_quick_' . md5($seguroName . '|' . $ci);
-
-        $result = Cache::remember($cacheKey, $this->cacheTtl, function () use ($driver, $ci) {
+        $result = $this->remember('insurance_verify_quick_' . md5($seguroName . '|' . $ci), function () use ($driver, $ci) {
             // Pasamos un stdClass mínimo para compatibilidad con los drivers
             $fakePerson       = new \stdClass();
             $fakePerson->id   = 0;
@@ -295,5 +292,19 @@ class InsuranceService
             'success' => false,
             'data'    => null,
         ];
+    }
+
+    protected function remember(string $key, \Closure $callback): array
+    {
+        if (! $this->cacheEnabled()) {
+            return $callback();
+        }
+
+        return Cache::remember($key, $this->cacheTtl, $callback);
+    }
+
+    protected function cacheEnabled(): bool
+    {
+        return filter_var(config('services.insurance.cache_enabled', true), FILTER_VALIDATE_BOOLEAN);
     }
 }

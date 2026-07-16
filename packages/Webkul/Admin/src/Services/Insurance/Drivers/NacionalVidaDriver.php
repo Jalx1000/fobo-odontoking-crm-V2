@@ -180,7 +180,7 @@ class NacionalVidaDriver implements InsuranceDriverInterface
                 ->where('entity_type', 'leads')
                 ->first();
 
-            if ($leadAttribute && $person instanceof \Webkul\Contact\Models\Person && $person->leads->count() > 0) {
+            if ($leadAttribute && $person->leads->count() > 0) {
                 $option = \Illuminate\Support\Facades\DB::table('attribute_options')
                     ->where('attribute_id', $leadAttribute->id)
                     ->where('name', $targetName)

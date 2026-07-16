@@ -77,6 +77,7 @@
                     <button type="button" class="px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" :class="viewType==='day'?'bg-gray-100 dark:bg-gray-800 font-semibold text-blue-600':''" @click="setView('day')">Día</button>
                     <button type="button" class="px-3 py-2 text-sm border-l dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800" :class="viewType==='week'?'bg-gray-100 dark:bg-gray-800 font-semibold text-blue-600':''" @click="setView('week')">Semana</button>
                     <button type="button" class="px-3 py-2 text-sm border-l dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800" :class="viewType==='month'?'bg-gray-100 dark:bg-gray-800 font-semibold text-blue-600':''" @click="setView('month')">Mes</button>
+                    <button type="button" class="px-3 py-2 text-sm border-l dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800" :class="viewType==='list'?'bg-gray-100 dark:bg-gray-800 font-semibold text-blue-600':''" @click="setView('list')">Lista</button>
                 </div>
             </div>
         </div>
@@ -196,6 +197,62 @@
             </div>
         </div>
 
+        <div v-else-if="viewType === 'list'" class="dwc-list-view">
+            <!-- Filtro de rango de fechas Desde / Hasta -->
+            <div class="dwc-list-filters">
+                <div class="flex items-end gap-3 flex-wrap">
+                    <label class="flex flex-col gap-1">
+                        <span class="text-xs text-gray-600 dark:text-gray-300">Desde</span>
+                        <input type="date" class="rounded border border-gray-200 px-2.5 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="rangeStart" @change="applyRange">
+                    </label>
+                    <label class="flex flex-col gap-1">
+                        <span class="text-xs text-gray-600 dark:text-gray-300">Hasta</span>
+                        <input type="date" class="rounded border border-gray-200 px-2.5 py-2 text-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" v-model="rangeEnd" @change="applyRange">
+                    </label>
+                    <button type="button" class="primary-button" @click="applyRange">Aplicar</button>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 ml-1">@{{ listAppointments.length }} citas</span>
+                </div>
+            </div>
+
+            <div v-if="isLoading" class="p-6 text-center text-sm text-gray-500 dark:text-gray-400">Cargando…</div>
+
+            <template v-else>
+                <div v-if="!listAppointments.length" class="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                    No hay citas en el rango seleccionado.
+                </div>
+
+                <div v-else class="dwc-list-table">
+                    <div v-for="group in listGroups" :key="'lg-'+group.date" class="dwc-list-group">
+                        <div class="dwc-list-group-title">@{{ group.label }}</div>
+
+                        <div v-for="ev in group.items" :key="'lrow-'+ev.id" class="dwc-list-row"
+                             :class="{ 'is-cancelled': ev.is_cancelled, 'is-completed': ev.is_completed }">
+                            <div class="dwc-list-time">
+                                <span class="font-semibold">@{{ formatTime(ev.start) }}</span>
+                                <span class="text-gray-400"> - @{{ formatTime(ev.end) }}</span>
+                            </div>
+                            <div class="dwc-list-main">
+                                <div class="text-sm font-semibold dark:text-white">@{{ ev.person_name || ev.title || 'Cita' }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">
+                                    <span v-if="ev.doctor_name">@{{ ev.doctor_name }}</span>
+                                    <span v-if="ev.product_name"> · @{{ ev.product_name }}</span>
+                                    <span> · @{{ getStageName(ev.lead_pipeline_stage_id) || ev.type }}</span>
+                                </div>
+                            </div>
+                            <div class="dwc-list-actions">
+                                <button type="button" class="dwc-action-btn" title="Ver detalles" @click="openViewModal(ev)">
+                                    <span class="icon-eye"></span>
+                                </button>
+                                <button type="button" class="dwc-action-btn" title="Editar Cita" @click="openEditModal(ev)">
+                                    <span class="icon-edit"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
         <div v-else-if="viewType === 'week' && !isSingleDoctorMode" class="dwc-week-view">
             <div class="dwc-week-header">
                 <div class="dwc-week-header-cell doctor-col">Doctores</div>
@@ -216,6 +273,7 @@
                     >
                         <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'wev-'+ev.id"
                              class="dwc-week-event"
+                             :class="{ 'dwc-event-cancelled': ev.is_cancelled, 'dwc-event-completed': ev.is_completed }"
                              :title="ev.title || ev.type"
                              @click.stop="goToLead(ev.lead_id)"
                              @mouseenter="onEventMouseEnter($event, ev.id, ev)"
@@ -261,7 +319,7 @@
                         <div v-for="idx in 13" :key="'line-sd-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
                         <!-- Events -->
-                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
+                        <div v-for="ev in dayDoctorEvents(day.date, columns[0].id)" :key="'ev-sd-'+ev.id" class="dwc-event" :class="{ 'dwc-event-cancelled': ev.is_cancelled, 'dwc-event-completed': ev.is_completed, 'dwc-event-compact': ev.height < 64, 'dwc-event-tiny': ev.height < 40 }" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
                             <div class="dwc-event-content dwc-event-layout">
                                 <div class="dwc-event-info">
                                     <div class="dwc-event-row-primary">
@@ -328,7 +386,7 @@
 
                             <div v-for="idx in 13" :key="'line-'+di+'-'+idx" class="dwc-hour-line" :style="{ top: ((idx - 1) * hourHeight) + 'px' }"></div>
 
-                            <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :style="{ top: ev.top + 'px', height: ev.height + 'px' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
+                            <div v-for="ev in dayDoctorEvents(day.date, col.id)" :key="'ev-'+ev.id" class="dwc-event" :class="{ 'dwc-event-cancelled': ev.is_cancelled, 'dwc-event-completed': ev.is_completed, 'dwc-event-compact': ev.height < 64, 'dwc-event-tiny': ev.height < 40 }" :style="{ top: ev.top + 'px', height: ev.height + 'px', left: 'calc(' + ev.left + '% + 6px)', width: 'calc(' + ev.width + '% - 12px)' }" @click.stop="goToLead(ev.lead_id)" @mouseenter="onEventMouseEnter($event, ev.id, ev)" @mouseleave="hoveredEventId = null; hoveredEvent = null">
                                 <div class="dwc-event-content dwc-event-layout">
                                     <div class="dwc-event-info">
                                         <div class="dwc-event-row-primary">
@@ -777,7 +835,39 @@
 
             <x-slot:footer>
                 <div class="flex items-center gap-2 justify-end">
+                    <div class="ddc-wa-wrap" v-if="viewAppointment.data">
+                        <div v-if="whatsappMenuOpen" class="ddc-wa-overlay" @click="closeWhatsappMenu"></div>
+
+                        <button
+                            type="button"
+                            class="secondary-button flex items-center gap-1"
+                            :disabled="!viewAppointment.data.person_whatsapp"
+                            :class="{ 'opacity-50 cursor-not-allowed': !viewAppointment.data.person_whatsapp }"
+                            :title="viewAppointment.data.person_whatsapp ? 'Enviar mensaje por WhatsApp' : 'El paciente no tiene teléfono registrado'"
+                            @click="toggleWhatsappMenu"
+                        >
+                            <span class="icon-call text-lg"></span>
+                            <span>WhatsApp</span>
+                            <span class="icon-up-arrow text-lg"></span>
+                        </button>
+
+                        <div v-if="whatsappMenuOpen" class="ddc-wa-menu" @click.stop>
+                            <button
+                                v-for="tpl in whatsappTemplates"
+                                :key="'wa-'+tpl.key"
+                                type="button"
+                                class="ddc-wa-menu-item"
+                                @click="openWhatsapp(tpl)"
+                            >
+                                @{{ tpl.label }}
+                            </button>
+                        </div>
+                    </div>
+
                     <button type="button" class="secondary-button" @click="$refs.viewModal.close()">Cerrar</button>
+                    <button type="button" class="primary-button" v-if="viewAppointment.data" @click="editFromView">
+                        Editar Cita
+                    </button>
                 </div>
             </x-slot>
         </x-admin::modal>
@@ -1079,6 +1169,30 @@
 </script>
 
 <script type="module">
+    // Persistencia de filtros del calendario (vista, fecha y rango) por cookie.
+    const DDC_PREFS_COOKIE = 'ddc_calendar_prefs';
+
+    function ddcSetCookie(name, value, days = 365) {
+        const expires = new Date(Date.now() + days * 864e5).toUTCString();
+        document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+    }
+
+    function ddcGetCookie(name) {
+        return document.cookie.split('; ').reduce((acc, cookie) => {
+            const [key, ...rest] = cookie.split('=');
+            return key === name ? decodeURIComponent(rest.join('=')) : acc;
+        }, '');
+    }
+
+    function ddcLoadPrefs() {
+        try {
+            const raw = ddcGetCookie(DDC_PREFS_COOKIE);
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
     app.component('v-doctor-multiselect', {
         template: '#v-doctor-multiselect-template',
         props: {
@@ -1255,13 +1369,19 @@
         data() {
             const today = new Date();
             const start = new Date(today);
+            const rangeEndDefault = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30);
+
+            // Preferencias persistidas (cookie): vista, fecha ancla y rango.
+            const prefs = ddcLoadPrefs();
 
             return {
                 isLoading: false,
                 isSaving: false,
                 addError: '',
-                hourHeight: 64,
-                startISO: this.toISO(start),
+                hourHeight: 84,
+                startISO: prefs.startISO || this.toISO(start),
+                rangeStart: prefs.rangeStart || this.toISO(start),
+                rangeEnd: prefs.rangeEnd || this.toISO(rangeEndDefault),
                 days: [],
                 doctors: [],
                 appointments: [],
@@ -1353,6 +1473,34 @@
                 editUrlTemplate: "{{ route('admin.activities.edit', 'replaceId') }}",
                 deleteUrlTemplate: "{{ route('admin.activities.delete', 'replaceId') }}",
                 leadUrlTemplate: "{{ route('admin.leads.view', 'replaceId') }}",
+                whatsappMenuOpen: false,
+                // Plantillas del boton WhatsApp del detalle de cita. Los
+                // placeholders :fecha, :hora y :doctor los sustituye
+                // buildWhatsappMessage() con los datos de la cita abierta.
+                clinicAddress: 'Av Roca y  Coronado 3er anillo interno entrando por  el surtidor El Arroyo Calle Burapacú Nro 2888,  lado Taller  Bavaria',
+                surveyUrl: 'https://forms.gle/z6zbPMPzPYU1knKZ9',
+                whatsappTemplates: [
+                    {
+                        key: 'appointment_reminder',
+                        label: 'Recordatorio de cita',
+                        body: 'Buenos días! \nRecordarle que tiene cita el :fecha a horas :hora con el Dr(a). :doctor en la clínica Odontoking :direccion!\nEs obligatorio confirmar su asistencia para evitar disponer de su espacio! Gracias!!',
+                    },
+                    {
+                        key: 'appointment_confirmation',
+                        label: 'Confirmación de Cita',
+                        body: 'Buenos días! \nSu cita ha sido agendada para el :fecha a horas :hora con el Dr(a) :doctor en la clínica Odontoking \n:direccion! Gracias!!',
+                    },
+                    {
+                        key: 'survey',
+                        label: 'Encuesta',
+                        body: 'Muy estimado paciente de ODONTOKING, comprometidos con la mejora constante queremos que nos colaboré con su opinión en la siguiente encuesta, muchas gracias de antemano.\n:encuesta',
+                    },
+                    {
+                        key: 'first_appointment_reminder',
+                        label: 'Recordatorio Primera Cita',
+                        body: 'Buenos días! \nRecordarle que tiene cita el :fecha a horas :hora con el Dr(a). :doctor en la clínica Odontoking :direccion! Es obligatorio confirmar su asistencia para evitar disponer de su espacio! \nPor ser su primera cita por favor se le pide estar 15min  antes de la hora agendada para poder realizar su historia clínica de inicio.\nGracias!!',
+                    },
+                ],
                 hoveredEventId: null,
                 hoveredEvent: null,
                 tooltipPos: { top: 0, left: 0 },
@@ -1362,7 +1510,7 @@
                 personStoreUrl: "{{ route('admin.contacts.persons.store') }}",
                 searchSmdUrl: "{{ route('admin.contacts.persons.search_smd') }}",
                 syncSmdBaseUrl: "{{ route('admin.contacts.persons.sync_smd', ['id' => '__ID__']) }}",
-                viewType: 'day',
+                viewType: ['day', 'week', 'month', 'list'].includes(prefs.viewType) ? prefs.viewType : 'day',
                 insuranceOptions: [],
                 insurance: {
                     ci: '',
@@ -1398,6 +1546,9 @@
                 return this.days.length * this.dayHeight;
             },
             dayLabel() {
+                if (this.viewType === 'list') {
+                    return `${this.rangeStart || '—'} → ${this.rangeEnd || '—'}`;
+                }
                 if (this.viewType === 'week' && this.days.length) {
                     const s = new Date(this.days[0].date);
                     const e = new Date(this.days[this.days.length - 1].date);
@@ -1433,6 +1584,31 @@
             },
             isSingleDoctorMode() {
                 return this.columns.length === 1;
+            },
+            listAppointments() {
+                if (!this.selectedDoctorIds.length) return [];
+                const ids = new Set(this.selectedDoctorIds.map(id => String(id)));
+                return this.appointments
+                    .filter(a => ids.has(String(a.doctor_id)))
+                    .slice()
+                    .sort((a, b) => new Date(a.start) - new Date(b.start));
+            },
+            listGroups() {
+                const groups = [];
+                const map = {};
+                for (const ev of this.listAppointments) {
+                    const date = String(ev.start).slice(0, 10);
+                    if (!map[date]) {
+                        map[date] = {
+                            date,
+                            label: this.formatDate(this.parseISODate(date)),
+                            items: []
+                        };
+                        groups.push(map[date]);
+                    }
+                    map[date].items.push(ev);
+                }
+                return groups;
             },
             monthGridCells() {
                 if (this.viewType !== 'month') return [];
@@ -1481,6 +1657,10 @@
             this.updateNow();
             this.nowTimer = window.setInterval(this.updateNow, 30000);
             window.addEventListener('keydown', this.onKeyDown);
+
+            // Recargar el calendario cuando termina una sincronización con ShareMeData.
+            this.onSmdSynced = () => this.fetch();
+            this.$emitter.on('smd-sync-completed', this.onSmdSynced);
         },
         beforeUnmount() {
             if (this.nowTimer) {
@@ -1488,6 +1668,10 @@
                 this.nowTimer = null;
             }
             window.removeEventListener('keydown', this.onKeyDown);
+
+            if (this.onSmdSynced) {
+                this.$emitter.off('smd-sync-completed', this.onSmdSynced);
+            }
         },
         methods: {
             loadInsuranceOptions() {
@@ -1727,6 +1911,7 @@
             selectDate(iso) {
                 if (!iso) return;
                 this.startISO = iso;
+                this.persistPrefs();
                 this.closeDatePicker();
                 this.fetch();
             },
@@ -1761,6 +1946,7 @@
             },
             setView(type) {
                 this.viewType = type;
+                this.persistPrefs();
                 this.fetch();
             },
             prevPeriod() {
@@ -1769,6 +1955,7 @@
                 else if (this.viewType === 'month') d.setMonth(d.getMonth() - 1);
                 else d.setDate(d.getDate() - 1);
                 this.startISO = this.toISO(d);
+                this.persistPrefs();
                 this.fetch();
             },
             nextPeriod() {
@@ -1777,12 +1964,29 @@
                 else if (this.viewType === 'month') d.setMonth(d.getMonth() + 1);
                 else d.setDate(d.getDate() + 1);
                 this.startISO = this.toISO(d);
+                this.persistPrefs();
                 this.fetch();
             },
             goToday() {
                 const today = new Date();
                 this.startISO = this.toISO(today);
+                this.persistPrefs();
                 this.fetch();
+            },
+            applyRange() {
+                if (this.viewType !== 'list') {
+                    this.viewType = 'list';
+                }
+                this.persistPrefs();
+                this.fetch();
+            },
+            persistPrefs() {
+                ddcSetCookie(DDC_PREFS_COOKIE, JSON.stringify({
+                    viewType: this.viewType,
+                    startISO: this.startISO,
+                    rangeStart: this.rangeStart,
+                    rangeEnd: this.rangeEnd,
+                }));
             },
             fetch() {
                 this.isLoading = true;
@@ -1792,7 +1996,9 @@
                             view_type: 'calendar',
                             calendar_mode: 'doctor',
                             calendar_view: this.viewType,
-                            start: this.startISO
+                            start: this.startISO,
+                            range_start: this.rangeStart,
+                            range_end: this.rangeEnd
                         }
                     })
                     .then(r => {
@@ -1841,7 +2047,7 @@
                     });
             },
             dayDoctorEvents(dateStr, doctorId) {
-                return this.appointments
+                const events = this.appointments
                     .filter(a => a.start.split(' ')[0] === dateStr && String(a.doctor_id) === String(doctorId))
                     .map(a => {
                         const dtStart = new Date(a.start);
@@ -1853,9 +2059,85 @@
                         return {
                             ...a,
                             top,
-                            height
+                            height,
+                            _startMin: startMin,
+                            _endMin: endMin
                         };
                     });
+
+                return this.layoutOverlappingEvents(events);
+            },
+            /**
+             * Asigna left/width a cada evento segun cuantas citas se solapan en su
+             * mismo horario, para que una persona vea de un vistazo cuantas citas
+             * reales hay en un slot (1 cita = 100% ancho, 2 = 50%/50%, etc.) en vez
+             * de que una tape visualmente a la otra. Recordar: para que dos citas
+             * coexistan en el mismo horario, la primera tuvo que cancelarse o el
+             * sistema lo permite explicitamente (ver AppointmentService::process()).
+             */
+            layoutOverlappingEvents(events) {
+                if (events.length < 2) {
+                    return events.map(ev => ({ ...ev, left: 0, width: 100 }));
+                }
+
+                const sorted = [...events].sort((a, b) => a._startMin - b._startMin);
+
+                // Agrupa eventos en "clusters" de solapamiento transitivo: si A se
+                // solapa con B y B con C, los tres comparten el mismo ancho de columna
+                // aunque A y C no se toquen directamente entre si.
+                const clusters = [];
+                let current = [];
+                let clusterEnd = -Infinity;
+
+                sorted.forEach(ev => {
+                    if (current.length === 0 || ev._startMin < clusterEnd) {
+                        current.push(ev);
+                        clusterEnd = Math.max(clusterEnd, ev._endMin);
+                    } else {
+                        clusters.push(current);
+                        current = [ev];
+                        clusterEnd = ev._endMin;
+                    }
+                });
+                if (current.length > 0) clusters.push(current);
+
+                const positioned = [];
+
+                clusters.forEach(cluster => {
+                    if (cluster.length === 1) {
+                        positioned.push({ ...cluster[0], left: 0, width: 100 });
+                        return;
+                    }
+
+                    // Greedy column assignment: cada evento ocupa la primera columna
+                    // donde no choca con lo ya asignado a esa columna.
+                    const columnEnds = [];
+                    const columnOf = [];
+
+                    cluster.forEach(ev => {
+                        let col = columnEnds.findIndex(end => ev._startMin >= end);
+                        if (col === -1) {
+                            col = columnEnds.length;
+                            columnEnds.push(ev._endMin);
+                        } else {
+                            columnEnds[col] = ev._endMin;
+                        }
+                        columnOf.push(col);
+                    });
+
+                    const totalColumns = columnEnds.length;
+                    const widthPct = 100 / totalColumns;
+
+                    cluster.forEach((ev, idx) => {
+                        positioned.push({
+                            ...ev,
+                            left: columnOf[idx] * widthPct,
+                            width: widthPct
+                        });
+                    });
+                });
+
+                return positioned;
             },
             totalCount(doctorId) {
                 return this.appointments.filter(a => String(a.doctor_id) === String(doctorId)).length;
@@ -2018,7 +2300,46 @@
             openViewModal(ev) {
                 this.viewAppointment.data = ev;
                 this.viewAppointment.visible = true;
+                this.whatsappMenuOpen = false;
                 this.$refs.viewModal.open();
+            },
+            editFromView() {
+                const ev = this.viewAppointment.data;
+                if (!ev) return;
+                this.$refs.viewModal.close();
+                this.openEditModal(ev);
+            },
+            toggleWhatsappMenu() {
+                this.whatsappMenuOpen = !this.whatsappMenuOpen;
+            },
+            closeWhatsappMenu() {
+                this.whatsappMenuOpen = false;
+            },
+            // "Martes 14 de Julio". Distinto de formatDate(), que da el formato
+            // corto que usa el resto del calendario.
+            formatLongDate(dt) {
+                const d = new Date(dt);
+                const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                return `${days[d.getDay()]} ${d.getDate()} de ${months[d.getMonth()]}`;
+            },
+            buildWhatsappMessage(tpl, ev) {
+                return tpl.body
+                    .split(':fecha').join(this.formatLongDate(ev.start))
+                    .split(':hora').join(this.formatTime(ev.start))
+                    .split(':doctor').join(ev.doctor_name || '')
+                    .split(':direccion').join(this.clinicAddress)
+                    .split(':encuesta').join(this.surveyUrl);
+            },
+            openWhatsapp(tpl) {
+                const ev = this.viewAppointment.data;
+                if (!ev || !ev.person_whatsapp) return;
+
+                const url = `https://wa.me/${ev.person_whatsapp}?text=${encodeURIComponent(this.buildWhatsappMessage(tpl, ev))}`;
+
+                window.open(url, '_blank', 'noopener');
+
+                this.closeWhatsappMenu();
             },
             openGroupModal() {
                 this.modalError = '';
@@ -2538,6 +2859,64 @@
         overflow: hidden
     }
 
+    .ddc-wa-wrap {
+        position: relative;
+        margin-right: auto
+    }
+
+    /* Captura el click fuera para cerrar el desplegable, igual que ddc-quick-overlay. */
+    .ddc-wa-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        background: transparent
+    }
+
+    /* Se abre hacia arriba: el boton vive en el footer del modal. */
+    .ddc-wa-menu {
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 0;
+        min-width: 230px;
+        background: #fff;
+        border: 1px solid var(--border-color, #e5e7eb);
+        border-radius: 10px;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+        padding: 4px;
+        z-index: 20;
+        overflow: hidden
+    }
+
+    .dark .ddc-wa-menu {
+        background: #1f2937;
+        border-color: #374151
+    }
+
+    .ddc-wa-menu-item {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 9px 12px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        font-size: 14px;
+        color: #111827;
+        cursor: pointer
+    }
+
+    .ddc-wa-menu-item:hover {
+        background: #f3f4f6
+    }
+
+    .dark .ddc-wa-menu-item {
+        color: #f3f4f6
+    }
+
+    .dark .ddc-wa-menu-item:hover {
+        background: #374151
+    }
+
     .ddc-quick-menu-head {
         display: flex;
         align-items: center;
@@ -2896,14 +3275,48 @@
         z-index: 10;
     }
 
+    /* Cita cancelada (lead cerrado por status=0 o por stage cancelado/no-show,
+       ver AppointmentController::get() -> is_cancelled). Mismo rojo en light/dark. */
+    .dwc-event.dwc-event-cancelled {
+        border-left-color: #ef4444;
+        background: #fee2e2;
+        color: #7f1d1d;
+    }
+
+    .dark .dwc-event.dwc-event-cancelled {
+        background: #450a0a;
+        color: #fecaca;
+    }
+
+    /* Cita en stage "Paciente (concretado)" (ver ActivityController::get() ->
+       is_completed). Cancelado tiene prioridad si ambas coincidieran. */
+    .dwc-event.dwc-event-completed {
+        border-left-color: #22c55e;
+        background: #dcfce7;
+        color: #14532d;
+    }
+
+    .dark .dwc-event.dwc-event-completed {
+        background: #052e16;
+        color: #bbf7d0;
+    }
+
     .dwc-event-content {
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 2px;
         height: 100%;
+        min-height: 0;
         position: relative;
-        padding: 6px 8px;
+        padding: 5px 8px;
         box-sizing: border-box;
+    }
+
+    /* En eventos cortos, apretamos el padding para que la primera línea no se
+       corte a la mitad. */
+    .dwc-event-compact .dwc-event-content {
+        padding: 3px 8px;
+        gap: 1px;
     }
 
     .dwc-event-actions-wrapper {
@@ -2956,6 +3369,7 @@
 
     .dwc-event-info {
         flex-grow: 1;
+        min-height: 0;
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -3004,8 +3418,9 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        flex-shrink: 0;
-        max-width: 60%;
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 100%;
     }
 
     .dwc-event-doctor {
@@ -3028,6 +3443,23 @@
         overflow: hidden;
         line-height: 1.3;
         font-style: italic;
+    }
+
+    /* Evento corto (< ~45 min): el motivo no cabe sin desbordar, se oculta.
+       El texto completo sigue disponible en el tooltip (title) y al abrir la cita. */
+    .dwc-event-compact .dwc-event-reason {
+        display: none;
+    }
+
+    /* Evento muy corto (< ~30 min): solo entra una línea; dejamos el nombre del
+       paciente y el estado, ocultando la fila secundaria (doctor · hora · estado)
+       para no cortar información a la mitad. */
+    .dwc-event-tiny .dwc-event-row-secondary {
+        display: none;
+    }
+
+    .dwc-event-tiny .dwc-event-patient {
+        font-size: 11px;
     }
 
 
@@ -3097,52 +3529,100 @@
     .dwc-month-view {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 12px;
         background: var(--hours-bg);
         border: 1px solid var(--border-color);
         border-radius: 8px;
-        padding: 10px;
+        padding: 14px;
+    }
+
+    /* Más aire entre celdas del mes (scopeado: no afecta el date-picker,
+       que comparte .ddc-date-grid / .ddc-date-weekdays). */
+    .dwc-month-view .ddc-date-weekdays,
+    .dwc-month-view .ddc-date-grid {
+        gap: 10px;
+    }
+
+    .dwc-month-view .ddc-date-weekday {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: capitalize;
     }
 
     .dwc-month-cell {
-        height: 120px;
-        align-items: flex-start;
+        height: 156px;
+        align-items: stretch;
         justify-content: flex-start;
         flex-direction: column;
-        border-radius: 8px;
+        border-radius: 10px;
         border: 1px solid var(--border-color);
+        overflow: hidden;
+        transition: box-shadow .15s ease, border-color .15s ease;
+    }
+
+    .dwc-month-cell:hover {
+        border-color: rgba(103, 80, 164, 0.35);
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+    }
+
+    .dwc-month-cell.is-today {
+        border-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.06);
+    }
+
+    .dwc-month-cell.is-out {
+        background: var(--gray-50, rgba(0, 0, 0, 0.02));
+        opacity: 0.6;
+    }
+
+    /* La regla base .ddc-date-day.is-out oculta el número (color: transparent);
+       en el mes lo mostramos atenuado en vez de desaparecerlo. */
+    .dwc-month-view .dwc-month-cell.is-out .dwc-month-cell-header {
+        color: var(--hour-text, #9ca3af);
     }
 
     .dwc-month-cell-header {
         width: 100%;
         display: flex;
         justify-content: space-between;
-        padding: 4px 8px;
+        align-items: center;
+        padding: 6px 10px;
+        font-size: 13px;
     }
 
     .dwc-month-cell-events {
         width: 100%;
-        padding: 0 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 0 8px 8px;
         overflow-y: auto;
-        max-height: 90px;
+        max-height: 118px;
     }
 
     .dwc-month-event {
-        font-size: 11px;
+        font-size: 11.5px;
+        line-height: 1.35;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        margin-bottom: 4px;
-        padding: 2px 4px;
-        border-radius: 4px;
+        padding: 3px 7px;
+        border-radius: 6px;
         background: #dbeafe;
         color: #1e40af;
+        border-left: 3px solid #3b82f6;
         cursor: pointer;
+        transition: filter .15s ease;
+    }
+
+    .dwc-month-event:hover {
+        filter: brightness(0.96);
     }
 
     .dark .dwc-month-event {
         background: #1e3a8a;
         color: #dbeafe;
+        border-left-color: #60a5fa;
     }
 
     .dwc-week-view {
@@ -3240,6 +3720,26 @@
         color: #e0f2fe;
     }
 
+    .dwc-week-event.dwc-event-cancelled {
+        background: #fee2e2;
+        color: #7f1d1d;
+    }
+
+    .dark .dwc-week-event.dwc-event-cancelled {
+        background: #450a0a;
+        color: #fecaca;
+    }
+
+    .dwc-week-event.dwc-event-completed {
+        background: #dcfce7;
+        color: #14532d;
+    }
+
+    .dark .dwc-week-event.dwc-event-completed {
+        background: #052e16;
+        color: #bbf7d0;
+    }
+
     @media (max-width: 768px) {
         .dwc-event-actions-wrapper {
             display: none;
@@ -3335,5 +3835,113 @@
 
     .dark .tp-list li.is-selected {
         background-color: #2563eb;
+    }
+
+    /* ===== Vista Lista por rango ===== */
+    .dwc-list-view {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .dwc-list-filters {
+        padding: 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #fff;
+    }
+
+    .dark .dwc-list-filters {
+        background: #111827;
+        border-color: #1f2937;
+    }
+
+    .dwc-list-table {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #fff;
+    }
+
+    .dark .dwc-list-table {
+        background: #111827;
+        border-color: #1f2937;
+    }
+
+    .dwc-list-group-title {
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: capitalize;
+        color: #374151;
+        background: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .dark .dwc-list-group-title {
+        color: #d1d5db;
+        background: #1f2937;
+        border-color: #374151;
+    }
+
+    .dwc-list-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-bottom: 1px solid #f3f4f6;
+    }
+
+    .dark .dwc-list-row {
+        border-color: #1f2937;
+    }
+
+    .dwc-list-row:hover {
+        background: #f9fafb;
+    }
+
+    .dark .dwc-list-row:hover {
+        background: #1f2937;
+    }
+
+    .dwc-list-row.is-cancelled {
+        opacity: 0.6;
+        text-decoration: line-through;
+    }
+
+    .dwc-list-row.is-completed {
+        background: #f0fdf4;
+    }
+
+    .dark .dwc-list-row.is-completed {
+        background: rgba(22, 163, 74, 0.12);
+    }
+
+    .dwc-list-time {
+        min-width: 120px;
+        font-size: 13px;
+        color: #374151;
+        white-space: nowrap;
+    }
+
+    .dark .dwc-list-time {
+        color: #d1d5db;
+    }
+
+    .dwc-list-main {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .dwc-list-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .dwc-list-actions .dwc-action-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
     }
 </style>

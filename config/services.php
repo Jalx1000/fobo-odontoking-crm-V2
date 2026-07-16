@@ -37,4 +37,24 @@ return [
         'webhook_secret' => env('SHAREMEDATA_WEBHOOK_SECRET'),
     ],
 
+    'insurance' => [
+        'cache_enabled' => env('INSURANCE_VERIFY_CACHE_ENABLED', true),
+        'cache_ttl'     => env('INSURANCE_VERIFY_CACHE_TTL', 3600),
+    ],
+
+    'alianza' => [
+        'login_url'        => env('ALIANZA_LOGIN_URL', 'https://qualitynet.alianza.com.bo/ApiGateway'),
+        'microservice_url' => env('ALIANZA_MICROSERVICE_URL', 'https://qualitynet.alianza.com.bo/ApiGateway'),
+        'user'             => env('ALIANZA_USER', ''),
+        'password'         => env('ALIANZA_PASS', ''),
+
+        // Timeout (segundos) por petición HTTP a Alianza. Son llamadas REST cortas
+        // (login + cobertura), 15s cubre latencia alta sin bloquear workers PHP.
+        'timeout'          => env('ALIANZA_TIMEOUT', 15),
+
+        // Si es true, loguea el accessToken en claro (solo para depuración puntual).
+        // En producción debe quedar en false: se loguea un hash truncado.
+        'log_raw_token'    => env('ALIANZA_LOG_RAW_TOKEN', false),
+    ],
+
 ];

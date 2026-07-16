@@ -34,17 +34,27 @@
     let smdData       = null;
 
     // ── UI refs ──────────────────────────────────────────────────────────────
-    const chip         = document.getElementById('smd-status-chip');
-    const chipDot      = document.getElementById('smd-status-dot');
-    const chipText     = document.getElementById('smd-status-text');
-    const banner       = document.getElementById('smd-result-banner');
-    const bannerIcon   = document.getElementById('smd-banner-icon');
-    const bannerTitle  = document.getElementById('smd-banner-title');
-    const bannerDetail = document.getElementById('smd-banner-detail');
-    const autofillBtn  = document.getElementById('smd-autofill-btn');
+    // IMPORTANTE: este <script> es inline (no-module), así que corre durante el
+    // parseo del HTML, ANTES de que Vue monte la app (app.mount es type=module,
+    // diferido). Al montar, Vue re-renderiza y reemplaza el DOM, dejando huérfanas
+    // las referencias capturadas aquí. Por eso resolvemos los elementos de forma
+    // perezosa (al usarlos) vía resolveEls(), garantizando los nodos vivos.
+    let chip, chipDot, chipText, banner, bannerIcon, bannerTitle, bannerDetail, autofillBtn;
+
+    function resolveEls() {
+        chip         = document.getElementById('smd-status-chip');
+        chipDot      = document.getElementById('smd-status-dot');
+        chipText     = document.getElementById('smd-status-text');
+        banner       = document.getElementById('smd-result-banner');
+        bannerIcon   = document.getElementById('smd-banner-icon');
+        bannerTitle  = document.getElementById('smd-banner-title');
+        bannerDetail = document.getElementById('smd-banner-detail');
+        autofillBtn  = document.getElementById('smd-autofill-btn');
+    }
 
     // ── Chip ─────────────────────────────────────────────────────────────────
     function showChip(state) {
+        resolveEls();
         chip.classList.remove('hidden');
         chip.classList.add('flex');
         const states = {
@@ -72,6 +82,7 @@
 
     // ── Banner ────────────────────────────────────────────────────────────────
     function showBanner(state, patient) {
+        resolveEls();
         banner.classList.remove('hidden');
 
         if (state === 'found') {
@@ -151,6 +162,7 @@
                 }
             }
         } catch (e) {
+            resolveEls();
             chip.classList.add('hidden');
             chip.classList.remove('flex');
         }
@@ -190,6 +202,7 @@
     window.smdAutofill = function () {
         if (! smdData) return;
 
+        resolveEls();
         const filled = [];
 
         if (smdData.name) {
@@ -204,6 +217,18 @@
             setInputValue('[name="ci_paciente"]', smdData.ci);
             filled.push('CI');
         }
+        // Edad: se calcula a partir de la fecha de nacimiento que devuelve SMD.
+        if (smdData.birthday) {
+            const age = computeAge(smdData.birthday);
+            if (age !== null) {
+                setInputValue('[name="job_title"]', String(age));
+                filled.push('Edad');
+            }
+        }
+        // Seguro: se mapea el nombre de aseguradora de SMD a la opción del select.
+        if (smdData.insurance && setSelectByText('[name="seguro_paciente"]', smdData.insurance)) {
+            filled.push('Seguro');
+        }
 
         autofillBtn.textContent = '✓ ' + (MODE === 'edit' ? 'Actualizado' : 'Aplicado');
         autofillBtn.disabled    = true;
@@ -215,6 +240,14 @@
             });
         }
 
+        // Estado de seguro: dispara la verificación automáticamente si hay CI y Seguro,
+        // para que el estado se rellene solo (lo expone el componente de verificación).
+        const ciVal     = document.querySelector('[name="ci_paciente"]')?.value?.trim();
+        const seguroVal = document.querySelector('[name="seguro_paciente"]')?.value;
+        if (ciVal && seguroVal && typeof window.__odkVerifyInsurance === 'function') {
+            window.__odkVerifyInsurance();
+        }
+
         setTimeout(() => {
             autofillBtn.textContent = MODE === 'edit' ? 'Actualizar campos' : 'Autocompletar';
             autofillBtn.disabled    = false;
@@ -223,6 +256,7 @@
 
     // ── Dismiss ───────────────────────────────────────────────────────────────
     window.smdDismiss = function () {
+        resolveEls();
         banner.classList.add('hidden');
         chip.classList.add('hidden');
         chip.classList.remove('flex');
@@ -239,6 +273,31 @@
         el.dispatchEvent(new Event('input',  { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
         el.dispatchEvent(new Event('blur',   { bubbles: true }));
+    }
+
+    // Setea un <select> buscando la opción por texto (case-insensitive).
+    function setSelectByText(selector, text) {
+        const el = document.querySelector(selector);
+        if (! el || el.tagName !== 'SELECT') return false;
+        const norm   = (t) => (t || '').trim().toLowerCase();
+        const option = [...el.options].find((o) => norm(o.textContent) === norm(text));
+        if (! option) return false;
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+        setter.call(el, option.value);
+        el.dispatchEvent(new Event('input',  { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+    }
+
+    // Calcula la edad (años cumplidos) a partir de una fecha de nacimiento (YYYY-MM-DD).
+    function computeAge(birthday) {
+        const d = new Date(birthday);
+        if (isNaN(d.getTime())) return null;
+        const now = new Date();
+        let age = now.getFullYear() - d.getFullYear();
+        const m = now.getMonth() - d.getMonth();
+        if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+        return (age >= 0 && age < 130) ? age : null;
     }
 
     function svgCheck(cls) {
