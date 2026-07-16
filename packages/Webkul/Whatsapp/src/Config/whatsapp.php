@@ -79,6 +79,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Unknown contacts
+    |--------------------------------------------------------------------------
+    | Register a Person automatically when someone writes from a number that is
+    | not in the CRM. Off means the conversation stays "unassigned" until a human
+    | links it.
+    */
+    'auto_create_person' => env('WHATSAPP_AUTO_CREATE_PERSON', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | AI Agent
     |--------------------------------------------------------------------------
     | Global default for the AI agent switch and the outbound webhook the

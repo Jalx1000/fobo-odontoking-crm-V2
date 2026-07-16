@@ -3,7 +3,10 @@
 namespace Webkul\Whatsapp\Services;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 use Webkul\Contact\Models\PersonProxy;
+use Webkul\Contact\Repositories\PersonRepository;
 use Webkul\Whatsapp\Gateways\Dto\ContactIdentity;
 use Webkul\Whatsapp\Models\ConversationProxy;
 
@@ -38,7 +41,7 @@ class ConversationResolver
             return $this->backfill($conversation, $contact, $providerConversationId);
         }
 
-        $person = $contact->phone ? $this->resolvePerson($contact->phone) : null;
+        $person = $this->resolveOrCreatePerson($contact);
 
         return $model::create([
             'gateway'                  => $gateway,
@@ -71,8 +74,10 @@ class ConversationResolver
             $updates['wa_phone'] = PhoneNumber::normalize($contact->phone);
         }
 
-        if (! $conversation->person_id && $contact->phone) {
-            if ($person = $this->resolvePerson($contact->phone)) {
+        // A conversation may have been created before the phone was known (Kommo
+        // does not send it), so it can still be waiting for its Person.
+        if (! $conversation->person_id) {
+            if ($person = $this->resolveOrCreatePerson($contact)) {
                 $updates['person_id'] = $person->id;
                 $updates['lead_id'] = optional($person->leads()->latest()->first())->id;
                 $updates['status'] = 'open';
@@ -96,6 +101,68 @@ class ConversationResolver
             null,
             (string) config('whatsapp.gateway'),
         );
+    }
+
+    /**
+     * The Person behind an incoming number: the one already in the CRM, or a
+     * newly registered one when the number is unknown.
+     */
+    public function resolveOrCreatePerson(ContactIdentity $contact): ?Model
+    {
+        if (! $contact->phone) {
+            return null;
+        }
+
+        if ($person = $this->resolvePerson($contact->phone)) {
+            return $person;
+        }
+
+        if (! config('whatsapp.auto_create_person')) {
+            return null;
+        }
+
+        return $this->createPerson($contact);
+    }
+
+    /**
+     * Register a Person for a number nobody has in the CRM yet.
+     *
+     * Goes through PersonRepository so Krayin builds unique_id and stores custom
+     * attribute values exactly as it does for a contact created by hand.
+     *
+     * Never lets a failure here lose the message: the conversation is still
+     * created, just unassigned.
+     */
+    protected function createPerson(ContactIdentity $contact): ?Model
+    {
+        // Stored without the leading "+", matching how the CRM already holds numbers.
+        $digits = PhoneNumber::digits($contact->phone);
+
+        try {
+            $person = app(PersonRepository::class)->create([
+                // PersonRepository hands this straight to the attribute layer,
+                // which keys custom attributes off entity_type.
+                'entity_type'     => 'persons',
+                'name'            => $contact->name ?: $digits,
+                'emails'          => [], // NOT NULL in the schema; a WhatsApp contact has none
+                'contact_numbers' => [['label' => 'work', 'value' => $digits]],
+            ]);
+
+            Log::info('WhatsApp: registered a new person for an unknown number', [
+                'person_id' => $person->id,
+                'name'      => $person->name,
+                'phone'     => $digits,
+            ]);
+
+            return $person;
+        } catch (Throwable $e) {
+            Log::warning('WhatsApp: could not auto-create person', [
+                'phone' => $digits,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     /**
