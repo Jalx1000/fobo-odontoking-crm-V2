@@ -23,6 +23,14 @@ abstract class BaseGateway implements Gateway
     }
 
     /**
+     * Default: no messaging window. WhatsApp gateways override to 24.
+     */
+    public function messagingWindowHours(): ?int
+    {
+        return null;
+    }
+
+    /**
      * HMAC of the RAW body. Never re-encode the JSON first — a re-serialized
      * body produces a different digest and every request fails.
      */

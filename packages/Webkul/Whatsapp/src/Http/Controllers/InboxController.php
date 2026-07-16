@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Webkul\Whatsapp\Gateways\Dto\MessagingWindow;
 use Webkul\Whatsapp\Gateways\GatewayManager;
 use Webkul\Whatsapp\Jobs\SendMessage;
 use Webkul\Whatsapp\Models\ConversationProxy;
@@ -61,6 +62,39 @@ class InboxController extends Controller
             'messages'     => $messages->values(),
             'server_time'  => $serverTime->toDateTimeString(),
             'capabilities' => $gateway->capabilities()->toArray(),
+            'window'       => MessagingWindow::compute(
+                $gateway->messagingWindowHours(),
+                $conversation?->last_inbound_at,
+            )->toArray(),
+            'agent'        => [
+                // raw = the per-conversation override (null = inherit global);
+                // effective = what actually applies right now.
+                'enabled'   => $conversation?->ai_enabled,
+                'effective' => $conversation ? $conversation->aiEffective() : (bool) config('whatsapp.ai.enabled'),
+            ],
+        ]);
+    }
+
+    /**
+     * Turn the AI agent on/off for a conversation.
+     *
+     * Off is what lets a human take over: the event sender only notifies the
+     * agent while this is on, so turning it off stops AI replies and hands the
+     * conversation to the advisor.
+     */
+    public function toggleAgent(Request $request, string $id): JsonResponse
+    {
+        $data = $request->validate(['enabled' => 'required|boolean']);
+
+        $conversation = ConversationProxy::modelClass()::findOrFail($id);
+
+        $conversation->update(['ai_enabled' => $data['enabled']]);
+
+        return response()->json([
+            'agent' => [
+                'enabled'   => $conversation->ai_enabled,
+                'effective' => $conversation->aiEffective(),
+            ],
         ]);
     }
 
@@ -76,10 +110,20 @@ class InboxController extends Controller
             'reply_to_id' => 'nullable|integer',
         ]);
 
-        $message = DB::transaction(function () use ($request, $data, $resolver) {
+        // Defense in depth: the UI locks the composer while the agent is on, but
+        // reject here too so a human can never talk over the agent.
+        $existing = $this->existingConversation($request);
+
+        if ($existing && $existing->aiEffective()) {
+            return response()->json([
+                'message' => 'El agente está activo en esta conversación. Desactivalo para escribir a mano.',
+            ], 422);
+        }
+
+        $message = DB::transaction(function () use ($existing, $data, $resolver) {
             // Reuse an existing conversation already linked to this person/lead
             // (inbound links person_id reliably); otherwise resolve by phone.
-            $conversation = $this->existingConversation($request)
+            $conversation = $existing
                 ?? $resolver->findOrCreate($data['phone'], $data['name'] ?? null);
 
             $message = MessageProxy::modelClass()::create([
@@ -169,6 +213,8 @@ class InboxController extends Controller
             'status'    => $message->status,
             'error'     => $message->error,
             'time'      => optional($message->created_at)->format('H:i'),
+            'date'      => optional($message->created_at)->toDateString(), // Y-m-d, for day separators
+            'timestamp' => optional($message->created_at)->toIso8601String(),
             'media'     => $message->media_path ? [
                 'url'      => $message->media_path,
                 'filename' => $message->media_name,

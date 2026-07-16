@@ -30,6 +30,7 @@ class Conversation extends Model implements ConversationContract
         'unread_count',
         'person_id',
         'lead_id',
+        'last_inbound_at',
     ];
 
     /**
@@ -40,6 +41,7 @@ class Conversation extends Model implements ConversationContract
     protected $casts = [
         'ai_enabled'      => 'boolean',
         'last_message_at' => 'datetime',
+        'last_inbound_at' => 'datetime',
     ];
 
     /**

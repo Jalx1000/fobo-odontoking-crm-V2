@@ -27,6 +27,7 @@
         :use-mock="{{ config('whatsapp.ui.use_mock') ? 'true' : 'false' }}"
         thread-url="{{ route('admin.whatsapp.thread') }}"
         send-url="{{ route('admin.whatsapp.send') }}"
+        agent-url-base="{{ url(config('app.admin_path').'/whatsapp/conversations') }}"
     ></v-whatsapp-inbox>
 </div>
 
@@ -47,18 +48,31 @@
                     </div>
                     <div class="flex flex-col">
                         <div class="text-sm font-semibold text-gray-800 dark:text-gray-100">@{{ context.name }}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                        <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                             <span v-if="context.phone">@{{ context.phone }}</span>
                             <span v-else class="rounded bg-amber-100 px-1.5 py-0.5 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Sin número</span>
+
+                            <!-- 24h WhatsApp window -->
+                            <span v-if="window.applies && window.open"
+                                  class="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                                  title="Tiempo restante para enviar texto libre">
+                                ⏱ @{{ windowLabel }}
+                            </span>
+                            <span v-else-if="window.applies && !window.open"
+                                  class="rounded-full bg-red-100 px-1.5 py-0.5 text-[11px] font-medium text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                                  title="Fuera de la ventana de 24h">
+                                Ventana cerrada
+                            </span>
                         </div>
                     </div>
                 </div>
 
                 <!-- AI agent switch -->
-                <label class="flex cursor-pointer items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                <label class="flex cursor-pointer items-center gap-2 text-xs text-gray-600 dark:text-gray-300"
+                       :class="agentToggling ? 'opacity-50 pointer-events-none' : ''">
                     <span>Agente IA</span>
                     <span class="relative inline-flex h-5 w-9 items-center">
-                        <input type="checkbox" v-model="aiEnabled" class="peer sr-only">
+                        <input type="checkbox" :checked="aiEnabled" @change="toggleAgent($event.target.checked)" class="peer sr-only">
                         <span class="h-5 w-9 rounded-full bg-gray-300 transition peer-checked:bg-emerald-500 dark:bg-gray-600"></span>
                         <span class="absolute left-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4"></span>
                     </span>
@@ -75,7 +89,14 @@
                     Sin mensajes todavía.
                 </div>
 
-                <template v-else v-for="msg in messages" :key="msg.id">
+                <template v-else v-for="(msg, i) in messages" :key="msg.id">
+                    <!-- day separator: Hoy / Ayer / 15 jul 2026 -->
+                    <div v-if="i === 0 || messages[i - 1].date !== msg.date" class="my-1 flex justify-center">
+                        <span class="rounded-full bg-black/10 px-3 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                            @{{ dayLabel(msg.date) }}
+                        </span>
+                    </div>
+
                     <div class="flex" :class="msg.direction === 'outbound' ? 'justify-end' : 'justify-start'">
                         <div
                             class="max-w-[78%] rounded-lg px-2.5 py-1.5 text-sm shadow-sm"
@@ -180,7 +201,23 @@
                     Este contacto no tiene número de WhatsApp. Asigna un teléfono para poder chatear.
                 </div>
 
-                <div v-else class="flex items-end gap-2">
+                <div v-else-if="aiEnabled" class="flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
+                    <span class="icon-robot text-base"></span>
+                    <span>El agente IA está atendiendo esta conversación. <button class="font-semibold underline" @click="toggleAgent(false)">Desactivalo</button> para escribir a mano.</span>
+                </div>
+
+                <div v-else-if="window.applies && !window.open" class="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-900/20 dark:text-red-300">
+                    Ventana de 24h cerrada. WhatsApp no permite texto libre hasta que el cliente vuelva a escribir (o usar una plantilla aprobada).
+                </div>
+
+                <template v-else>
+                    <!-- reminder to re-enable the agent when the human is done -->
+                    <div v-if="agentNote" class="mb-2 flex items-center justify-between rounded-md bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                        <span>Desactivaste el agente. Acordate de <button class="font-semibold underline" @click="toggleAgent(true)">reactivarlo</button> cuando termines.</span>
+                        <button class="ml-2 text-amber-600 hover:text-amber-800" @click="agentNote = false">✕</button>
+                    </div>
+
+                <div class="flex items-end gap-2">
                     <!-- Only rendered when the active provider can actually send attachments -->
                     <div v-if="canAttach" class="relative">
                         <button type="button" @click="showAttach = !showAttach"
@@ -213,6 +250,7 @@
                         <span class="icon-send text-xl"></span>
                     </button>
                 </div>
+                </template>
             </div>
         </div>
     </script>
@@ -226,6 +264,7 @@
                 useMock: { type: Boolean, default: true },
                 threadUrl: { type: String, default: '' },
                 sendUrl: { type: String, default: '' },
+                agentUrlBase: { type: String, default: '' },
             },
 
             data() {
@@ -241,6 +280,11 @@
                     // What the active provider can do. Conservative default:
                     // text only, until the server says otherwise.
                     capabilities: { send: ['text'], receive: [] },
+                    // WhatsApp 24h window; refreshed by every poll.
+                    window: { applies: false, open: true, seconds_left: null },
+                    conversationId: null,
+                    agentToggling: false,
+                    agentNote: false,
                 };
             },
 
@@ -252,6 +296,14 @@
 
                 canAttach() {
                     return ['image', 'document', 'audio'].some(type => this.canSend(type));
+                },
+
+                windowLabel() {
+                    let s = this.window.seconds_left;
+                    if (s == null) return '';
+                    const h = Math.floor(s / 3600);
+                    const m = Math.floor((s % 3600) / 60);
+                    return h > 0 ? `${h}h ${m}m` : `${m}m`;
                 },
             },
 
@@ -270,6 +322,27 @@
             methods: {
                 canSend(type) {
                     return (this.capabilities?.send ?? []).includes(type);
+                },
+
+                toggleAgent(enabled) {
+                    // Mock mode has no backend; just flip the flag.
+                    if (this.useMock) {
+                        this.aiEnabled = enabled;
+                        this.agentNote = !enabled;
+                        return;
+                    }
+                    if (!this.conversationId || this.agentToggling) return;
+
+                    this.agentToggling = true;
+                    this.$axios.patch(`${this.agentUrlBase}/${this.conversationId}/agent`, { enabled })
+                        .then(res => {
+                            this.aiEnabled = res.data?.agent?.effective ?? enabled;
+                            // Show the reminder only when the human just took over.
+                            this.agentNote = !this.aiEnabled;
+                            if (this.aiEnabled) this.showAttach = false;
+                        })
+                        .catch(() => {})
+                        .finally(() => { this.agentToggling = false; });
                 },
 
                 loadMock() {
@@ -318,6 +391,9 @@
                         .then(res => {
                             if (res.data?.server_time) this.since = res.data.server_time;
                             if (res.data?.capabilities) this.capabilities = res.data.capabilities;
+                            if (res.data?.window) this.window = res.data.window;
+                            if (res.data?.conversation?.id) this.conversationId = res.data.conversation.id;
+                            if (res.data?.agent) this.aiEnabled = res.data.agent.effective;
 
                             const incoming = res.data?.messages ?? [];
                             if (!incoming.length) return;
@@ -344,7 +420,7 @@
                     if (this.useMock) {
                         const msg = {
                             id: Date.now(), direction: 'outbound', sender: 'human', type: 'text',
-                            text, time: this.now(), status: 'queued', replyTo: this.replyingTo,
+                            text, time: this.now(), date: this.today(), status: 'queued', replyTo: this.replyingTo,
                         };
                         this.messages.push(msg);
                         this.replyingTo = null;
@@ -362,7 +438,7 @@
                     const replyId = this.replyingTo?.id ?? null;
                     this.messages.push({
                         id: tempId, direction: 'outbound', sender: 'human', type: 'text',
-                        text, time: this.now(), status: 'queued', replyTo: this.replyingTo,
+                        text, time: this.now(), date: this.today(), status: 'queued', replyTo: this.replyingTo,
                     });
                     this.replyingTo = null;
                     this.scrollToBottom();
@@ -395,7 +471,7 @@
                     };
                     this.messages.push({
                         id: Date.now(), direction: 'outbound', sender: 'human',
-                        time: this.now(), status: 'sent', ...samples[type],
+                        time: this.now(), date: this.today(), status: 'sent', ...samples[type],
                     });
                     this.scrollToBottom();
                 },
@@ -414,6 +490,23 @@
                 now() {
                     const d = new Date();
                     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                },
+
+                today() {
+                    const d = new Date();
+                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                },
+
+                dayLabel(date) {
+                    if (!date) return '';
+                    const today = new Date(); today.setHours(0, 0, 0, 0);
+                    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+                    // date is 'Y-m-d'; parse as local midnight
+                    const [y, m, d] = date.split('-').map(Number);
+                    const dt = new Date(y, m - 1, d);
+                    if (dt.getTime() === today.getTime()) return 'Hoy';
+                    if (dt.getTime() === yesterday.getTime()) return 'Ayer';
+                    return dt.toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' });
                 },
 
                 scrollToBottom() {

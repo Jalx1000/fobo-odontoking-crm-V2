@@ -17,4 +17,5 @@ Route::controller(InboxController::class)
     ->group(function () {
         Route::get('thread', 'thread')->name('thread');
         Route::post('send', 'send')->name('send');
+        Route::patch('conversations/{id}/agent', 'toggleAgent')->name('agent');
     });

@@ -74,7 +74,7 @@ class IngestInboundPayload implements ShouldQueue
             return;
         }
 
-        $model::create([
+        $created = $model::create([
             'conversation_id' => $conversation->id,
             'direction'       => 'inbound',
             'type'            => $inbound->type,
@@ -88,8 +88,15 @@ class IngestInboundPayload implements ShouldQueue
 
         $conversation->forceFill([
             'last_message_at' => now(),
+            'last_inbound_at' => now(), // reopens the 24h messaging window
             'unread_count'    => $conversation->unread_count + 1,
         ])->save();
+
+        // Hand the message to the AI agent — but only while it is enabled for
+        // this conversation. Off = a human is handling it.
+        if ($conversation->aiEffective()) {
+            NotifyAgent::dispatch($created->id)->onQueue(config('whatsapp.queue'));
+        }
     }
 
     /**

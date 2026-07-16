@@ -51,6 +51,7 @@ class ConversationResolver
             'person_id'                => $person?->id,
             'lead_id'                  => $person ? optional($person->leads()->latest()->first())->id : null,
             'status'                   => $person ? 'open' : 'unassigned',
+            'ai_enabled'               => true, // new conversations start with the agent on
         ]);
     }
 

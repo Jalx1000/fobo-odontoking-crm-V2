@@ -48,6 +48,13 @@ class KommoGateway extends BaseGateway
         return new Capabilities(send: ['text'], receive: ['text']);
     }
 
+    public function messagingWindowHours(): ?int
+    {
+        // Kommo delivers over the WhatsApp Business API, so the 24h window
+        // applies here too (the customer's error 3108 is that rule).
+        return 24;
+    }
+
     public function webhookSecurity(): WebhookSecurity
     {
         // Kommo signs nothing: it just POSTs to whatever URL is pasted in its

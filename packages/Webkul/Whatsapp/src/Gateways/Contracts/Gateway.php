@@ -31,6 +31,13 @@ interface Gateway
      */
     public function capabilities(): Capabilities;
 
+    /**
+     * Length of the provider's free-text messaging window, in hours, or null if
+     * it has none. WhatsApp gateways return 24; a non-WhatsApp channel returns
+     * null (no window).
+     */
+    public function messagingWindowHours(): ?int;
+
     /*
     |--------------------------------------------------------------------------
     | Inbound

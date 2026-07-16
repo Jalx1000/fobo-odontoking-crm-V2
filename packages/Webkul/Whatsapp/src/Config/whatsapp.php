@@ -97,6 +97,7 @@ return [
     'ai' => [
         'enabled'      => env('WHATSAPP_AI_ENABLED', false),
         'webhook_url'  => env('WHATSAPP_AGENT_WEBHOOK_URL'),
+        'token'        => env('WHATSAPP_AGENT_TOKEN'), // Bearer the CRM sends so the agent knows it's us
         'history_size' => env('WHATSAPP_AGENT_HISTORY_SIZE', 15),
     ],
 

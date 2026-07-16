@@ -43,6 +43,11 @@ class CloudApiGateway extends BaseGateway
         return WebhookSecurity::SIGNATURE;
     }
 
+    public function messagingWindowHours(): ?int
+    {
+        return 24;
+    }
+
     /**
      * Meta's subscription handshake. Query keys arrive as hub.mode /
      * hub.verify_token / hub.challenge; PHP turns the dots into underscores.
