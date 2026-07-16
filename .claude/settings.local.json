@@ -82,7 +82,9 @@
       "Skill(artifact-design)",
       "Artifact",
       "Bash(python3 -)",
-      "Bash(awk '{print \"  \"$1\" \"$11\" \"$12}')"
+      "Bash(awk '{print \"  \"$1\" \"$11\" \"$12}')",
+      "Bash(curl -s -o /dev/null \"https://imprimir.sofopolis.com/api/v1/whatsapp/conversations/5/messages\" -H 'Accept: application/json')",
+      "Bash(echo \"listener escrito\")"
     ]
   }
 }

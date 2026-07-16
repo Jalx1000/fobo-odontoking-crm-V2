@@ -246,8 +246,11 @@
                     ></textarea>
 
                     <button type="button" @click="send" :disabled="!draft.trim()"
+                            title="Enviar"
                             class="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-white transition hover:bg-emerald-600 disabled:opacity-40">
-                        <span class="icon-send text-xl"></span>
+                        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor" aria-hidden="true">
+                            <path d="M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a1 1 0 00-1.38 1.2L4.4 11 12 12l-7.6 1-2.38 6.2a1 1 0 001.38 1.2z"/>
+                        </svg>
                     </button>
                 </div>
                 </template>
