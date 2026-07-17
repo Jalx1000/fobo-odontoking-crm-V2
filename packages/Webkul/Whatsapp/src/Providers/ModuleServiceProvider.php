@@ -14,5 +14,6 @@ class ModuleServiceProvider extends BaseModuleServiceProvider
     protected $models = [
         \Webkul\Whatsapp\Models\Conversation::class,
         \Webkul\Whatsapp\Models\Message::class,
+        \Webkul\Whatsapp\Models\QuickReply::class,
     ];
 }

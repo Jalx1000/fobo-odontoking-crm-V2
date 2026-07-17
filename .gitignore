@@ -44,3 +44,5 @@ node_modules/
 !/package.json
 !/package-lock.json
 !/phpunit.xml
+# Build de Vite del admin: artefacto generado, se compila en cada servidor
+/public/admin/build

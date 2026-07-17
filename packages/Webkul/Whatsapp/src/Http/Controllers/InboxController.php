@@ -6,6 +6,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use Webkul\Activity\Models\ActivityProxy;
+use Webkul\Activity\Repositories\ActivityRepository;
+use Webkul\Contact\Models\PersonProxy;
+use Webkul\Lead\Models\LeadProxy;
 use Webkul\Whatsapp\Gateways\Dto\MessagingWindow;
 use Webkul\Whatsapp\Gateways\GatewayManager;
 use Webkul\Whatsapp\Jobs\SendMessage;
@@ -49,6 +54,13 @@ class InboxController extends Controller
             }
 
             $messages = $messages->map(fn ($message) => $this->transform($message));
+
+            // Internal notes live as Krayin note-activities on the linked
+            // person/lead — merge them into the stream chronologically.
+            $messages = $messages
+                ->concat($this->notesFor($conversation, $since))
+                ->sortBy('timestamp')
+                ->values();
         }
 
         // Resolve against the conversation's own gateway so history created
@@ -147,6 +159,95 @@ class InboxController extends Controller
     }
 
     /**
+     * Store an internal team note on the conversation.
+     *
+     * The note is a native Krayin activity (type=note) attached to the
+     * conversation's person/lead, so it also shows on their timeline. It is
+     * never a whatsapp_message: it cannot reach the customer or the AI agent.
+     */
+    public function storeNote(Request $request, string $id, ActivityRepository $activities): JsonResponse
+    {
+        $data = $request->validate(['comment' => 'required|string']);
+
+        $conversation = ConversationProxy::modelClass()::findOrFail($id);
+
+        if (! $conversation->person_id && ! $conversation->lead_id) {
+            return response()->json([
+                'message' => 'Asigná un contacto o lead a la conversación antes de dejar notas.',
+            ], 422);
+        }
+
+        Event::dispatch('activity.create.before');
+
+        $activity = $activities->create([
+            'type'    => 'note',
+            'comment' => $data['comment'],
+            'is_done' => 1,
+            'user_id' => auth()->guard('user')->id(),
+        ]);
+
+        // Attach to whatever the conversation is linked to (both when both):
+        // the note must be visible from the person's and the lead's timeline.
+        if ($conversation->person_id && ($person = PersonProxy::modelClass()::find($conversation->person_id))) {
+            $person->activities()->attach($activity->id);
+        }
+
+        if ($conversation->lead_id && ($lead = LeadProxy::modelClass()::find($conversation->lead_id))) {
+            $lead->activities()->attach($activity->id);
+        }
+
+        Event::dispatch('activity.create.after', $activity);
+
+        return response()->json(['note' => $this->transformNote($activity->load('user'))]);
+    }
+
+    /**
+     * Note-activities of the conversation's person/lead, shaped for the inbox.
+     * Honors the same `since` cursor as messages.
+     */
+    protected function notesFor($conversation, ?string $since)
+    {
+        if (! $conversation->person_id && ! $conversation->lead_id) {
+            return collect();
+        }
+
+        $query = ActivityProxy::modelClass()::query()
+            ->with('user')
+            ->where('type', 'note')
+            ->where(function ($q) use ($conversation) {
+                if ($conversation->person_id) {
+                    $q->orWhereHas('persons', fn ($p) => $p->where('persons.id', $conversation->person_id));
+                }
+
+                if ($conversation->lead_id) {
+                    $q->orWhereHas('leads', fn ($l) => $l->where('leads.id', $conversation->lead_id));
+                }
+            });
+
+        $notes = $since
+            ? $query->where('activities.updated_at', '>=', $since)->orderBy('activities.id')->limit(200)->get()
+            : $query->orderByDesc('activities.id')->limit(200)->get()->sortBy('id')->values();
+
+        return $notes->map(fn ($note) => $this->transformNote($note));
+    }
+
+    /**
+     * Shape a note-activity like a thread item (kind=note tells the UI apart).
+     */
+    protected function transformNote($activity): array
+    {
+        return [
+            'id'        => 'note-'.$activity->id,
+            'kind'      => 'note',
+            'text'      => $activity->comment,
+            'author'    => $activity->user?->name,
+            'time'      => optional($activity->created_at)->format('H:i'),
+            'date'      => optional($activity->created_at)->toDateString(),
+            'timestamp' => optional($activity->created_at)->toIso8601String(),
+        ];
+    }
+
+    /**
      * Resolve the conversation for a thread request (read-only).
      */
     protected function resolveConversation(Request $request)
@@ -162,6 +263,11 @@ class InboxController extends Controller
     protected function existingConversation(Request $request)
     {
         $model = ConversationProxy::modelClass();
+
+        // The standalone chat page addresses conversations directly.
+        if ($conversationId = $request->input('conversation_id')) {
+            return $model::find($conversationId);
+        }
 
         if ($personId = $request->input('person_id')) {
             $conversation = $this->preferActiveGateway($model::where('person_id', $personId))->first();

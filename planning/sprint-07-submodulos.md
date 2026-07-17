@@ -12,43 +12,51 @@
 |---|---|
 | Chat | **Página propia** en el menú (lista de conversaciones + thread), no solo el tab por contacto |
 | Respuestas rápidas | **Globales + por usuario** (cada asesor ve las suyas y las del equipo) |
-| Notas internas | Visibles para **todo el equipo**, inline en el hilo, **nunca** se mandan al cliente **ni** al agente IA |
-| Recordatorios | Tabla propia + comando agendado; avisa al **usuario asignado**; se apoya en el scheduler que ya corre |
-| Variables en respuestas rápidas/plantillas cortas | Sustitución básica: `{{nombre}}` → nombre del contacto |
+| Notas internas | Son **actividades tipo `note` de Krayin**, vinculadas al lead/contacto. Aparecen inline en el chat **y** en el timeline del lead. Nunca van al cliente ni al agente IA |
+| Recordatorios | **Diferido** (se hace después). Cuando se haga, usará `schedule_from/to` de las actividades de Krayin |
+| Variables en respuestas rápidas | Sustitución básica: `{{nombre}}` → nombre del contacto |
 
-## Cambios de esquema (todos nuevos, sin tocar lo existente)
+## Cambios de esquema (solo uno nuevo)
 
 ```
-whatsapp_messages         + user_id (nullable, FK users)   ← autor de notas y de envíos humanos
 whatsapp_quick_replies    (nueva)
-whatsapp_reminders        (nueva)
 ```
 
-Las notas **reutilizan `whatsapp_messages`** con `type='note'` y `direction='internal'`,
-así aparecen en el hilo en orden cronológico. El envío por gateway nunca se dispara
-para ellas, y quedan excluidas del historial que ve el agente IA.
+**Las notas NO usan tabla propia**: son actividades del módulo `Activity` de Krayin
+(`type='note'`, `is_done=1`), enganchadas al `person`/`lead` de la conversación por los
+pivotes `person_activities` / `lead_activities`. Ventajas: la nota aparece en el timeline
+del contacto sin duplicar datos, y por no ser un `whatsapp_message` queda **naturalmente
+excluida** del envío por gateway y del historial que ve el agente IA.
 
 ---
 
-# Módulo A · Notas internas  `[BAJO]`
+# Módulo A · Notas internas (como actividad de Krayin)  `[BAJO]`
 
-Notas del equipo dentro de la conversación. No van al cliente.
+Una nota escrita en el chat de WhatsApp crea una **actividad `type='note'`** enganchada
+al `person`/`lead` de la conversación. Aparece inline en el chat y en el timeline del
+contacto. No va al cliente.
 
-### HU-N1 · Esquema + modelo — 0.5d `[BACK]`
-- Migración `user_id` en `whatsapp_messages`. Tipo `note`, dirección `internal`.
-- `Message` gana relación `author()` (User).
-**AC:** una nota se guarda con `type=note`, `direction=internal`, `user_id` del autor.
+### HU-N1 · Endpoint de nota → actividad — 1d `[BACK]`
+- `POST admin/whatsapp/conversations/{id}/notes` `{comment}`.
+- Resuelve la conversación; si no tiene `person_id` ni `lead_id`, responde 422
+  ("asigná el contacto antes de dejar notas" — una actividad necesita una entidad).
+- Crea la actividad vía `ActivityRepository::create([type=>'note', comment, is_done=>1,
+  user_id=>auth user])` y la engancha al `person` (y `lead` si existe) por los pivotes,
+  replicando lo que hace el listener `activity.create.after` de Krayin.
+- Dispara los eventos `activity.create.before/after` para que se comporte como una nota nativa.
+**AC:** la nota aparece en el timeline del lead/contacto igual que una creada a mano; sin envío a WhatsApp.
 
-### HU-N2 · Endpoint + aislamiento — 0.5d `[BACK]`
-- `POST admin/whatsapp/conversations/{id}/notes` `{body}`.
-- Nunca despacha `SendMessage`.
-- `AgentPayload::history()` y el evento **excluyen** `direction='internal'` (las notas no se filtran al agente IA ni al cliente).
-**AC:** crear una nota no genera ningún envío a WhatsApp; el evento al agente no la incluye.
+### HU-N2 · Notas inline en el chat — 1d `[BACK]`
+- El endpoint `thread` (y el de la lista/página) **mergea** las actividades `note` del
+  `person`/`lead` de la conversación dentro del stream de mensajes, ordenadas por `created_at`.
+- Cada ítem-nota trae: `comment`, autor (`user`), `created_at`, marcado como `kind: 'note'`.
+- Las notas **no** entran en `AgentPayload` (ya excluidas: no son `whatsapp_messages`).
+**AC:** las notas se intercalan cronológicamente en el hilo; el evento al agente no las incluye.
 
 ### HU-N3 · Front: modo Mensaje / Nota — 1d `[FRONT]`
-- Toggle en la barra de escritura: **Mensaje** (verde, va a WhatsApp) / **Nota** (amarillo, interna).
-- Las notas se renderizan distinto (fondo ámbar, "Nota · Juan · 14:03"), a lo ancho.
-**AC:** en modo Nota, el texto se guarda como interna y se ve en el hilo sin salir al cliente.
+- Toggle en la barra de escritura: **Mensaje** (verde, va a WhatsApp) / **Nota** (ámbar, interna).
+- Las notas se renderizan distinto (fondo ámbar, "Nota · Juan · 14:03"), a lo ancho, no como burbuja.
+**AC:** en modo Nota, el texto crea la actividad y se ve en el hilo sin salir al cliente.
 
 ---
 
@@ -100,33 +108,11 @@ Es donde viven naturalmente los otros tres.
 
 ---
 
-# Módulo D · Recordatorios  `[MEDIO]`
+# Módulo D · Recordatorios  `[DIFERIDO]`
 
-Programar un follow-up en una conversación y recibir aviso.
-
-### HU-R1 · Esquema + modelo — 0.5d `[BACK]`
-- `whatsapp_reminders`: `id`, `conversation_id` FK, `user_id` FK (a quién avisar),
-  `created_by` FK, `body`, `remind_at`, `status` (pending/done/cancelled), `completed_at`,
-  timestamps, índice `(status, remind_at)`.
-**AC:** crear un recordatorio pendiente con fecha/hora futura.
-
-### HU-R2 · Endpoints + comando agendado — 1d `[BACK]`
-- `POST/GET/PATCH admin/whatsapp/conversations/{id}/reminders` (crear, listar, completar/cancelar).
-- `GET admin/whatsapp/reminders` → los pendientes del usuario.
-- Comando `whatsapp:reminders:fire` agendado `everyMinute`: marca los vencidos y genera
-  el aviso (registra una Activity de Krayin sobre el lead + queda "vencido" en el chat).
-**AC:** un recordatorio con `remind_at` pasado se marca vencido y aparece el aviso.
-
-### HU-R3 · Front: crear / listar / marcar hecho — 1d `[FRONT]`
-- Acción en el hilo: "Recordarme…" con selector de fecha/hora + nota.
-- Indicador en el header del chat cuando hay recordatorios vencidos.
-- Lista de pendientes del asesor.
-**AC:** se crea un recordatorio desde el chat, se ve en la lista y se puede marcar hecho.
-
-### HU-R4 · Infra — 0.25d `[DEVOPS]`
-- Confirmar que `php artisan schedule:run` corre cada minuto en el server (hoy ya agenda
-  `inbound-emails:process`, así que el scheduler está vivo — solo verificar).
-**AC:** el comando de recordatorios se dispara solo, sin intervención.
+Postergado a pedido. Cuando se retome, se apoya en las actividades de Krayin
+(`schedule_from`/`schedule_to` + el scheduler que ya corre) en vez de una tabla propia —
+así un recordatorio es una actividad agendada más, visible en el timeline del lead.
 
 ---
 
@@ -135,17 +121,18 @@ Programar un follow-up en una conversación y recibir aviso.
 1. **Notas internas** — chico, cero riesgo, útil de inmediato.
 2. **Respuestas rápidas** — chico, mejora la productividad del asesor.
 3. **Chat (página propia)** — el contenedor donde se integran los demás.
-4. **Recordatorios** — depende del scheduler; se prueba solo.
+4. ~~Recordatorios~~ — diferido.
 
-**Total estimado: ~2 semanas** (1 dev). Front y back en paralelo lo comprimen.
+**Total estimado: ~1.5 semanas** (1 dev). Front y back en paralelo lo comprimen.
 
 ## Definición de Hecho (global)
 - `pint` limpio, `php -l` OK.
 - Nada de esto dispara envíos al gateway salvo el mensaje real (las notas nunca).
 - Las notas no aparecen en el evento/historial que ve el agente IA.
+- Las notas quedan registradas como actividad en el timeline del lead/contacto.
 - Verificado contra la BD real en el contenedor.
 
 ## Fuera de alcance (a propósito)
 - **Plantillas** (submódulo aparte).
+- **Recordatorios** (diferido).
 - **Reverb / tiempo real** (sigue polling).
-- Notificaciones push/email de recordatorios (por ahora Activity + indicador en el chat).

@@ -84,7 +84,8 @@
       "Bash(python3 -)",
       "Bash(awk '{print \"  \"$1\" \"$11\" \"$12}')",
       "Bash(curl -s -o /dev/null \"https://imprimir.sofopolis.com/api/v1/whatsapp/conversations/5/messages\" -H 'Accept: application/json')",
-      "Bash(echo \"listener escrito\")"
+      "Bash(echo \"listener escrito\")",
+      "Bash(node -e \"const fs=require\\('fs'\\);const s=fs.readFileSync\\('packages/Webkul/Whatsapp/src/Resources/views/inbox.blade.php','utf8'\\);const m=[...s.matchAll\\(/<script type=\\\\\"module\\\\\">\\([\\\\s\\\\S]*?\\)<\\\\/script>/g\\)];const js=m[m.length-1][1].replace\\(/@\\\\{\\\\{/g,'{{'\\);try{new Function\\(js\\);console.log\\('JS OK'\\)}catch\\(e\\){console.log\\('JS ERR',e.message\\)}\")"
     ]
   }
 }

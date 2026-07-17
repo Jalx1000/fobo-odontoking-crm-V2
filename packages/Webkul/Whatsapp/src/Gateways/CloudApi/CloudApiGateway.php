@@ -33,7 +33,7 @@ class CloudApiGateway extends BaseGateway
     {
         // Only what is implemented today. Grows as sendMedia lands.
         return new Capabilities(
-            send: ['text', 'reply'],
+            send: ['text', 'reply', 'emoji'],
             receive: ['text', 'image', 'audio', 'document', 'video', 'sticker', 'location', 'contact'],
         );
     }
