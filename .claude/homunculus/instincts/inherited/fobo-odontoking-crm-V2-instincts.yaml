@@ -1,0 +1,725 @@
+# Instincts generated from https://github.com/Jalx1000/fobo-odontoking-crm-V2
+# Generated: 2026-07-17T05:27:08.452Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: fobo-odontoking-crm-V2-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: feat, fix, style, refactor
+
+## Evidence
+
+- 83 commits analyzed
+- Detected conventional commit pattern
+- Examples: feat(dashboard): add leads and sales statistics by city, fix(LeadDataGrid): exclude system activities from lead activities column
+
+---
+id: fobo-odontoking-crm-V2-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Commit Length
+
+## Action
+
+Write moderate-length commit messages (~63 characters)
+
+## Evidence
+
+- Average commit message length: 63 chars
+- Based on 83 commits
+
+---
+id: fobo-odontoking-crm-V2-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: fobo-odontoking-crm-V2-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: fobo-odontoking-crm-V2-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: fobo-odontoking-crm-V2-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: fobo-odontoking-crm-V2-workflow-database-migration
+trigger: "when modifying the database schema or adding tables"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Workflow Database Migration
+
+## Action
+
+Follow the database-migration workflow:
+1. Create migration file
+2. Update schema definitions
+3. Generate/update types
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: 
+
+---
+id: fobo-odontoking-crm-V2-workflow-feature-development
+trigger: "when implementing a new feature"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Workflow Feature Development
+
+## Action
+
+Follow the feature-development workflow:
+1. Add feature implementation
+2. Add tests for feature
+3. Update documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~17x per month
+- Files: packages/webkul/admin/src/resources/views/components/activities/*, packages/webkul/admin/src/resources/views/components/attributes/edit/*, packages/webkul/admin/src/resources/views/components/layouts/*
+
+---
+id: fobo-odontoking-crm-V2-workflow-refactoring
+trigger: "when refactoring code"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Workflow Refactoring
+
+## Action
+
+Follow the refactoring workflow:
+1. Ensure tests pass before refactor
+2. Refactor code structure
+3. Verify tests still pass
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/**/*
+
+---
+id: fobo-odontoking-crm-V2-workflow-add-or-update-dashboard-statistics
+trigger: "when doing add or update dashboard statistics"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Workflow Add Or Update Dashboard Statistics
+
+## Action
+
+Follow the add-or-update-dashboard-statistics workflow:
+1. Update or add methods in Dashboard.php and Reporting helper classes (e.g., Reporting/Lead.php, Reporting/Product.php)
+2. Update DashboardController.php to map new or changed endpoints
+3. Create or modify Blade view files under views/dashboard/index/*.blade.php to display the new statistics
+4. Update translations if new labels are introduced
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: packages/Webkul/Admin/src/Helpers/Dashboard.php, packages/Webkul/Admin/src/Helpers/Reporting/Lead.php, packages/Webkul/Admin/src/Helpers/Reporting/Product.php
+
+---
+id: fobo-odontoking-crm-V2-workflow-add-or-enhance-data-grid-columns
+trigger: "when doing add or enhance data grid columns"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Workflow Add Or Enhance Data Grid Columns
+
+## Action
+
+Follow the add-or-enhance-data-grid-columns workflow:
+1. Modify the relevant DataGrid PHP class (e.g., LeadDataGrid.php, ProductDataGrid.php) to add or update columns
+2. Update value formatting or add logic for select/lookup/custom attributes
+3. Update related Blade views if UI changes are needed
+4. Optionally update translations for new column labels
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: packages/Webkul/Admin/src/DataGrids/Lead/LeadDataGrid.php, packages/Webkul/Admin/src/DataGrids/Product/ProductDataGrid.php, packages/Webkul/Admin/src/Resources/views/*/*.blade.php
+
+---
+id: fobo-odontoking-crm-V2-workflow-add-or-update-api-endpoint
+trigger: "when doing add or update api endpoint"
+confidence: 0.55
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Workflow Add Or Update Api Endpoint
+
+## Action
+
+Follow the add-or-update-api-endpoint workflow:
+1. Create or update a Controller (e.g., ProductoController.php) in the appropriate package
+2. Add or update route definitions (e.g., Routes/api.php)
+3. Write or update tests (e.g., tests/Feature/*Test.php)
+4. Update OpenAPI docs or inline documentation as needed
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~1x per month
+- Files: packages/Webkul/Doctor/src/Http/Controllers/Api/*.php, packages/Webkul/Doctor/src/Routes/api.php, tests/Feature/*Test.php
+
+---
+id: fobo-odontoking-crm-V2-workflow-add-or-update-lead-attribute-or-behavior
+trigger: "when doing add or update lead attribute or behavior"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Workflow Add Or Update Lead Attribute Or Behavior
+
+## Action
+
+Follow the add-or-update-lead-attribute-or-behavior workflow:
+1. Modify LeadDataGrid.php or Lead model to add/display new attributes
+2. Update lead-related Blade views (create, edit, view, products, etc.)
+3. Update translations for new/changed fields
+4. Optionally add migrations for new DB columns
+5. Add or update notification logic (e.g., email on lead confirmation)
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: packages/Webkul/Admin/src/DataGrids/Lead/LeadDataGrid.php, packages/Webkul/Admin/src/Resources/views/leads/*.blade.php, packages/Webkul/Admin/src/Resources/lang/es/app.php
+
+---
+id: fobo-odontoking-crm-V2-workflow-update-spanish-translations
+trigger: "when doing update spanish translations"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Workflow Update Spanish Translations
+
+## Action
+
+Follow the update-spanish-translations workflow:
+1. Edit packages/Webkul/Admin/src/Resources/lang/es/app.php and/or other lang files
+2. Update related Blade views to use new/changed translation keys
+3. Update controller or config files if translation keys are referenced in PHP
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: packages/Webkul/Admin/src/Resources/lang/es/app.php, packages/Webkul/Admin/src/Resources/views/**/*.blade.php
+
+---
+id: fobo-odontoking-crm-V2-workflow-docker-configuration-update
+trigger: "when doing docker configuration update"
+confidence: 0.55
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Workflow Docker Configuration Update
+
+## Action
+
+Follow the docker-configuration-update workflow:
+1. Edit or add Dockerfile and related files (docker/, .dockerignore, entrypoint.sh, etc.)
+2. Update or add configuration files (php.ini, vhost.conf, nginx.conf, supervisord.conf)
+3. Commit lockfiles or adjust .gitignore as needed for build stability
+4. Document build fixes or changes for the team
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~1x per month
+- Files: Dockerfile, .dockerignore, docker/*
+
+---
+id: fobo-odontoking-crm-V2-workflow-toggle-or-refactor-ui-components
+trigger: "when doing toggle or refactor ui components"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Workflow Toggle Or Refactor Ui Components
+
+## Action
+
+Follow the toggle-or-refactor-ui-components workflow:
+1. Comment out or uncomment sections in Blade view files
+2. Update logic or conditions in the view to hide/show components
+3. Optionally update controller logic if needed
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: packages/Webkul/Admin/src/Resources/views/**/*.blade.php
+
+---
+id: fobo-odontoking-crm-v2-instinct-file-naming
+trigger: "When creating or renaming a file in the codebase"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct File Naming
+
+## Action
+
+Use camelCase for file names
+
+## Evidence
+
+- Pattern in namingConventions.files: camelCase
+
+---
+id: fobo-odontoking-crm-v2-instinct-function-naming
+trigger: "When defining a new function"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Function Naming
+
+## Action
+
+Use camelCase for function names
+
+## Evidence
+
+- Pattern in namingConventions.functions: camelCase
+
+---
+id: fobo-odontoking-crm-v2-instinct-class-naming
+trigger: "When defining a new class"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Class Naming
+
+## Action
+
+Use PascalCase for class names
+
+## Evidence
+
+- Pattern in namingConventions.classes: PascalCase
+
+---
+id: fobo-odontoking-crm-v2-instinct-constant-naming
+trigger: "When defining a constant"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Constant Naming
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for constant names
+
+## Evidence
+
+- Pattern in namingConventions.constants: SCREAMING_SNAKE_CASE
+
+---
+id: fobo-odontoking-crm-v2-instinct-import-style
+trigger: "When importing modules in JavaScript"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Import Style
+
+## Action
+
+Use relative import paths
+
+## Evidence
+
+- Pattern in importStyle: relative
+
+---
+id: fobo-odontoking-crm-v2-instinct-export-style
+trigger: "When exporting modules in JavaScript"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Export Style
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- Pattern in exportStyle: named
+
+---
+id: fobo-odontoking-crm-v2-instinct-test-location
+trigger: "When adding or updating tests"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Test Location
+
+## Action
+
+Place test files in a separate test directory
+
+## Evidence
+
+- Pattern in architecture.folderStructure.testLocation: separate
+
+---
+id: fobo-odontoking-crm-v2-instinct-feature-test-pattern
+trigger: "When implementing a new feature"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Feature Test Pattern
+
+## Action
+
+Add or update corresponding test files (e.g., **/*.test.* or tests/Feature/*Test.php)
+
+## Evidence
+
+- feature-development workflow includes test files
+- add-or-update-api-endpoint workflow includes tests/Feature/*Test.php
+
+---
+id: fobo-odontoking-crm-v2-instinct-refactor-test-check
+trigger: "Before and after refactoring code"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Refactor Test Check
+
+## Action
+
+Ensure all tests pass before and after the refactor
+
+## Evidence
+
+- refactoring workflow: Ensure tests pass before refactor, Verify tests still pass
+
+---
+id: fobo-odontoking-crm-v2-instinct-git-commit-format
+trigger: "When writing a git commit message"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Git Commit Format
+
+## Action
+
+Use Conventional Commits format: <type>(<scope>): <description>
+
+## Evidence
+
+- commits.type: conventional
+- commits.prefixes: feat, fix, style, refactor
+- commit examples
+
+---
+id: fobo-odontoking-crm-v2-instinct-git-commit-length
+trigger: "When writing a git commit message"
+confidence: 0.8
+domain: git
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Git Commit Length
+
+## Action
+
+Keep the commit message concise (around 60-70 characters)
+
+## Evidence
+
+- commits.averageLength: 63
+
+---
+id: fobo-odontoking-crm-v2-instinct-add-dashboard-statistics
+trigger: "When someone wants to introduce new business insights or update existing dashboard charts"
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Add Dashboard Statistics
+
+## Action
+
+Update or add methods in Dashboard.php and Reporting helpers, update DashboardController, modify Blade views under views/dashboard/index, and update translations if needed
+
+## Evidence
+
+- add-or-update-dashboard-statistics workflow
+- commits and files in workflow example
+
+---
+id: fobo-odontoking-crm-v2-instinct-add-enhance-datagrid-column
+trigger: "When someone wants to display new data or improve how data is shown in admin data grids"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Add Enhance Datagrid Column
+
+## Action
+
+Modify the relevant DataGrid PHP class, update value formatting, update related Blade views, and optionally update translations for new column labels
+
+## Evidence
+
+- add-or-enhance-data-grid-columns workflow
+- commits and files in workflow example
+
+---
+id: fobo-odontoking-crm-v2-instinct-add-update-api-endpoint
+trigger: "When someone wants to expose new backend functionality or data via API"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Add Update Api Endpoint
+
+## Action
+
+Create or update a Controller, update route definitions, write or update tests, and update OpenAPI or inline documentation
+
+## Evidence
+
+- add-or-update-api-endpoint workflow
+- commits and files in workflow example
+
+---
+id: fobo-odontoking-crm-v2-instinct-add-update-lead-attribute
+trigger: "When someone wants to track new lead data, change how lead attributes are displayed, or automate lead-related actions"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Add Update Lead Attribute
+
+## Action
+
+Modify LeadDataGrid.php or Lead model, update lead-related Blade views, update translations, optionally add migrations, and update notification logic
+
+## Evidence
+
+- add-or-update-lead-attribute-or-behavior workflow
+- commits and files in workflow example
+
+---
+id: fobo-odontoking-crm-v2-instinct-update-spanish-translations
+trigger: "When someone adds new UI elements, changes terminology, or standardizes language"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Update Spanish Translations
+
+## Action
+
+Edit Spanish lang files, update related Blade views, and update controller/config files if translation keys are referenced
+
+## Evidence
+
+- update-spanish-translations workflow
+- commits and files in workflow example
+
+---
+id: fobo-odontoking-crm-v2-instinct-docker-config-update
+trigger: "When someone needs to improve, fix, or add containerization/deployment support"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Docker Config Update
+
+## Action
+
+Edit or add Dockerfile and related files, update configuration files, commit lockfiles or adjust .gitignore, and document build changes
+
+## Evidence
+
+- docker-configuration-update workflow
+- commits and files in workflow example
+
+---
+id: fobo-odontoking-crm-v2-instinct-toggle-refactor-ui-component
+trigger: "When someone needs to disable, hide, or later restore UI elements due to bugs, feature toggling, or refactoring"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: Jalx1000/fobo-odontoking-crm-V2
+---
+
+# Fobo Odontoking Crm V2 Instinct Toggle Refactor Ui Component
+
+## Action
+
+Comment out or uncomment sections in Blade view files, update logic/conditions to hide/show components, and optionally update controller logic
+
+## Evidence
+
+- toggle-or-refactor-ui-components workflow
+- commits and files in workflow example
+

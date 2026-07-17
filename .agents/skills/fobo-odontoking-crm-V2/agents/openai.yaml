@@ -1,0 +1,6 @@
+interface:
+  display_name: "Fobo Odontoking Crm V2"
+  short_description: "Repo-specific patterns and workflows for fobo-odontoking-crm-V2"
+  default_prompt: "Use the fobo-odontoking-crm-V2 repo skill to follow existing architecture, testing, and workflow conventions."
+policy:
+  allow_implicit_invocation: true
