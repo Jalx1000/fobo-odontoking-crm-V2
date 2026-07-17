@@ -33,6 +33,7 @@ Route::controller(ChatController::class)
         Route::get('persons/{id}', 'person')->name('person');
         Route::post('persons/{id}/leads', 'storeLead')->name('person.leads');
         Route::get('products', 'products')->name('products');
+        Route::get('stages', 'stages')->name('stages');
     });
 
 Route::controller(QuickReplyController::class)

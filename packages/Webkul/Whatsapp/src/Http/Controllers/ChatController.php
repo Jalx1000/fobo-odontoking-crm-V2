@@ -74,6 +74,18 @@ class ChatController extends Controller
                     ->whereColumn('conversation_id', 'whatsapp_conversations.id')
                     ->orderByDesc('id')->limit(1),
                 'last_direction'
+            )
+            // Stage of the contact's active (or latest) lead, for the row badge.
+            ->selectSub(
+                DB::table('leads')
+                    ->join('lead_pipeline_stages', 'lead_pipeline_stages.id', '=', 'leads.lead_pipeline_stage_id')
+                    ->whereColumn('leads.person_id', 'whatsapp_conversations.person_id')
+                    // Raw fragments don't get the table prefix automatically.
+                    ->orderByRaw('('.DB::getTablePrefix().'leads.status = 1) desc')
+                    ->orderByDesc('leads.id')
+                    ->limit(1)
+                    ->select('lead_pipeline_stages.name'),
+                'stage_name'
             );
 
         if ($search = trim((string) $request->input('search'))) {
@@ -90,6 +102,17 @@ class ChatController extends Controller
             default      => null,
         };
 
+        // Filter by lead stage (by NAME: stages repeat across pipelines).
+        if ($stage = trim((string) $request->input('stage'))) {
+            $query->whereExists(function ($q) use ($stage) {
+                $q->select(DB::raw(1))
+                    ->from('leads')
+                    ->join('lead_pipeline_stages', 'lead_pipeline_stages.id', '=', 'leads.lead_pipeline_stage_id')
+                    ->whereColumn('leads.person_id', 'whatsapp_conversations.person_id')
+                    ->where('lead_pipeline_stages.name', $stage);
+            });
+        }
+
         $conversations = $query
             ->orderByRaw('last_message_at is null')
             ->orderByDesc('last_message_at')
@@ -105,6 +128,7 @@ class ChatController extends Controller
                 'lead_id'      => $c->lead_id,
                 'unread_count' => (int) $c->unread_count,
                 'ai_enabled'   => $c->aiEffective(),
+                'stage'        => $c->stage_name,
                 'preview'      => $c->last_direction
                     ? ($c->last_direction === 'outbound' ? '↩ ' : '').Str::limit((string) $c->last_body, 60)
                     : null,
@@ -112,6 +136,19 @@ class ChatController extends Controller
             ]),
             'current_page' => $conversations->currentPage(),
             'last_page'    => $conversations->lastPage(),
+        ]);
+    }
+
+    /**
+     * Stage names of the default pipeline, for the list's stage filter.
+     */
+    public function stages(): JsonResponse
+    {
+        $pipeline = PipelineProxy::modelClass()::where('is_default', 1)->first()
+            ?? PipelineProxy::modelClass()::firstOrFail();
+
+        return response()->json([
+            'stages' => $pipeline->stages()->orderBy('sort_order')->pluck('name')->unique()->values(),
         ]);
     }
 
@@ -140,6 +177,68 @@ class ChatController extends Controller
             ? ConversationProxy::modelClass()::whereIn('id', $conversationIds)->max('last_inbound_at')
             : null;
 
+        // Follow-up snapshot: who spoke last and how long ago — that's what
+        // tells the advisor whether this client is waiting on them.
+        $lastMessage = $conversationIds->isNotEmpty()
+            ? $messageModel::whereIn('conversation_id', $conversationIds)
+                ->orderByDesc('id')
+                ->first(['direction', 'sender', 'created_at'])
+            : null;
+
+        // Latest open lead: the thing being followed up.
+        $activeLead = $person->leads->first(fn ($lead) => (int) $lead->status === 1)
+            ?? $person->leads->first();
+
+        // Next scheduled activity (call/meeting) for this person, if any.
+        $nextActivity = DB::table('activities')
+            ->join('person_activities', 'person_activities.activity_id', '=', 'activities.id')
+            ->where('person_activities.person_id', $person->id)
+            ->where('activities.is_done', 0)
+            ->whereNotNull('activities.schedule_from')
+            ->where('activities.schedule_from', '>=', now())
+            ->orderBy('activities.schedule_from')
+            ->first(['activities.title', 'activities.type', 'activities.schedule_from']);
+
+        // Shared media (images/documents) and links, WhatsApp-Web style.
+        $media = $conversationIds->isNotEmpty()
+            ? $messageModel::whereIn('conversation_id', $conversationIds)
+                ->whereIn('type', ['image', 'document'])
+                ->whereNotNull('media_path')
+                ->orderByDesc('id')->limit(60)
+                ->get(['id', 'type', 'media_path', 'media_name', 'created_at'])
+            : collect();
+
+        $links = $conversationIds->isNotEmpty()
+            ? $messageModel::whereIn('conversation_id', $conversationIds)
+                ->where('type', 'text')
+                ->where('body', 'like', '%http%')
+                ->orderByDesc('id')->limit(30)
+                ->get(['id', 'body', 'direction', 'created_at'])
+                ->flatMap(function ($message) {
+                    preg_match_all('/https?:\/\/[^\s<>"\']+/i', (string) $message->body, $matches);
+
+                    return collect($matches[0])->map(fn ($url) => [
+                        'url'  => $url,
+                        'date' => optional($message->created_at)->format('d/m/Y'),
+                    ]);
+                })->unique('url')->take(30)->values()
+            : collect();
+
+        // Products attached to this client's leads (the "Productos" tab).
+        $products = DB::table('lead_products')
+            ->join('leads', 'leads.id', '=', 'lead_products.lead_id')
+            ->join('products', 'products.id', '=', 'lead_products.product_id')
+            ->where('leads.person_id', $person->id)
+            ->orderByDesc('lead_products.id')
+            ->limit(30)
+            ->get([
+                'products.name',
+                'lead_products.quantity',
+                'lead_products.price',
+                'lead_products.amount',
+                'leads.title as lead_title',
+            ]);
+
         return response()->json([
             'person' => [
                 'id'              => $person->id,
@@ -162,6 +261,44 @@ class ChatController extends Controller
                     'first_contact' => $firstMessageAt ? \Illuminate\Support\Carbon::parse($firstMessageAt)->format('d/m/Y') : null,
                     'last_inbound'  => $lastInboundAt ? \Illuminate\Support\Carbon::parse($lastInboundAt)->format('d/m/Y H:i') : null,
                 ],
+                'followup'        => [
+                    'awaiting_reply'     => $lastMessage?->direction === 'inbound',
+                    'last_message_human' => $lastMessage
+                        ? \Illuminate\Support\Carbon::parse($lastMessage->created_at)->locale('es')->diffForHumans()
+                        : null,
+                    'last_sender'        => $lastMessage
+                        ? ($lastMessage->direction === 'inbound' ? 'el cliente' : ($lastMessage->sender === 'ia' ? 'la IA' : 'El asesor'))
+                        : null,
+                ],
+                'active_lead'     => $activeLead ? [
+                    'title'     => $activeLead->title,
+                    'stage'     => $activeLead->stage->name ?? null,
+                    'value'     => $activeLead->lead_value ? number_format((float) $activeLead->lead_value, 2) : null,
+                    'days_open' => (int) $activeLead->created_at?->diffInDays(now()),
+                    'url'       => route('admin.leads.view', $activeLead->id),
+                ] : null,
+                'next_activity'   => $nextActivity ? [
+                    'title' => $nextActivity->title,
+                    'type'  => $nextActivity->type,
+                    'date'  => \Illuminate\Support\Carbon::parse($nextActivity->schedule_from)->format('d/m/Y H:i'),
+                ] : null,
+                'images'          => $media->where('type', 'image')->map(fn ($m) => [
+                    'url'  => $m->media_path,
+                    'date' => optional($m->created_at)->format('d/m/Y'),
+                ])->values(),
+                'documents'       => $media->where('type', 'document')->map(fn ($m) => [
+                    'url'  => $m->media_path,
+                    'name' => $m->media_name ?: 'Documento',
+                    'date' => optional($m->created_at)->format('d/m/Y'),
+                ])->values(),
+                'links'           => $links,
+                'products'        => $products->map(fn ($p) => [
+                    'name'       => $p->name,
+                    'quantity'   => (int) $p->quantity,
+                    'price'      => $p->price !== null ? number_format((float) $p->price, 2) : null,
+                    'amount'     => $p->amount !== null ? number_format((float) $p->amount, 2) : null,
+                    'lead_title' => $p->lead_title,
+                ])->values(),
                 'leads_total'     => number_format((float) $person->leads->sum('lead_value'), 2),
                 'leads'           => $person->leads->map(fn ($lead) => [
                     'id'         => $lead->id,

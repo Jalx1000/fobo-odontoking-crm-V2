@@ -6,15 +6,19 @@
     </style>
 
     <script type="text/x-template" id="v-whatsapp-inbox-template">
-        <div class="flex flex-col overflow-hidden"
+        <div class="relative flex overflow-hidden"
              :class="fullHeight ? 'h-full' : 'rounded-lg border border-gray-200 dark:border-gray-800'">
+        <!-- chat column -->
+        <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
             <!-- Header -->
             <div class="flex items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
                 <div class="-m-1 flex items-center gap-3 rounded-md p-1"
-                     :class="context.personId ? 'cursor-pointer transition hover:bg-gray-200/60 dark:hover:bg-gray-800' : ''"
+                     :class="context.personId ? 'cursor-pointer transition hover:bg-gray-200/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandColor dark:hover:bg-gray-800' : ''"
                      :title="context.personId ? 'Ver detalle del cliente' : null"
                      :role="context.personId ? 'button' : null"
-                     @click="openProfile">
+                     :tabindex="context.personId ? 0 : null"
+                     @click="openProfile"
+                     @keydown.enter="openProfile">
                     <div class="flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium"
                          :class="avatarColor(context.name)">
                         @{{ initials }}
@@ -189,7 +193,9 @@
                         <div class="font-semibold text-brandColor">Respondiendo a @{{ replyingTo.author }}</div>
                         <div class="truncate text-gray-600 dark:text-gray-300">@{{ replyingTo.preview }}</div>
                     </div>
-                    <button class="ml-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200" @click="replyingTo = null">✕</button>
+                    <button type="button" aria-label="Cancelar respuesta"
+                            class="ml-2 rounded text-gray-500 transition hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandColor dark:hover:text-gray-200"
+                            @click="replyingTo = null">✕</button>
                 </div>
 
                 <!-- Mensaje / Nota interna: the note works even with the agent on
@@ -252,7 +258,9 @@
                     <!-- reminder to re-enable the agent when the human is done -->
                     <div v-if="agentNote" class="mb-2 flex items-center justify-between rounded-md bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
                         <span>Desactivaste el agente. Acordate de <button class="font-semibold underline" @click="toggleAgent(true)">reactivarlo</button> cuando termines.</span>
-                        <button class="ml-2 text-amber-600 hover:text-amber-800" @click="agentNote = false">✕</button>
+                        <button type="button" aria-label="Descartar aviso"
+                                class="ml-2 rounded text-amber-600 transition hover:text-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                                @click="agentNote = false">✕</button>
                     </div>
 
                 <div class="relative flex items-end gap-2">
@@ -354,106 +362,234 @@
                 </template>
             </div>
 
-            <!-- Client profile drawer -->
-            <Teleport to="body">
-                <x-admin::drawer ref="profileDrawer">
-                    <x-slot:header>
-                        <h3 class="text-base font-semibold dark:text-white">Detalle del cliente</h3>
-                    </x-slot>
+            </div>
+            <!-- /chat column -->
 
-                    <x-slot:content>
-                        <div v-if="profileLoading" class="flex justify-center py-14">
-                            <x-admin::spinner />
+            <!-- Client detail sidebar (WhatsApp-Web style) -->
+            <aside v-if="profileOpen"
+                   class="absolute inset-y-0 right-0 z-10 flex w-full max-w-[320px] flex-col border-l border-gray-200 bg-white shadow-xl lg:static lg:shadow-none dark:border-gray-800 dark:bg-gray-900">
+                <!-- sidebar header -->
+                <div class="flex items-center justify-between border-b border-gray-200 px-3 py-2 dark:border-gray-800">
+                    <h3 class="text-sm font-semibold text-gray-800 dark:text-white">Detalle del cliente</h3>
+                    <button type="button" aria-label="Cerrar detalle"
+                            class="flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandColor dark:hover:bg-gray-800"
+                            @click="profileOpen = false">
+                        <span class="icon-cross-large text-lg"></span>
+                    </button>
+                </div>
+
+                <div v-if="profileLoading" class="flex flex-1 items-center justify-center py-14">
+                    <x-admin::spinner />
+                </div>
+
+                <template v-else-if="profile">
+                    <!-- identity -->
+                    <div class="flex flex-col items-center gap-1.5 border-b border-gray-200 px-3 py-4 text-center dark:border-gray-800">
+                        <div class="flex h-16 w-16 items-center justify-center rounded-full text-xl font-medium"
+                             :class="avatarColor(profile.name)">
+                            @{{ initials }}
+                        </div>
+                        <p class="text-base font-bold text-gray-900 dark:text-white">@{{ profile.name }}</p>
+                        <p v-if="profile.job_title || profile.organization" class="text-xs text-gray-500 dark:text-gray-400">
+                            @{{ [profile.job_title, profile.organization].filter(Boolean).join(' · ') }}
+                        </p>
+                        <p v-if="profile.owner" class="text-[11px] text-gray-400">Asesor: @{{ profile.owner }}</p>
+                        <div v-if="profile.tags.length" class="flex flex-wrap justify-center gap-1">
+                            <span v-for="tag in profile.tags" :key="tag.name"
+                                  class="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                                  :style="tag.color ? `background:${tag.color}22;color:${tag.color}` : ''"
+                                  :class="tag.color ? '' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'">
+                                @{{ tag.name }}
+                            </span>
                         </div>
 
-                        <template v-else-if="profile">
-                            <!-- identity -->
-                            <div class="mb-4 flex flex-col items-center gap-2 rounded-lg bg-gradient-to-b from-gray-100 to-transparent px-4 pb-2 pt-5 text-center dark:from-gray-800/60">
-                                <div class="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-medium"
-                                     :class="avatarColor(profile.name)">
-                                    @{{ initials }}
+                        <!-- follow-up status, right under the name -->
+                        <div v-if="profile.followup.awaiting_reply"
+                             class="mt-1 w-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                            <span class="font-semibold"><span class="icon-error text-xs" aria-hidden="true"></span> El cliente espera respuesta</span>
+                            <span v-if="profile.followup.last_message_human"> - escribió @{{ profile.followup.last_message_human }}</span>
+                        </div>
+                        <div v-else-if="profile.followup.last_message_human"
+                             class="mt-1 w-full rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
+                            <span class="font-semibold">Al día</span> - @{{ profile.followup.last_sender }} respondió @{{ profile.followup.last_message_human }}
+                        </div>
+                    </div>
+
+                    <!-- tabs -->
+                    <div class="flex shrink-0 gap-0.5 overflow-x-auto border-b border-gray-200 px-1.5 dark:border-gray-800">
+                        <button v-for="t in visibleProfileTabs" :key="t.id" type="button"
+                                class="whitespace-nowrap px-2 py-2 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brandColor"
+                                :class="profileTab === t.id
+                                    ? 'border-b-2 border-brandColor !text-brandColor'
+                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+                                @click="profileTab = t.id">
+                            @{{ t.label }}
+                        </button>
+                    </div>
+
+                    <!-- tab content -->
+                    <div class="wa-scroll min-h-0 flex-1 overflow-y-auto p-3">
+                        <!-- Info: follow-up summary -->
+                        <template v-if="profileTab === 'info'">
+                            <div v-if="window.applies && !window.open"
+                                 class="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
+                                Ventana de 24h cerrada - solo podés responder cuando el cliente vuelva a escribir.
+                            </div>
+
+                            <!-- active lead -->
+                            <p class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Pedido en curso</p>
+                            <a v-if="profile.active_lead" :href="profile.active_lead.url" target="_blank"
+                               class="group mb-3 block rounded-lg border border-gray-200 p-2.5 transition hover:border-brandColor dark:border-gray-800">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="truncate text-sm font-medium text-gray-800 group-hover:text-brandColor dark:text-gray-200">@{{ profile.active_lead.title }}</span>
+                                    <span v-if="profile.active_lead.value" class="shrink-0 text-sm font-semibold text-gray-700 dark:text-gray-300">$@{{ profile.active_lead.value }}</span>
                                 </div>
-                                <div class="min-w-0">
-                                    <p class="text-lg font-bold text-gray-900 dark:text-white">@{{ profile.name }}</p>
-                                    <p v-if="profile.job_title || profile.organization" class="text-sm text-gray-500 dark:text-gray-400">
-                                        @{{ [profile.job_title, profile.organization].filter(Boolean).join(' · ') }}
-                                    </p>
-                                    <p v-if="profile.owner" class="mt-0.5 text-xs text-gray-400">Asesor: @{{ profile.owner }}</p>
+                                <div class="mt-1 flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                                    <span v-if="profile.active_lead.stage" class="rounded-full bg-sky-100 px-2 py-px font-medium text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">@{{ profile.active_lead.stage }}</span>
+                                    <span>abierto hace @{{ profile.active_lead.days_open }} día@{{ profile.active_lead.days_open === 1 ? '' : 's' }}</span>
                                 </div>
-                                <div v-if="profile.tags.length" class="flex flex-wrap justify-center gap-1">
-                                    <span v-for="tag in profile.tags" :key="tag.name"
-                                          class="rounded-full px-2 py-0.5 text-[11px] font-medium"
-                                          :style="tag.color ? `background:${tag.color}22;color:${tag.color}` : ''"
-                                          :class="tag.color ? '' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'">
-                                        @{{ tag.name }}
-                                    </span>
+                            </a>
+                            <button v-else type="button"
+                                    class="mb-3 block w-full rounded-lg border border-dashed border-gray-300 px-3 py-3 text-center text-xs text-gray-400 transition hover:border-brandColor hover:text-brandColor dark:border-gray-700"
+                                    @click="profileTab = 'pedidos'; leadFormOpen = true">
+                                Sin pedido en curso — crear uno
+                            </button>
+
+                            <!-- next scheduled activity -->
+                            <p class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Próxima actividad</p>
+                            <div v-if="profile.next_activity" class="mb-3 flex items-center gap-2 rounded-lg border border-gray-200 px-2.5 py-2 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-300">
+                                <span class="icon-calendar text-lg text-brandColor"></span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="block truncate">@{{ profile.next_activity.title || profile.next_activity.type }}</span>
+                                    <span class="text-[11px] text-gray-400">@{{ profile.next_activity.date }}</span>
+                                </span>
+                            </div>
+                            <p v-else class="mb-3 rounded-lg border border-dashed border-gray-300 px-3 py-2.5 text-center text-xs text-gray-400 dark:border-gray-700">
+                                Sin actividades programadas.
+                            </p>
+
+                            <div class="mb-3 grid grid-cols-3 gap-2">
+                                <div class="rounded-lg border border-gray-200 p-2 text-center dark:border-gray-800">
+                                    <p class="text-base font-bold text-gray-900 dark:text-white">@{{ profile.whatsapp.messages }}</p>
+                                    <p class="text-[10px] text-gray-500 dark:text-gray-400">Mensajes</p>
+                                </div>
+                                <div class="rounded-lg border border-gray-200 p-2 text-center dark:border-gray-800">
+                                    <p class="text-base font-bold text-gray-900 dark:text-white">@{{ profile.leads.length }}</p>
+                                    <p class="text-[10px] text-gray-500 dark:text-gray-400">Pedidos</p>
+                                </div>
+                                <div class="rounded-lg border border-gray-200 p-2 text-center dark:border-gray-800">
+                                    <p class="truncate text-base font-bold text-brandColor">$@{{ profile.leads_total }}</p>
+                                    <p class="text-[10px] text-gray-500 dark:text-gray-400">Valor</p>
                                 </div>
                             </div>
 
-                            <!-- key numbers -->
-                            <div class="mb-4 grid grid-cols-3 gap-2">
-                                <div class="rounded-lg border border-gray-200 p-2.5 text-center dark:border-gray-800">
-                                    <p class="text-lg font-bold text-gray-900 dark:text-white">@{{ profile.whatsapp.messages }}</p>
-                                    <p class="text-[11px] text-gray-500 dark:text-gray-400">Mensajes</p>
+                            <p class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Contacto</p>
+                            <div class="mb-3 flex flex-col divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+                                <div v-for="phone in profile.contact_numbers" :key="'ph-' + phone" class="flex items-center gap-2 px-2.5 py-1.5 text-sm text-gray-700 dark:text-gray-300">
+                                    <span class="icon-call text-base text-brandColor"></span> @{{ phone }}
                                 </div>
-                                <div class="rounded-lg border border-gray-200 p-2.5 text-center dark:border-gray-800">
-                                    <p class="text-lg font-bold text-gray-900 dark:text-white">@{{ profile.leads.length }}</p>
-                                    <p class="text-[11px] text-gray-500 dark:text-gray-400">Leads</p>
+                                <div v-for="email in profile.emails" :key="'em-' + email" class="flex items-center gap-2 px-2.5 py-1.5 text-sm text-gray-700 dark:text-gray-300">
+                                    <span class="icon-mail text-base text-brandColor"></span> <span class="truncate">@{{ email }}</span>
                                 </div>
-                                <div class="rounded-lg border border-gray-200 p-2.5 text-center dark:border-gray-800">
-                                    <p class="truncate text-lg font-bold text-brandColor">$@{{ profile.leads_total }}</p>
-                                    <p class="text-[11px] text-gray-500 dark:text-gray-400">Valor leads</p>
+                                <div v-if="profile.created_at" class="flex items-center gap-2 px-2.5 py-1.5 text-sm text-gray-700 dark:text-gray-300">
+                                    <span class="icon-calendar text-base text-brandColor"></span> Cliente desde @{{ profile.created_at }}
                                 </div>
                             </div>
 
-                            <!-- contact data -->
-                            <p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">Contacto</p>
-                            <div class="mb-4 flex flex-col divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-                                <div v-for="phone in profile.contact_numbers" :key="'ph-' + phone" class="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
-                                    <span class="icon-call text-lg text-brandColor"></span> @{{ phone }}
-                                </div>
-                                <div v-for="email in profile.emails" :key="'em-' + email" class="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
-                                    <span class="icon-mail text-lg text-brandColor"></span> <span class="truncate">@{{ email }}</span>
-                                </div>
-                                <div v-if="profile.created_at" class="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
-                                    <span class="icon-calendar text-lg text-brandColor"></span> Cliente desde @{{ profile.created_at }}
-                                </div>
-                                <p v-if="!profile.contact_numbers.length && !profile.emails.length" class="px-3 py-2 text-sm text-gray-400">
-                                    Sin datos de contacto registrados.
-                                </p>
-                            </div>
-
-                            <!-- whatsapp activity -->
-                            <p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">Actividad en WhatsApp</p>
-                            <div class="mb-4 flex flex-col divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-                                <div class="flex items-center justify-between px-3 py-2 text-sm">
+                            <p class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Actividad en WhatsApp</p>
+                            <div class="flex flex-col divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+                                <div class="flex items-center justify-between px-2.5 py-1.5 text-xs">
                                     <span class="text-gray-500 dark:text-gray-400">Primer contacto</span>
                                     <span class="font-medium text-gray-800 dark:text-gray-200">@{{ profile.whatsapp.first_contact || '—' }}</span>
                                 </div>
-                                <div class="flex items-center justify-between px-3 py-2 text-sm">
-                                    <span class="text-gray-500 dark:text-gray-400">Último mensaje del cliente</span>
+                                <div class="flex items-center justify-between px-2.5 py-1.5 text-xs">
+                                    <span class="text-gray-500 dark:text-gray-400">Último mensaje</span>
                                     <span class="font-medium text-gray-800 dark:text-gray-200">@{{ profile.whatsapp.last_inbound || '—' }}</span>
                                 </div>
-                                <div class="flex items-center justify-between px-3 py-2 text-sm">
+                                <div class="flex items-center justify-between px-2.5 py-1.5 text-xs">
                                     <span class="text-gray-500 dark:text-gray-400">Canal</span>
-                                    <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium capitalize text-gray-700 dark:bg-gray-800 dark:text-gray-300">@{{ gateway || 'WhatsApp' }}</span>
+                                    <span class="rounded-full bg-gray-100 px-2 py-0.5 font-medium capitalize text-gray-700 dark:bg-gray-800 dark:text-gray-300">@{{ gateway || 'WhatsApp' }}</span>
                                 </div>
                             </div>
+                        </template>
 
-                            <!-- leads -->
+                        <!-- Imágenes -->
+                        <template v-else-if="profileTab === 'imagenes'">
+                            <div v-if="profile.images.length" class="grid grid-cols-3 gap-1.5">
+                                <a v-for="(img, i) in profile.images" :key="'img-' + i" :href="img.url" target="_blank" :title="img.date">
+                                    <img :src="img.url" class="h-20 w-full rounded-md object-cover transition hover:opacity-80" alt="imagen compartida">
+                                </a>
+                            </div>
+                            <p v-else class="rounded-lg border border-dashed border-gray-300 px-3 py-6 text-center text-xs text-gray-400 dark:border-gray-700">
+                                Sin imágenes compartidas en la conversación.
+                            </p>
+                        </template>
+
+                        <!-- Documentos -->
+                        <template v-else-if="profileTab === 'documentos'">
+                            <div v-if="profile.documents.length" class="flex flex-col divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+                                <a v-for="(doc, i) in profile.documents" :key="'doc-' + i" :href="doc.url" target="_blank"
+                                   class="flex items-center gap-2 px-2.5 py-2 transition hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <span class="icon-file text-lg text-gray-400"></span>
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate text-sm text-gray-800 dark:text-gray-200">@{{ doc.name }}</span>
+                                        <span class="text-[11px] text-gray-400">@{{ doc.date }}</span>
+                                    </span>
+                                </a>
+                            </div>
+                            <p v-else class="rounded-lg border border-dashed border-gray-300 px-3 py-6 text-center text-xs text-gray-400 dark:border-gray-700">
+                                Sin documentos compartidos.
+                            </p>
+                        </template>
+
+                        <!-- Enlaces -->
+                        <template v-else-if="profileTab === 'enlaces'">
+                            <div v-if="profile.links.length" class="flex flex-col divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+                                <a v-for="(link, i) in profile.links" :key="'lnk-' + i" :href="link.url" target="_blank" rel="noopener"
+                                   class="block px-2.5 py-2 transition hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <span class="block truncate text-sm text-brandColor underline">@{{ link.url }}</span>
+                                    <span class="text-[11px] text-gray-400">@{{ link.date }}</span>
+                                </a>
+                            </div>
+                            <p v-else class="rounded-lg border border-dashed border-gray-300 px-3 py-6 text-center text-xs text-gray-400 dark:border-gray-700">
+                                Sin enlaces compartidos.
+                            </p>
+                        </template>
+
+                        <!-- Productos -->
+                        <template v-else-if="profileTab === 'productos'">
+                            <div v-if="profile.products.length" class="flex flex-col divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+                                <div v-for="(prod, i) in profile.products" :key="'prod-' + i" class="px-2.5 py-2">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="truncate text-sm font-medium text-gray-800 dark:text-gray-200">@{{ prod.name }}</span>
+                                        <span v-if="prod.amount" class="shrink-0 text-sm font-semibold text-gray-700 dark:text-gray-300">$@{{ prod.amount }}</span>
+                                    </div>
+                                    <div class="mt-0.5 flex items-center gap-2 text-[11px] text-gray-400">
+                                        <span>x@{{ prod.quantity }}</span>
+                                        <span v-if="prod.price">· $@{{ prod.price }} c/u</span>
+                                        <span class="truncate">· @{{ prod.lead_title }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <p v-else class="rounded-lg border border-dashed border-gray-300 px-3 py-6 text-center text-xs text-gray-400 dark:border-gray-700">
+                                Sin productos en los pedidos de este cliente.
+                            </p>
+                        </template>
+
+                        <!-- Pedidos (leads) -->
+                        <template v-else-if="profileTab === 'pedidos'">
                             <div class="mb-1.5 flex items-center justify-between">
-                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                    Leads (@{{ profile.leads.length }})
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                                    Pedidos (@{{ profile.leads.length }})
                                 </p>
                                 <button type="button"
                                         class="text-xs font-semibold text-brandColor transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandColor"
                                         @click="leadFormOpen = !leadFormOpen">
-                                    + Nuevo lead
+                                    + Nuevo
                                 </button>
                             </div>
 
-                            <!-- quick lead creation -->
-                            <div v-if="leadFormOpen" class="mb-3 flex flex-col gap-2 rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+                            <div v-if="leadFormOpen" class="mb-3 flex flex-col gap-2 rounded-lg border border-gray-200 p-2.5 dark:border-gray-800">
                                 <div>
                                     <label class="mb-1.5 flex items-center gap-1 text-sm font-normal text-gray-800 dark:text-white required">Título</label>
                                     <input v-model="leadForm.title" placeholder="Ej: Cotización tarjetas"
@@ -467,40 +603,40 @@
                                 <div class="flex justify-end gap-2">
                                     <button type="button" class="secondary-button !py-1 text-sm" @click="leadFormOpen = false">Cancelar</button>
                                     <button type="button" class="primary-button !py-1 text-sm" :disabled="!leadForm.title.trim() || leadSaving" @click="createLead">
-                                        @{{ leadSaving ? 'Creando…' : 'Crear lead' }}
+                                        @{{ leadSaving ? 'Creando…' : 'Crear' }}
                                     </button>
                                 </div>
-                                <p class="text-[11px] text-gray-400">Se crea en el pipeline por defecto, primera etapa, con fuente "WhatsApp".</p>
+                                <p class="text-[10px] text-gray-400">Pipeline por defecto, primera etapa, fuente "WhatsApp".</p>
                             </div>
 
                             <div v-if="profile.leads.length" class="flex flex-col gap-2">
                                 <a v-for="lead in profile.leads" :key="lead.id" :href="lead.url" target="_blank"
-                                   class="group rounded-lg border border-gray-200 p-3 transition hover:border-brandColor hover:shadow-sm dark:border-gray-800 dark:hover:border-brandColor">
+                                   class="group rounded-lg border border-gray-200 p-2.5 transition hover:border-brandColor hover:shadow-sm dark:border-gray-800 dark:hover:border-brandColor">
                                     <div class="flex items-center justify-between gap-2">
                                         <span class="truncate text-sm font-medium text-gray-800 group-hover:text-brandColor dark:text-gray-200 dark:group-hover:text-brandColor">@{{ lead.title }}</span>
                                         <span v-if="lead.value" class="shrink-0 text-sm font-semibold text-gray-700 dark:text-gray-300">$@{{ lead.value }}</span>
                                     </div>
-                                    <div class="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                    <div class="mt-1 flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
                                         <span v-if="lead.stage" class="rounded-full bg-sky-100 px-2 py-px font-medium text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">@{{ lead.stage }}</span>
                                         <span>@{{ lead.created_at }}</span>
                                     </div>
                                 </a>
                             </div>
 
-                            <p v-else class="rounded-lg border border-dashed border-gray-300 px-3 py-4 text-center text-sm text-gray-400 dark:border-gray-700">
-                                Este cliente no tiene leads.
+                            <p v-else-if="!leadFormOpen" class="rounded-lg border border-dashed border-gray-300 px-3 py-6 text-center text-xs text-gray-400 dark:border-gray-700">
+                                Este cliente no tiene pedidos.
                             </p>
                         </template>
-                    </x-slot>
+                    </div>
 
-                    <x-slot:footer class="border-t border-gray-200 p-3 !pb-3 dark:border-gray-800">
-                        <a v-if="profile" :href="profile.view_url" target="_blank"
-                           class="primary-button w-full justify-center">
+                    <!-- sidebar footer -->
+                    <div class="border-t border-gray-200 p-2.5 dark:border-gray-800">
+                        <a :href="profile.view_url" target="_blank" class="primary-button w-full justify-center !py-1.5 text-sm">
                             Ver perfil completo
                         </a>
-                    </x-slot>
-                </x-admin::drawer>
-            </Teleport>
+                    </div>
+                </template>
+            </aside>
 
             <!-- Product picker: fills the producto/precio variables of a quick reply -->
             <Teleport to="body">
@@ -561,10 +697,16 @@
                                     <p class="truncate text-xs text-gray-500 dark:text-gray-400">@{{ r.content }}</p>
                                 </div>
                                 <div class="flex shrink-0 items-center gap-1">
-                                    <span class="icon-edit cursor-pointer rounded-md p-1.5 text-xl transition-all hover:bg-gray-100 dark:hover:bg-gray-950"
-                                          role="button" title="Editar" @click="editQuickReply(r)"></span>
-                                    <span class="icon-delete cursor-pointer rounded-md p-1.5 text-xl transition-all hover:bg-gray-100 dark:hover:bg-gray-950"
-                                          role="button" title="Eliminar" @click="deleteQuickReply(r)"></span>
+                                    <button type="button" aria-label="Editar respuesta rápida" title="Editar"
+                                            class="rounded-md p-1.5 transition-all hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandColor dark:hover:bg-gray-950"
+                                            @click="editQuickReply(r)">
+                                        <span class="icon-edit text-xl" aria-hidden="true"></span>
+                                    </button>
+                                    <button type="button" aria-label="Eliminar respuesta rápida" title="Eliminar"
+                                            class="rounded-md p-1.5 transition-all hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandColor dark:hover:bg-gray-950"
+                                            @click="deleteQuickReply(r)">
+                                        <span class="icon-delete text-xl" aria-hidden="true"></span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -636,6 +778,10 @@
         // remounts per conversation, so they live outside the component).
         const waDrafts = {};
 
+        // The client detail opens by default; if the advisor closes it, we
+        // respect that for the rest of the session (survives remounts).
+        let waProfilePref = true;
+
         app.component('v-whatsapp-inbox', {
             template: '#v-whatsapp-inbox-template',
 
@@ -680,9 +826,19 @@
                     qrSaving: false,
                     qrTried: false, // marks required fields after a failed submit
                     qrIndex: 0,     // highlighted match in the "/" picker
-                    // Client profile drawer
+                    // Client detail sidebar
                     profile: null,
                     profileLoading: false,
+                    profileOpen: false,
+                    profileTab: 'info',
+                    profileTabs: [
+                        { id: 'info', label: 'Info' },
+                        { id: 'imagenes', label: 'Imágenes' },
+                        { id: 'documentos', label: 'Docs' },
+                        { id: 'enlaces', label: 'Enlaces' },
+                        { id: 'productos', label: 'Productos' },
+                        { id: 'pedidos', label: 'Pedidos' },
+                    ],
                     // Quick lead creation (inside the drawer)
                     leadFormOpen: false,
                     leadForm: { title: '', value: '' },
@@ -721,6 +877,19 @@
                     return h > 0 ? `${h}h ${m}m` : `${m}m`;
                 },
 
+                // Hide shared-media tabs with nothing in them (Kommo relays
+                // text only for now, so they'd always be empty noise there).
+                visibleProfileTabs() {
+                    if (!this.profile) return this.profileTabs;
+
+                    return this.profileTabs.filter(t => {
+                        if (t.id === 'imagenes') return this.profile.images.length > 0;
+                        if (t.id === 'documentos') return this.profile.documents.length > 0;
+                        if (t.id === 'enlaces') return this.profile.links.length > 0;
+                        return true;
+                    });
+                },
+
                 // Canned replies matching what the advisor typed after "/".
                 qrMatches() {
                     if (!this.draft.startsWith('/')) return [];
@@ -743,6 +912,11 @@
                     if (key) waDrafts[key] = value;
                 },
 
+                // Opening/closing the detail is a session-wide preference.
+                profileOpen(value) {
+                    waProfilePref = value;
+                },
+
                 // Switching Mensaje <-> Nota: focus the input that appeared.
                 composerMode() {
                     this.focusComposer();
@@ -760,6 +934,13 @@
                 const draftKey = this.context.conversationId;
                 if (draftKey && waDrafts[draftKey]) this.draft = waDrafts[draftKey];
 
+                // Open the client detail by default (desktop only: on mobile the
+                // sidebar overlays the whole chat and would hide the messages).
+                if (waProfilePref && this.context.personId && !this.useMock && window.innerWidth >= 1024) {
+                    this.profileOpen = true;
+                    this.fetchProfile();
+                }
+
                 // The tab shows/hides with v-show, so the component mounts hidden.
                 // When it becomes visible: focus the composer AND land at the
                 // bottom of the thread (a hidden container can't be scrolled).
@@ -776,7 +957,7 @@
                     if (event.key !== 'Escape') return;
                     this.showEmoji = false;
                     this.showAttach = false;
-                    if (this.$refs.profileDrawer?.isOpen) this.$refs.profileDrawer.close();
+                    this.profileOpen = false;
                 };
                 document.addEventListener('keydown', this.escHandler);
 
@@ -1015,9 +1196,9 @@
                             this.$emitter.emit('add-flash', { type: 'success', message: res.data.message });
                             this.leadForm = { title: '', value: '' };
                             this.leadFormOpen = false;
-                            // Refresh the drawer so the new lead shows up.
+                            // Refresh the sidebar so the new lead shows up.
                             this.profile = null;
-                            this.openProfile();
+                            this.fetchProfile();
                         })
                         .catch(err => {
                             this.$emitter.emit('add-flash', {
@@ -1058,20 +1239,16 @@
                     return result;
                 },
 
+                // Header click toggles the sidebar; loads the profile once.
                 openProfile() {
                     if (!this.context.personId || !this.personUrlBase) return;
 
-                    this.$refs.profileDrawer.open();
+                    this.profileOpen = !this.profileOpen;
 
-                    // The CRM drawer doesn't close on overlay click — wire it up.
-                    this.$nextTick(() => {
-                        const overlay = this.$refs.profileDrawer?.$el?.querySelector('.fixed.inset-0');
-                        if (overlay && !overlay.dataset.waClose) {
-                            overlay.dataset.waClose = '1';
-                            overlay.addEventListener('click', () => this.$refs.profileDrawer.close());
-                        }
-                    });
+                    if (this.profileOpen) this.fetchProfile();
+                },
 
+                fetchProfile() {
                     if (this.profile) return; // already loaded for this contact
 
                     this.profileLoading = true;
@@ -1079,7 +1256,7 @@
                         .then(res => { this.profile = res.data?.person ?? null; })
                         .catch(() => {
                             this.$emitter.emit('add-flash', { type: 'error', message: 'No se pudo cargar el detalle del cliente.' });
-                            this.$refs.profileDrawer.close();
+                            this.profileOpen = false;
                         })
                         .finally(() => { this.profileLoading = false; });
                 },

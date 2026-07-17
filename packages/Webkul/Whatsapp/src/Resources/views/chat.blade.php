@@ -13,6 +13,7 @@
             quick-replies-url="{{ route('admin.whatsapp.quick-replies.index') }}"
             person-url-base="{{ url(config('app.admin_path').'/whatsapp/persons') }}"
             products-url="{{ route('admin.whatsapp.products') }}"
+            stages-url="{{ route('admin.whatsapp.stages') }}"
         >
             <div class="flex h-[calc(100vh-110px)] items-center justify-center rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
                 <x-admin::spinner />
@@ -45,12 +46,32 @@
 
                         <div class="flex gap-1.5">
                             <button v-for="f in filters" :key="f.value" type="button"
-                                    class="rounded-full px-3 py-1 text-xs font-medium transition"
+                                    class="rounded-full px-3 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandColor"
                                     :class="filter === f.value
                                         ? 'bg-brandColor text-white'
                                         : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'"
                                     @click="filter = f.value; load()">
                                 @{{ f.label }}
+                            </button>
+                        </div>
+
+                        <!-- stage filter: chips from the default pipeline -->
+                        <div v-if="stages.length" class="wa-scroll flex gap-1.5 overflow-x-auto pb-0.5">
+                            <button type="button"
+                                    class="shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandColor"
+                                    :class="!stageFilter
+                                        ? 'bg-sky-600 text-white'
+                                        : 'bg-sky-50 text-sky-700 hover:bg-sky-100 dark:bg-sky-900/30 dark:text-sky-300'"
+                                    @click="stageFilter = null; load()">
+                                Todas las etapas
+                            </button>
+                            <button v-for="s in stages" :key="s" type="button"
+                                    class="shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandColor"
+                                    :class="stageFilter === s
+                                        ? 'bg-sky-600 text-white'
+                                        : 'bg-sky-50 text-sky-700 hover:bg-sky-100 dark:bg-sky-900/30 dark:text-sky-300'"
+                                    @click="stageFilter = s; load()">
+                                @{{ s }}
                             </button>
                         </div>
                     </div>
@@ -68,9 +89,12 @@
 
                         <template v-else>
                             <div v-for="c in conversations" :key="c.id"
-                                 class="group relative flex cursor-pointer items-center gap-3 px-3 py-3 transition hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                                 class="group relative flex cursor-pointer items-center gap-3 px-3 py-3 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brandColor dark:hover:bg-gray-800/60"
                                  :class="selected?.id === c.id ? 'bg-gray-100 dark:bg-gray-800' : ''"
-                                 @click="select(c)">
+                                 role="button"
+                                 tabindex="0"
+                                 @click="select(c)"
+                                 @keydown.enter.prevent="select(c)">
                                 <!-- selected accent -->
                                 <span v-if="selected?.id === c.id" class="absolute inset-y-0 left-0 w-1 bg-brandColor"></span>
 
@@ -100,10 +124,11 @@
                                         </span>
                                     </div>
 
-                                    <div v-if="!c.person_id && !c.lead_id" class="mt-1 flex items-center gap-1.5">
-                                        <span class="rounded bg-amber-50 px-1.5 py-px text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">Sin asignar</span>
-                                        <button type="button"
-                                                class="hidden rounded px-1.5 py-px text-[10px] font-medium text-brandColor hover:bg-gray-100 group-hover:inline-block dark:hover:bg-gray-800"
+                                    <div v-if="c.stage || (!c.person_id && !c.lead_id)" class="mt-1 flex items-center gap-1.5">
+                                        <span v-if="c.stage" class="truncate rounded-full bg-sky-100 px-1.5 py-px text-[10px] font-medium text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">@{{ c.stage }}</span>
+                                        <span v-if="!c.person_id && !c.lead_id" class="rounded bg-amber-50 px-1.5 py-px text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">Sin asignar</span>
+                                        <button v-if="!c.person_id && !c.lead_id" type="button"
+                                                class="hidden rounded px-1.5 py-px text-[10px] font-medium text-brandColor hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandColor group-hover:inline-block dark:hover:bg-gray-800"
                                                 title="Crear contacto en el CRM con este número"
                                                 @click.stop="linkPerson(c)">
                                             + Crear contacto
@@ -113,7 +138,7 @@
                             </div>
 
                             <button v-if="page < lastPage" type="button"
-                                    class="w-full py-3 text-center text-xs font-medium text-brandColor transition hover:bg-gray-50 dark:hover:bg-gray-800"
+                                    class="w-full py-3 text-center text-xs font-medium text-brandColor transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brandColor dark:hover:bg-gray-800"
                                     @click="loadMore">
                                 Cargar más conversaciones
                             </button>
@@ -126,7 +151,7 @@
                      :class="selected ? 'flex' : 'hidden'">
                     <button v-if="selected" type="button"
                             aria-label="Volver a la lista de conversaciones"
-                            class="flex items-center gap-1.5 border-b border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 lg:hidden dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+                            class="flex items-center gap-1.5 border-b border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brandColor lg:hidden dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
                             @click="selected = null">
                         <span class="icon-left-arrow text-lg"></span> Conversaciones
                     </button>
@@ -171,6 +196,7 @@
                     quickRepliesUrl: { type: String, required: true },
                     personUrlBase: { type: String, required: true },
                     productsUrl: { type: String, required: true },
+                    stagesUrl: { type: String, required: true },
                 },
 
                 data() {
@@ -184,6 +210,8 @@
                             { value: 'unread', label: 'No leídas' },
                             { value: 'unassigned', label: 'Sin asignar' },
                         ],
+                        stages: [],
+                        stageFilter: null,
                         page: 1,
                         lastPage: 1,
                         listLoading: false,
@@ -207,6 +235,9 @@
 
                 mounted() {
                     this.load();
+                    this.$axios.get(this.stagesUrl)
+                        .then(res => { this.stages = res.data?.stages ?? []; })
+                        .catch(() => {});
                     // Keep the list fresh (previews, unread badges) while open.
                     this.pollTimer = setInterval(() => this.load(true), 10000);
                 },
@@ -221,7 +252,7 @@
                         if (!background) this.listLoading = true;
 
                         return this.$axios.get(this.conversationsUrl, {
-                                params: { search: this.search || null, filter: this.filter, page: 1 },
+                                params: { search: this.search || null, filter: this.filter, stage: this.stageFilter, page: 1 },
                             })
                             .then(res => {
                                 this.conversations = res.data?.data ?? [];
@@ -234,7 +265,7 @@
 
                     loadMore() {
                         this.$axios.get(this.conversationsUrl, {
-                                params: { search: this.search || null, filter: this.filter, page: this.page + 1 },
+                                params: { search: this.search || null, filter: this.filter, stage: this.stageFilter, page: this.page + 1 },
                             })
                             .then(res => {
                                 this.conversations.push(...(res.data?.data ?? []));
