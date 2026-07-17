@@ -1,5 +1,8 @@
 .env
 .env.testing
+# Backups de .env: llevan credenciales reales, jamás commitearlos
+.env.bak*
+.env.save*
 .idea
 .php_cs.cache
 .phpunit.result.cache
