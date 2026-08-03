@@ -46,7 +46,7 @@
                     
                         {!! view_render_event('admin.leads.view.person.email.before', ['lead' => $lead]) !!}
         
-                        @foreach (($lead->person->emails ?? []) as $email)
+                        <!-- @foreach (($lead->person->emails ?? []) as $email)
                             <div class="flex gap-1">
                                 <a 
                                     class="text-brandColor"
@@ -59,7 +59,7 @@
                                     ({{ $email['label'] }})
                                 </span>
                             </div>
-                        @endforeach
+                        @endforeach -->
         
                         {!! view_render_event('admin.leads.view.person.email.after', ['lead' => $lead]) !!}
         
@@ -69,7 +69,8 @@
                             <div class="flex gap-1">
                                 <a  
                                     class="text-brandColor"
-                                    href="callto:{{ $contactNumber['value'] }}"
+                                    target="_blank"
+                                    href="https://wa.me/{{ $contactNumber['value'] }}"
                                 >
                                     {{ $contactNumber['value'] }}
                                 </a>

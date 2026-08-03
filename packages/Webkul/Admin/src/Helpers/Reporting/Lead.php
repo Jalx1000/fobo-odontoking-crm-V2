@@ -429,9 +429,12 @@ class Lead extends AbstractReporting
 
         $intervals = $this->generateTimeIntervals($this->startDate, $this->endDate, $period);
 
-        $groupColumn = $this->getGroupColumn('created_at', $period);
-
         $tablePrefix = DB::getTablePrefix();
+
+        // Se califica con el nombre real (prefijado) de la tabla: la query une
+        // `users`, que también tiene `created_at`, así que sin calificar MySQL
+        // rechaza la columna por ambigua.
+        $groupColumn = $this->getGroupColumn($tablePrefix.'leads.created_at', $period);
 
         $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
 
@@ -444,7 +447,7 @@ class Lead extends AbstractReporting
                 DB::raw('COUNT(DISTINCT CASE WHEN '.$tablePrefix.'leads.lead_pipeline_stage_id IN ('.implode(',', $this->wonStageIds).') THEN '.$tablePrefix.'leads.id END) AS count')
             )
             ->whereIn('leads.lead_pipeline_stage_id', $this->wonStageIds)
-            ->whereBetween('created_at', [$this->startDate, $this->endDate])
+            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
             ->when($pipelineId, function ($q) use ($pipelineId) {
                 $q->where('leads.lead_pipeline_id', $pipelineId);
             })
@@ -1588,7 +1591,10 @@ class Lead extends AbstractReporting
         }
 
         $intervals = $this->generateTimeIntervals($this->startDate, $this->endDate, $period);
-        $groupColumn = $this->getGroupColumn('leads.created_at', $period);
+
+        // Raw expression: qualify with the real (prefixed) table name, otherwise
+        // MySQL cannot resolve `leads.created_at` when a table prefix is set.
+        $groupColumn = $this->getGroupColumn($tablePrefix.'leads.created_at', $period);
 
         $results = $this->leadRepository
             ->resetModel()

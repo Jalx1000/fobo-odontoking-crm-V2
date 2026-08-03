@@ -92,8 +92,41 @@
 
         // Reemplazar "Agente" por "Sin ciudad" en labels y users
         if (data.statistics) {
+            // Agente
             data.statistics.labels = data.statistics.labels.map(l => l === "Agente" ? "Sin ciudad" : l);
             data.statistics.users = data.statistics.users.map(u => u === "Agente" ? "Sin ciudad" : u);
+            
+            // Claudia
+            data.statistics.labels = data.statistics.labels.map(l => l === "Claudia Camacho" ? "Claudia Camacho - TRJ" : l);
+            data.statistics.users = data.statistics.users.map(u => u === "Claudia Camacho" ? "Claudia Camacho - TRJ" : u);
+
+            // Daniel escalante
+            data.statistics.labels = data.statistics.labels.map(l => l === "Daniel Escalante" ? "Daniel Escalante - TRJ" : l);
+            data.statistics.users = data.statistics.users.map(u => u === "Daniel Escalante" ? "Daniel Escalante - TRJ" : u);            
+
+            // Jorge Bares
+            data.statistics.labels = data.statistics.labels.map(l => l === "Jorge Bares" ? "Jorge Bares - CBBA" : l);
+            data.statistics.users = data.statistics.users.map(u => u === "Jorge Bares" ? "Jorge Bares - CBBA" : u);
+
+            // Liliana Alarcon
+            data.statistics.labels = data.statistics.labels.map(l => l === "Liliana Alarcon" ? "Liliana Alarcon - SCZ" : l);
+            data.statistics.users = data.statistics.users.map(u => u === "Liliana Alarcon" ? "Liliana Alarcon - SCZ" : u);
+
+            // María Rene Solano Ruiz
+            data.statistics.labels = data.statistics.labels.map(l => l === "María Rene Solano Ruiz" ? "María Rene Solano Ruiz - PTS" : l);
+            data.statistics.users = data.statistics.users.map(u => u === "María Rene Solano Ruiz" ? "María Rene Solano Ruiz - PTS" : u);
+
+            // Nancy Delgado
+            data.statistics.labels = data.statistics.labels.map(l => l === "Nancy Delgado" ? "Nancy Delgado - OR" : l);
+            data.statistics.users = data.statistics.users.map(u => u === "Nancy Delgado" ? "Nancy Delgado - OR" : u);
+
+            // Silvia Taboada
+            data.statistics.labels = data.statistics.labels.map(l => l === "Silvia Taboada" ? "Silvia Taboada - CH" : l);
+            data.statistics.users = data.statistics.users.map(u => u === "Silvia Taboada" ? "Silvia Taboada - CH" : u);
+
+            // Stefani Mendieta
+            data.statistics.labels = data.statistics.labels.map(l => l === "Stefani Mendieta" ? "Stefani Mendieta - LPZ" : l);
+            data.statistics.users = data.statistics.users.map(u => u === "Stefani Mendieta" ? "Stefani Mendieta - LPZ" : u);
         }
 
         this.report = data;

@@ -68,6 +68,16 @@
 
                 chartDatasets() {
                     let labels = this.report.statistics?.labels ?? [];
+                    // Asesores
+                    labels[0] = 'Claudia Camacho - TRJ';
+                    labels[1] = 'Daniel Escalante - TRJ'
+                    labels[2] = 'Jorge Bares - CBBA'
+                    labels[3] = 'Liliana Alarcon - SCZ'
+                    labels[4] = 'María Rene Solano Ruiz - PTS'
+                    labels[5] = 'Nancy Delgado - OR'
+                    labels[6] = 'Silvia Taboada - CH'
+                    labels[7] = 'Stefani Mendieta - LPZ'
+                    
                     const data = this.dataMinutesPerLead;
                     const previousData = this.previousMinutesPerLead;
                     this.colors = labels.map((l) => this.getColorForLabel(l));
@@ -158,6 +168,16 @@
                     .then(([r1, r2]) => {
                         this.report = r1.data;
                         let labels = r2.data?.statistics?.labels ?? [];
+                        
+                        labels[0] = 'Claudia Camacho - TRJ';
+                        labels[1] = 'Daniel Escalante - TRJ'
+                        labels[2] = 'Jorge Bares - CBBA'
+                        labels[3] = 'Liliana Alarcon - SCZ'
+                        labels[4] = 'María Rene Solano Ruiz - PTS'
+                        labels[5] = 'Nancy Delgado - OR'
+                        labels[6] = 'Silvia Taboada - CH'
+                        labels[7] = 'Stefani Mendieta - LPZ'
+                        
                         const counts = r2.data?.statistics?.data ?? [];
                         this.leadCountsByUser = {};
                         labels.forEach((label, i) => {

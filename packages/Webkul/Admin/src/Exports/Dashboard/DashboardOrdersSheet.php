@@ -129,7 +129,7 @@ class DashboardOrdersSheet extends DefaultValueBinder implements FromArray, Shou
             $lead->pipeline?->name,
             $lead->person?->name,
             $this->joinPersonValues($lead->person?->contact_numbers),
-            $this->joinPersonValues($lead->person?->emails),
+            // $this->joinPersonValues($lead->person?->emails),
             $lead->edad_lead,
             $this->formatOrder($lead),
             $this->resolveStage($lead),

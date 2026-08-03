@@ -192,7 +192,7 @@ class QuoteController extends Controller
 
         return $this->downloadPDF(
             view('admin::quotes.pdf', compact('quote'))->render(),
-            'Quote_'.$quote->subject.'_'.$quote->created_at->format('d-m-Y')
+            ''.$quote->subject.'_'.$quote->created_at->format('d-m-Y')
         );
     }
 }

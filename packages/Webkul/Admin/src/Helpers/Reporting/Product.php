@@ -48,16 +48,18 @@ class Product extends AbstractReporting
         $items = $this->productRepository
             ->resetModel()
             ->with('product')
+            // Los joins van primero: `leads` una sola vez (antes se unía también
+            // dentro del when(user_id), lo que rompía la query con "Not unique
+            // table/alias"), y `persons` después de `leads` porque depende de él.
+            ->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
+            ->leftJoin('products', 'lead_products.product_id', '=', 'products.id')
             ->when(request('user_id'), function ($q) {
-                $q->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
-                    ->where('leads.user_id', request('user_id'));
+                $q->where('leads.user_id', request('user_id'));
             })
             ->when(request('organization_id'), function ($q) {
                 $q->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
                     ->where('persons.organization_id', request('organization_id'));
             })
-            ->leftJoin('leads', 'lead_products.lead_id', '=', 'leads.id')
-            ->leftJoin('products', 'lead_products.product_id', '=', 'products.id')
             ->select('*')
             ->addSelect(DB::raw('SUM('.$tablePrefix.'lead_products.amount) as revenue'))
             ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
@@ -264,9 +266,10 @@ class Product extends AbstractReporting
 
         $intervals = $this->generateTimeIntervals($this->startDate, $this->endDate, $period);
 
-        $groupColumn = $this->getGroupColumn('leads.created_at', $period);
-
         $tablePrefix = DB::getTablePrefix();
+
+        // Raw expression: qualify with the real (prefixed) table name since this is a joined query.
+        $groupColumn = $this->getGroupColumn($tablePrefix.'leads.created_at', $period);
 
         $query = $this->productRepository
             ->resetModel()

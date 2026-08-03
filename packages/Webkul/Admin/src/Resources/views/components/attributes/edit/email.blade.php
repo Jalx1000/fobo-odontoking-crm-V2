@@ -141,7 +141,7 @@
                         const foundEmails = emails.filter(email => email.value === value).length;
 
                         if (foundEmails > 1) {
-                            return 'This email is already in use.';
+                            return 'El correo ya existe';
                         }
 
                         /**
@@ -159,7 +159,7 @@
                                 });
 
                                 if (! data.validated) {
-                                    return 'This email is already in use.';
+                                    return 'El correo ya existe';
                                 }
 
                                 return true;
