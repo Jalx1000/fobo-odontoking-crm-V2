@@ -4,6 +4,7 @@ namespace Webkul\Admin\Listeners;
 
 use Webkul\Email\Repositories\EmailRepository;
 use Webkul\Lead\Repositories\LeadRepository;
+use Webkul\Lead\Services\CitySyncService;
 use Webkul\Admin\Jobs\NotifyWarehouseManager;
 use Illuminate\Support\Facades\Log;
 
@@ -61,9 +62,12 @@ class Lead
                 return;
             }
 
-            // Identify Warehouse (Ciudad) attribute
-            // We assume the attribute code is 'ciudad' as per user request context
-            $warehouseId = $lead->getCustomAttributeValue($lead->getCustomAttributes()->where('code', 'ciudad')->first());
+            // Identify Warehouse (Ciudad) attribute.
+            // El code real del atributo es 'Ciudad' con mayúscula inicial; buscarlo en
+            // minúscula nunca lo encontraba y el listener caía siempre en el warning.
+            $warehouseId = $lead->getCustomAttributeValue(
+                $lead->getCustomAttributes()->where('code', CitySyncService::LEAD_CITY_ATTRIBUTE_CODE)->first()
+            );
             
             if (!$warehouseId) {
                 // Try 'warehouse_id' as fallback

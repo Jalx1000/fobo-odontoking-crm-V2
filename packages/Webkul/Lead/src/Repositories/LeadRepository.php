@@ -11,6 +11,7 @@ use Webkul\Attribute\Repositories\AttributeValueRepository;
 use Webkul\Contact\Repositories\PersonRepository;
 use Webkul\Core\Eloquent\Repository;
 use Webkul\Lead\Contracts\Lead;
+use Webkul\Lead\Services\CitySyncService;
 
 class LeadRepository extends Repository
 {
@@ -174,6 +175,8 @@ class LeadRepository extends Repository
             'entity_id' => $lead->id,
         ]));
 
+        app(CitySyncService::class)->syncFromLead($lead);
+
         if (isset($data['products'])) {
             foreach ($data['products'] as $product) {
                 $this->productRepository->create(array_merge($product, [
@@ -197,6 +200,13 @@ class LeadRepository extends Repository
      */
     public function update(array $data, $id, $attributes = [])
     {
+        /**
+         * Ciudad del lead ANTES del guardado. La necesita CitySyncService para saber
+         * si el pipeline cambió en este request (y por tanto le gana al atributo
+         * `Ciudad`) o si el que cambió fue el atributo (y arrastra al lead).
+         */
+        $previousPipelineId = (int) $this->find($id)?->lead_pipeline_id ?: null;
+
         // Sanitize foreign key values
         $foreignKeys = ['lead_source_id', 'lead_type_id', 'user_id'];
         foreach ($foreignKeys as $key) {
@@ -285,12 +295,16 @@ class LeadRepository extends Repository
                 'entity_id' => $lead->id,
             ]), $attributes);
 
+            app(CitySyncService::class)->syncFromLead($lead, $previousPipelineId);
+
             return $lead;
         }
 
         $this->attributeValueRepository->save(array_merge($data, [
             'entity_id' => $lead->id,
         ]));
+
+        app(CitySyncService::class)->syncFromLead($lead, $previousPipelineId);
 
         $previousProductIds = $lead->products()->pluck('id');
 

@@ -8,6 +8,7 @@ use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\Attribute\Repositories\AttributeValueRepository;
 use Webkul\Contact\Contracts\Person;
 use Webkul\Core\Eloquent\Repository;
+use Webkul\Lead\Services\CitySyncService;
 
 class PersonRepository extends Repository
 {
@@ -82,6 +83,8 @@ class PersonRepository extends Repository
             'entity_id' => $person->id,
         ]));
 
+        app(CitySyncService::class)->syncFromPerson($person);
+
         return $person;
     }
 
@@ -124,12 +127,16 @@ class PersonRepository extends Repository
                 'entity_id' => $person->id,
             ]), $attributes);
 
+            app(CitySyncService::class)->syncFromPerson($person);
+
             return $person;
         }
 
         $this->attributeValueRepository->save(array_merge($data, [
             'entity_id' => $person->id,
         ]));
+
+        app(CitySyncService::class)->syncFromPerson($person);
 
         return $person;
     }
