@@ -178,6 +178,23 @@ it('mueve los leads abiertos de la persona al cambiar cliente_ciudad, pero no lo
         'lead_pipeline_stage_id' => stageIdIn($this->cityA, 'pedidos-entregados'),
     ]);
 
+    // "Cliente sin interés" y "Otros servicios" también cuentan como cerradas.
+    $discarded = $repository->create([
+        'title'                  => 'Lead sin interes',
+        'entity_type'            => 'leads',
+        'person_id'              => $personId,
+        'lead_pipeline_id'       => $this->cityA,
+        'lead_pipeline_stage_id' => stageIdIn($this->cityA, 'cliente-sin-inters'),
+    ]);
+
+    $other = $repository->create([
+        'title'                  => 'Lead otros servicios',
+        'entity_type'            => 'leads',
+        'person_id'              => $personId,
+        'lead_pipeline_id'       => $this->cityA,
+        'lead_pipeline_stage_id' => stageIdIn($this->cityA, 'otros-servicios'),
+    ]);
+
     app(PersonRepository::class)->update([
         'entity_type'                                => 'persons',
         CitySyncService::PERSON_CITY_ATTRIBUTE_CODE  => $this->cityB,
@@ -185,9 +202,13 @@ it('mueve los leads abiertos de la persona al cambiar cliente_ciudad, pero no lo
 
     $open->refresh();
     $closed->refresh();
+    $discarded->refresh();
+    $other->refresh();
 
     expect((int) $open->lead_pipeline_id)->toBe($this->cityB)
         ->and((int) $open->lead_pipeline_stage_id)->toBe(stageIdIn($this->cityB, 'no-atendido'))
         ->and(cityValueOf('leads', $open->id, CitySyncService::LEAD_CITY_ATTRIBUTE_CODE))->toBe($this->cityB)
-        ->and((int) $closed->lead_pipeline_id)->toBe($this->cityA);
+        ->and((int) $closed->lead_pipeline_id)->toBe($this->cityA)
+        ->and((int) $discarded->lead_pipeline_id)->toBe($this->cityA)
+        ->and((int) $other->lead_pipeline_id)->toBe($this->cityA);
 });

@@ -40,11 +40,15 @@ class CitySyncService
 
     /**
      * Etapas consideradas "cerradas": un lead en una de ellas ya no se mueve de
-     * ciudad cuando la persona cambia de ciudad.
+     * ciudad cuando la persona cambia de ciudad. Solo siguen al contacto los leads
+     * realmente activos ("No atendido" y "Cliente confirmado"); el resto se queda
+     * en la ciudad donde se resolvió.
      */
     public const CLOSED_STAGE_CODES = [
         'pedidos-entregados',
         'pedidos-cancelados',
+        'cliente-sin-inters',
+        'otros-servicios',
     ];
 
     /**
