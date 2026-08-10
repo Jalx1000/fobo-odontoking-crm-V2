@@ -184,6 +184,22 @@ class Dashboard
         return $this->leadReporting->getAverageResponseTimeByUsers();
     }
 
+    /**
+     * Detalle paginado de "tiempo en responder", una fila por contacto.
+     */
+    public function getResponseTimeDetailStats(): array
+    {
+        return $this->leadReporting->getResponseTimeDetailByContact();
+    }
+
+    /**
+     * Detalle paginado de "tiempo por etapa", una fila por lead.
+     */
+    public function getStageDwellTimeStats(): array
+    {
+        return $this->leadReporting->getStageDwellTimeByLead();
+    }
+
     public function getVentasByBranchesStats(): array
     {
         return $this->leadReporting->getVentasCountByBranches();

@@ -44,7 +44,9 @@
         <!-- Left Section -->
         {!! view_render_event('admin.dashboard.index.content.left.before') !!}
 
-        <div class="flex flex-1 flex-col gap-4 max-xl:flex-auto">
+        {{-- min-w-0: sin esto el ítem flex no se encoge bajo el ancho mínimo de su
+             contenido y las tarjetas con tabla ancha desbordan el viewport. --}}
+        <div class="flex min-w-0 flex-1 flex-col gap-4 max-xl:flex-auto">
             {{-- @include('admin::dashboard.index.revenue') --}}
             @include('admin::dashboard.index.over-all')
             @include('admin::dashboard.index.leads-by-users')
@@ -68,9 +70,11 @@
             @else
                 @include('admin::dashboard.index.tiempo-por-vendedor')
             @endif
-        </div>
 
+            @include('admin::dashboard.index.tiempo-por-etapa')
+        </div>
         {!! view_render_event('admin.dashboard.index.content.left.after') !!}
+
 
         <!-- Right Section -->
         {!! view_render_event('admin.dashboard.index.content.right.before') !!}
@@ -214,7 +218,8 @@
 
                 data() {
                     // Read the shared global filter cookies (kept in sync with the
-                    // Pedidos module). City: 'all'/empty => "Todas". Date: "from|to".
+                    // Pedidos module). City: 'all'/empty => "Todas".
+                    // Date: "from|to|savedAt" - see Webkul\Admin\Helpers\GlobalDateFilter.
                     const savedCity = (document.cookie.match(/(?:^|;\s*)global_pipeline_id=([^;]*)/) || [])[1];
                     const savedDate = (document.cookie.match(/(?:^|;\s*)global_date_range=([^;]*)/) || [])[1];
 
@@ -225,6 +230,30 @@
                         const parts = decodeURIComponent(savedDate).split('|');
                         savedFrom = parts[0] || '';
                         savedTo = parts[1] || '';
+
+                        /**
+                         * El "to" guardado solo vale hasta la medianoche del día en
+                         * que se eligió: al día siguiente vuelve a hoy, para que el
+                         * tablero nunca arranque anclado en el pasado. Misma regla que
+                         * GlobalDateFilter::resolve() en PHP, porque el servidor
+                         * resuelve la primera carga de las tarjetas y el input tiene
+                         * que mostrar lo mismo.
+                         */
+                        const savedAt = Number(parts[2]);
+
+                        if (savedFrom && savedTo) {
+                            const asDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+                            const todayStr = asDate(new Date());
+
+                            if (! savedAt || asDate(new Date(savedAt * 1000)) !== todayStr) {
+                                savedTo = todayStr;
+                            }
+
+                            if (savedFrom > savedTo) {
+                                savedFrom = savedTo;
+                            }
+                        }
                     }
 
                     return {
@@ -285,7 +314,11 @@
 
                         const maxAge = 60 * 60 * 24 * 365;
 
-                        document.cookie = `global_date_range=${encodeURIComponent(from + '|' + to)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+                        // El savedAt marca en qué día el usuario eligió el rango; el
+                        // "to" vence al cambiar de día calendario.
+                        const savedAt = Math.floor(Date.now() / 1000);
+
+                        document.cookie = `global_date_range=${encodeURIComponent(from + '|' + to + '|' + savedAt)}; path=/; max-age=${maxAge}; SameSite=Lax`;
                     },
 
                     formatDate(date) {

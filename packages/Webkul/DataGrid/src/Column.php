@@ -105,6 +105,14 @@ class Column
 
         $this->setVisibility($column['visibility'] ?? $this->visibility);
 
+        /**
+         * Exportability is independent from visibility: a column can be shown in
+         * the grid yet kept out of the Excel/CSV download (and vice versa).
+         * Defaults to true, so grids that don't declare it keep exporting every
+         * column exactly as before.
+         */
+        $this->setExportable($column['exportable'] ?? $this->exportable);
+
         $this->setClosure($column['closure'] ?? $this->closure);
 
         $this->setColumnName($this->index);

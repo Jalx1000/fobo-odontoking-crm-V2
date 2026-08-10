@@ -92,7 +92,7 @@ class PersonRepository extends Repository
      */
     public function update(array $data, $id, $attributes = [])
     {
-        $data = $this->sanitizeRequestedPersonData($data);
+        $data = $this->sanitizeRequestedPersonData($data, $id);
 
         $data['user_id'] = empty($data['user_id']) ? null : $data['user_id'];
 
@@ -181,7 +181,7 @@ class PersonRepository extends Repository
     /**
      * Sanitize requested person data and return the clean array.
      */
-    private function sanitizeRequestedPersonData(array $data): array
+    private function sanitizeRequestedPersonData(array $data, ?int $id = null): array
     {
         if (
             array_key_exists('organization_id', $data)
@@ -190,18 +190,36 @@ class PersonRepository extends Repository
             $data['organization_id'] = null;
         }
 
-        $uniqueIdParts = array_filter([
-            $data['user_id'] ?? null,
-            $data['organization_id'] ?? null,
-            $data['emails'][0]['value'] ?? null,
-        ]);
-
-        $data['unique_id'] = implode('|', $uniqueIdParts);
-
         if (isset($data['contact_numbers'])) {
-            $data['contact_numbers'] = collect($data['contact_numbers'])->filter(fn ($number) => ! is_null($number['value']))->toArray();
+            $data['contact_numbers'] = array_values(
+                collect($data['contact_numbers'])->filter(fn ($number) => ! is_null($number['value'] ?? null))->toArray()
+            );
+        }
 
-            $data['unique_id'] .= '|'.$data['contact_numbers'][0]['value'];
+        /**
+         * On partial updates (workflow actions, quick add forms) the identifying fields may be
+         * absent from the payload, so fall back to the persisted person to avoid rebuilding an
+         * empty key that would collide on the `unique_id` unique index.
+         */
+        $person = $id ? $this->find($id) : null;
+
+        $uniqueIdParts = [
+            array_key_exists('user_id', $data) ? $data['user_id'] : $person?->user_id,
+            array_key_exists('organization_id', $data) ? $data['organization_id'] : $person?->organization_id,
+            $data['emails'][0]['value'] ?? ($person?->emails[0]['value'] ?? null),
+            $data['contact_numbers'][0]['value'] ?? ($person?->contact_numbers[0]['value'] ?? null),
+        ];
+
+        $uniqueId = implode('|', array_filter($uniqueIdParts));
+
+        /**
+         * MySQL allows many NULLs but only a single empty string in a unique index, so an
+         * unidentifiable person must keep the column untouched instead of writing ''.
+         */
+        if ($uniqueId === '') {
+            unset($data['unique_id']);
+        } else {
+            $data['unique_id'] = $uniqueId;
         }
 
         return $data;

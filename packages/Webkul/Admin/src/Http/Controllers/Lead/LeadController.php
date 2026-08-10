@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 use Prettus\Repository\Criteria\RequestCriteria;
 use Webkul\Admin\DataGrids\Lead\LeadDataGrid;
+use Webkul\Admin\Helpers\GlobalDateFilter;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Admin\Http\Requests\LeadForm;
 use Webkul\Admin\Http\Requests\MassDestroyRequest;
@@ -100,7 +101,7 @@ class LeadController extends Controller
          * - Any date params => resolve to an explicit range and persist it.
          */
         if (request()->query('date_filter') === 'none') {
-            Cookie::queue(Cookie::forget('global_date_range'));
+            GlobalDateFilter::forget();
 
             return redirect()->route('admin.leads.index', request()->except(['date_filter', 'date_from', 'date_to']));
         }
@@ -110,18 +111,14 @@ class LeadController extends Controller
             || request()->query('date_to') !== null;
 
         if (! $hasDateParam) {
-            if ($savedRange = request()->cookie('global_date_range')) {
-                [$from, $to] = array_pad(explode('|', $savedRange), 2, null);
-
-                if ($from && $to) {
-                    return redirect()->route('admin.leads.index', array_merge(
-                        request()->all(),
-                        ['date_filter' => 'custom', 'date_from' => $from, 'date_to' => $to]
-                    ));
-                }
+            if ($saved = GlobalDateFilter::resolve(request()->cookie(GlobalDateFilter::COOKIE))) {
+                return redirect()->route('admin.leads.index', array_merge(
+                    request()->all(),
+                    ['date_filter' => 'custom', 'date_from' => $saved['from'], 'date_to' => $saved['to']]
+                ));
             }
         } elseif ($range = $this->resolveGlobalDateRange()) {
-            Cookie::queue('global_date_range', $range['from'].'|'.$range['to'], 60 * 24 * 365, '/', null, false, false, false, 'Lax');
+            GlobalDateFilter::remember($range['from'], $range['to']);
         }
 
         $allPipelines = request('pipeline_id') === 'all';

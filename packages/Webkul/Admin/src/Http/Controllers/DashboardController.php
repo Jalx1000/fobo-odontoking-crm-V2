@@ -6,6 +6,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use Webkul\Admin\Exports\Dashboard\DashboardExport;
 use Webkul\Admin\Exports\Dashboard\DashboardLeadsSheet;
 use Webkul\Admin\Helpers\Dashboard;
+use Webkul\Admin\Helpers\GlobalDateFilter;
 use Webkul\Lead\Repositories\PipelineRepository;
 
 class DashboardController extends Controller
@@ -32,6 +33,8 @@ class DashboardController extends Controller
         'leads-by-users'                  => 'getLeadsByUsersStats',
         'leads-attention-by-users'        => 'getLeadsAttentionByUsersStats',
         'tiempo-por-vendedor'             => 'getResponseTimeByUsersStats',
+        'tiempo-por-contacto'             => 'getResponseTimeDetailStats',
+        'tiempo-por-etapa'                => 'getStageDwellTimeStats',
         'ventas-por-sucursal'             => 'getVentasByBranchesStats',
         'leads-por-sucursal'              => 'getLeadsByBranchesStats',
         'ventas-por-ciudad'               => 'getVentasByPipelinesStats',
@@ -174,14 +177,10 @@ class DashboardController extends Controller
         }
 
         if (! request()->has('start') && ! request()->has('end')) {
-            $range = request()->cookie('global_date_range');
+            $range = GlobalDateFilter::resolve(request()->cookie(GlobalDateFilter::COOKIE));
 
             if ($range) {
-                [$from, $to] = array_pad(explode('|', $range), 2, null);
-
-                if ($from && $to) {
-                    request()->merge(['start' => $from, 'end' => $to]);
-                }
+                request()->merge(['start' => $range['from'], 'end' => $range['to']]);
             }
         }
     }

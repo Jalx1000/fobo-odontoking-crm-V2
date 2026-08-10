@@ -502,6 +502,7 @@ return [
                 'delete-failed'          => 'No se pudieron eliminar las clientes seleccionadas.',
                 'datagrid'               => [
                     'contact-numbers'   => 'Números de Contacto',
+                    'created-at'        => 'Fecha de creación',
                     'delete'            => 'Eliminar',
                     'edit'              => 'Editar',
                     'emails'            => 'Correos Electrónicos',

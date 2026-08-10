@@ -46,16 +46,17 @@ class DashboardOrdersSheet extends DefaultValueBinder implements FromArray, Shou
         2  => 'Confirmado', 12 => 'Confirmado', 16 => 'Confirmado', 24 => 'Confirmado',
         28 => 'Confirmado', 32 => 'Confirmado', 36 => 'Confirmado', 41 => 'Confirmado',
         // cliente-sin-inters
-        39 => 'cliente-sin-inters', 45 => 'cliente-sin-inters', 50 => 'cliente-sin-inters', 49 => 'cliente-sin-inters',
-        48 => 'cliente-sin-inters', 47 => 'cliente-sin-inters', 46 => 'cliente-sin-inters', 44 => 'cliente-sin-inters',
+        39 => 'Cliente sin interés', 45 => 'Cliente sin interés', 50 => 'Cliente sin interés', 49 => 'Cliente sin interés',
+        48 => 'Cliente sin interés', 47 => 'Cliente sin interés', 46 => 'Cliente sin interés', 44 => 'Cliente sin interés',
         // pedidos-entregados
-        5  => 'pedidos-entregados', 13 => 'pedidos-entregados', 17 => 'pedidos-entregados', 25 => 'pedidos-entregados',
-        29 => 'pedidos-entregados', 33 => 'pedidos-entregados', 37 => 'pedidos-entregados', 42 => 'pedidos-entregados',
+        5  => 'Pedidos entregados', 13 => 'Pedidos entregados', 17 => 'Pedidos entregados', 25 => 'Pedidos entregados',
+        29 => 'Pedidos entregados', 33 => 'Pedidos entregados', 37 => 'Pedidos entregados', 42 => 'Pedidos entregados',
         // Cancelado
         6  => 'Cancelado', 14 => 'Cancelado', 18 => 'Cancelado', 26 => 'Cancelado',
         30 => 'Cancelado', 34 => 'Cancelado', 38 => 'Cancelado', 43 => 'Cancelado',
         // Otros servicios
-        51 => 'Otros servicios',
+        51 => 'Otros servicios', 52 => 'Otros servicios', 53 => 'Otros servicios', 54 => 'Otros servicios', 
+        55 => 'Otros servicios', 56 => 'Otros servicios', 57 => 'Otros servicios', 58 => 'Otros servicios',
     ];
 
     /**
@@ -103,7 +104,7 @@ class DashboardOrdersSheet extends DefaultValueBinder implements FromArray, Shou
             'Ciudad',
             'Nombre',
             'Teléfono',
-            'Email',
+            // 'Email',
             'Edad',
             'Pedido',
             'Etapa',
@@ -143,7 +144,7 @@ class DashboardOrdersSheet extends DefaultValueBinder implements FromArray, Shou
      * Date each lead entered its CURRENT stage: the most recent stage-change
      * activity. Stage moves are logged by LogsActivity as a 'system' activity
      * whose `additional.attribute` is the stage attribute's DISPLAY NAME ("Etapa")
-     * — not its code — so we match on that and take MAX(created_at) per lead in a
+     * - not its code - so we match on that and take MAX(created_at) per lead in a
      * single grouped query (no N+1).
      *
      * Leads that never left their initial stage have no such activity, so the

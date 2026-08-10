@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\View\View;
 use Prettus\Repository\Criteria\RequestCriteria;
 use Webkul\Admin\DataGrids\Contact\PersonDataGrid;
+use Webkul\Admin\Helpers\GlobalDateFilter;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Admin\Http\Requests\AttributeForm;
 use Webkul\Admin\Http\Requests\MassDestroyRequest;
@@ -56,8 +57,8 @@ class PersonController extends Controller
      *
      * City lives in the "global_pipeline_id" cookie, the date range in
      * "global_date_range" ("from|to"). We normalize both to explicit query
-     * params (pipeline_id, start, end) so the DataGrid — which forwards the
-     * page's query string on its AJAX request — filters accordingly.
+     * params (pipeline_id, start, end) so the DataGrid - which forwards the
+     * page's query string on its AJAX request - filters accordingly.
      *
      * Returns a RedirectResponse when the URL had to be normalized, otherwise
      * null so the caller can render the view.
@@ -89,7 +90,7 @@ class PersonController extends Controller
          * range when absent, or persist the one supplied via start/end.
          */
         if (request()->query('clear_date') !== null) {
-            Cookie::queue(Cookie::forget('global_date_range'));
+            GlobalDateFilter::forget();
 
             return redirect()->route('admin.contacts.persons.index', request()->except(['start', 'end', 'clear_date']));
         }
@@ -98,15 +99,11 @@ class PersonController extends Controller
             || request()->query('end') !== null;
 
         if (! $hasDateParam) {
-            if ($savedRange = request()->cookie('global_date_range')) {
-                [$from, $to] = array_pad(explode('|', $savedRange), 2, null);
-
-                if ($from && $to) {
-                    return redirect()->route('admin.contacts.persons.index', array_merge(
-                        request()->all(),
-                        ['start' => $from, 'end' => $to]
-                    ));
-                }
+            if ($saved = GlobalDateFilter::resolve(request()->cookie(GlobalDateFilter::COOKIE))) {
+                return redirect()->route('admin.contacts.persons.index', array_merge(
+                    request()->all(),
+                    ['start' => $saved['from'], 'end' => $saved['to']]
+                ));
             }
         } else {
             $from = request()->query('start');
@@ -114,7 +111,7 @@ class PersonController extends Controller
             $to = request()->query('end');
 
             if ($from && $to) {
-                Cookie::queue('global_date_range', $from.'|'.$to, 60 * 24 * 365, '/', null, false, false, false, 'Lax');
+                GlobalDateFilter::remember($from, $to);
             }
         }
 

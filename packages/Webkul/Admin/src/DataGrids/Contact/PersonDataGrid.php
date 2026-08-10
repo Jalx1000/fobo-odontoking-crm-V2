@@ -14,6 +14,24 @@ use Webkul\DataGrid\DataGrid;
 class PersonDataGrid extends DataGrid
 {
     /**
+     * Custom-attribute codes kept out of the Excel/CSV download.
+     *
+     * These stay available as (hidden) grid columns the user can toggle on
+     * screen; they are only suppressed in the export, which operations wants
+     * limited to the prospect's identity, city and creation date.
+     *
+     * `organization_id` is excluded for a second reason too: it renders the same
+     * organization the core "Nombre de la Organización" column already shows, so
+     * exporting both duplicated the data.
+     */
+    private const NON_EXPORTABLE_ATTRIBUTE_CODES = [
+        'job_title',
+        'user_id',
+        'organization_id',
+        'sucursal',
+    ];
+
+    /**
      * Shared custom-attribute value resolver (kept as a single instance so its
      * lookup-label cache is reused across every exported row).
      */
@@ -159,6 +177,12 @@ class PersonDataGrid extends DataGrid
         $this->addFilter('person_name', 'persons.name');
         $this->addFilter('organization', 'organizations.name');
 
+        /**
+         * Qualified because the left-joined "organizations" table also has a
+         * created_at column; an unqualified name would be ambiguous in SQL.
+         */
+        $this->addFilter('created_at', 'persons.created_at');
+
         return $queryBuilder;
     }
 
@@ -192,6 +216,7 @@ class PersonDataGrid extends DataGrid
             'sortable'   => false,
             'filterable' => true,
             'searchable' => true,
+            'exportable' => false,
             'closure'    => fn ($row) => collect(json_decode($row->emails, true) ?? [])->pluck('value')->join(', '),
         ]);
 
@@ -205,6 +230,22 @@ class PersonDataGrid extends DataGrid
             'closure'    => fn ($row) => collect(json_decode($row->contact_numbers, true) ?? [])->pluck('value')->join(', '),
         ]);
 
+        /**
+         * Prospect creation date. The query already selects persons.created_at
+         * (it is what the global date filter narrows on), so the export and the
+         * filter always describe the same field.
+         */
+        $this->addColumn([
+            'index'      => 'created_at',
+            'label'      => trans('admin::app.contacts.persons.index.datagrid.created-at'),
+            'type'       => 'date',
+            'sortable'   => true,
+            'filterable' => true,
+            'closure'    => fn ($row) => $row->created_at
+                ? Carbon::parse($row->created_at)->format('Y-m-d H:i')
+                : '',
+        ]);
+
         $this->addColumn([
             'index'              => 'organization',
             'label'              => trans('admin::app.contacts.persons.index.datagrid.organization-name'),
@@ -212,6 +253,7 @@ class PersonDataGrid extends DataGrid
             'searchable'         => true,
             'filterable'         => true,
             'sortable'           => true,
+            'exportable'         => false,
             'filterable_type'    => 'searchable_dropdown',
             'filterable_options' => [
                 'repository' => OrganizationRepository::class,
@@ -238,7 +280,7 @@ class PersonDataGrid extends DataGrid
             /**
              * Skip the core columns already rendered above to avoid duplicates.
              */
-            if (in_array($attribute->code, ['name', 'emails', 'contact_numbers', 'organization_name'])) {
+            if (in_array($attribute->code, ['name', 'emails', 'contact_numbers'])) {
                 continue;
             }
 
@@ -247,6 +289,7 @@ class PersonDataGrid extends DataGrid
                 'label'      => $attribute->name,
                 'type'       => 'string',
                 'visibility' => false,
+                'exportable' => ! in_array($attribute->code, self::NON_EXPORTABLE_ATTRIBUTE_CODES),
                 'closure'    => function ($row) use ($attribute) {
                     static $person;
 

@@ -90,12 +90,9 @@
     .then(response => {
         const data = response.data;
 
-        // Reemplazar "Agente" por "Sin ciudad" en labels y users
+        // El usuario "Agente" (cuenta comodín de leads sin asignar) se excluye en el
+        // backend vía $ignoredUserNames, así labels y datos quedan siempre alineados.
         if (data.statistics) {
-            // Agente
-            data.statistics.labels = data.statistics.labels.map(l => l === "Agente" ? "Sin ciudad" : l);
-            data.statistics.users = data.statistics.users.map(u => u === "Agente" ? "Sin ciudad" : u);
-            
             // Claudia
             data.statistics.labels = data.statistics.labels.map(l => l === "Claudia Camacho" ? "Claudia Camacho - TRJ" : l);
             data.statistics.users = data.statistics.users.map(u => u === "Claudia Camacho" ? "Claudia Camacho - TRJ" : u);

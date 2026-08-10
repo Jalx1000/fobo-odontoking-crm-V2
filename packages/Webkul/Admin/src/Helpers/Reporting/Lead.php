@@ -13,6 +13,29 @@ use Webkul\User\Repositories\UserRepository;
 class Lead extends AbstractReporting
 {
     /**
+     * Semáforo de "tiempo en responder": hasta 4 h verde, hasta 24 h amarillo,
+     * más de 24 h rojo. El límite rojo lo fija el negocio.
+     */
+    protected const GREEN_LIMIT_SECONDS = 4 * 3600;
+
+    protected const RED_LIMIT_SECONDS = 24 * 3600;
+
+    /**
+     * Rol de la cuenta que crea los leads entrantes (kohlberg@sofopolis.com) y
+     * rol de quien debe atenderlos. Deben coincidir con `roles.name` exactamente.
+     */
+    protected string $systemRoleName = 'Sistema';
+
+    protected string $managerRoleName = 'Encargado';
+
+    /**
+     * Roles que ven el tablero completo aunque no sean `permission_type = all`.
+     * Supervisores no tiene leads propios: restringirlo lo dejaría con la tarjeta
+     * vacía, cuando su trabajo es justamente controlar a los encargados.
+     */
+    protected array $fullViewRoleNames = ['Supervisores'];
+
+    /**
      * The channel ids.
      */
     protected array $stageIds;
@@ -48,6 +71,29 @@ class Lead extends AbstractReporting
      * se llama literalmente "No atendido" (code `no-atendido`).
      */
     protected array $notAttendedStageIds;
+
+    /**
+     * The "Cliente sin interés" stage ids. Terminal, igual que entregados y
+     * cancelados, pero no lo capturan ni `wonStageIds` ni `lostStageIds`.
+     */
+    protected array $noInterestStageIds;
+
+    /**
+     * Umbrales del semáforo de "tiempo por etapa", en segundos, indexados por el
+     * code normalizado de la etapa. `default` cubre cualquier etapa que se agregue
+     * después.
+     *
+     * "No atendido" hereda la regla de negocio ya vigente (4 h / 24 h): mide el
+     * tiempo en contestar un WhatsApp entrante. "Cliente confirmado" mide algo
+     * distinto -- preparar y entregar el pedido -- y con ese mismo umbral saldría
+     * rojo siempre, con lo que el color dejaría de informar; se le dan 48 h / 120 h
+     * (2 y 5 días).
+     */
+    protected array $stageDwellThresholds = [
+        'no-atendido'        => ['green' => 4 * 3600, 'red' => 24 * 3600],
+        'cliente-confirmado' => ['green' => 48 * 3600, 'red' => 120 * 3600],
+        'default'            => ['green' => self::GREEN_LIMIT_SECONDS, 'red' => self::RED_LIMIT_SECONDS],
+    ];
 
     /**
      * Role names excluded from vendor/sales statistics. Must match `roles.name` in the database exactly.
@@ -113,6 +159,13 @@ class Lead extends AbstractReporting
             ->resetModel()
             ->where('code', 'like', '%no-atendido%')
             ->orWhereRaw("LOWER(name) LIKE '%no atendido%'")
+            ->pluck('id')
+            ->toArray();
+
+        $this->noInterestStageIds = $this->stageRepository
+            ->resetModel()
+            ->where('code', 'like', '%sin-inter%')
+            ->orWhereRaw("LOWER(name) LIKE '%sin inter%'")
             ->pluck('id')
             ->toArray();
 
@@ -466,7 +519,7 @@ class Lead extends AbstractReporting
 
         foreach ($results as $row) {
             $key = $row->date;
-            $user = $row->user_name ?? '—';
+            $user = $row->user_name ?? '-';
             $byDate[$key] ??= [];
             $byDate[$key][$user] = (int) $row->count;
         }
@@ -535,7 +588,7 @@ class Lead extends AbstractReporting
             $countsByUser = [];
 
             foreach ($query->get() as $row) {
-                $countsByUser[$row->user_name ?? '—'] = (int) $row->count;
+                $countsByUser[$row->user_name ?? '-'] = (int) $row->count;
             }
 
             return $countsByUser;
@@ -603,6 +656,10 @@ class Lead extends AbstractReporting
 
         $query = $this->excludeIgnoredRoles($query, 'users.id');
 
+        if ($this->ignoredUserNames) {
+            $query->whereNotIn('users.name', $this->ignoredUserNames);
+        }
+
         if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
             $query->whereIn('users.id', $userIds);
         }
@@ -619,6 +676,10 @@ class Lead extends AbstractReporting
 
         $usersQuery = $this->userRepository->resetModel()->select('id', 'name');
         $usersQuery = $this->excludeIgnoredRoles($usersQuery, 'id');
+
+        if ($this->ignoredUserNames) {
+            $usersQuery->whereNotIn('name', $this->ignoredUserNames);
+        }
 
         if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
             $usersQuery->whereIn('id', $userIds);
@@ -758,7 +819,7 @@ class Lead extends AbstractReporting
             $countsByUser = [];
 
             foreach ($query->get() as $row) {
-                $countsByUser[$row->user_name ?? '—'] = (int) $row->count;
+                $countsByUser[$row->user_name ?? '-'] = (int) $row->count;
             }
 
             return $countsByUser;
@@ -860,7 +921,7 @@ class Lead extends AbstractReporting
             $avgByUser = [];
 
             foreach ($query->get() as $row) {
-                $avgByUser[$row->user_name ?? '—'] = $row->avg_response_seconds ? (int) $row->avg_response_seconds : 0;
+                $avgByUser[$row->user_name ?? '-'] = $row->avg_response_seconds ? (int) $row->avg_response_seconds : 0;
             }
 
             return $avgByUser;
@@ -895,6 +956,584 @@ class Lead extends AbstractReporting
             'previous_data' => $previousData,
             'users'         => $users,
         ];
+    }
+
+    /**
+     * Agrupa las etapas por su code normalizado. El pipeline es la ciudad, así que
+     * cada etapa existe replicada una vez por ciudad ("No atendido" son los ids
+     * 1, 11, 15, 23...): la columna de la tabla es el code, no el id. Se normaliza
+     * el guion inicial porque el id 11 quedó grabado como `-no-atendido`.
+     *
+     * @return array<string, array>
+     */
+    protected function stageGroups(): array
+    {
+        $terminalIds = array_merge($this->wonStageIds, $this->lostStageIds, $this->noInterestStageIds);
+
+        $groups = [];
+
+        foreach ($this->stageRepository->resetModel()->get() as $stage) {
+            $code = ltrim((string) $stage->code, '-');
+
+            if (! isset($groups[$code])) {
+                $groups[$code] = [
+                    'code'       => $code,
+                    'name'       => $stage->name,
+                    'ids'        => [],
+                    'sort_order' => $stage->sort_order ?? 0,
+                    'terminal'   => true,
+                ];
+            }
+
+            $groups[$code]['ids'][] = $stage->id;
+
+            /**
+             * El grupo es terminal solo si TODAS sus etapas lo son; basta una etapa
+             * de la que se pueda salir para que la columna mida permanencia.
+             */
+            if (! in_array($stage->id, $terminalIds)) {
+                $groups[$code]['terminal'] = false;
+            }
+
+            $groups[$code]['sort_order'] = min($groups[$code]['sort_order'], $stage->sort_order ?? 0);
+        }
+
+        uasort($groups, fn ($a, $b) => $a['sort_order'] <=> $b['sort_order']);
+
+        return $groups;
+    }
+
+    /**
+     * Semáforo de "tiempo por etapa". A diferencia de `responseLight()`, el umbral
+     * depende de la etapa: 4 h es exigible para contestar un lead pero absurdo para
+     * entregar un pedido, y con un umbral único la columna saldría siempre roja.
+     */
+    protected function stageLight(?int $seconds, string $code): string
+    {
+        if (is_null($seconds)) {
+            return 'gray';
+        }
+
+        $thresholds = $this->stageDwellThresholds[$code] ?? $this->stageDwellThresholds['default'];
+
+        if ($seconds <= $thresholds['green']) {
+            return 'green';
+        }
+
+        return $seconds <= $thresholds['red'] ? 'yellow' : 'red';
+    }
+
+    /**
+     * "Tiempo por etapa", una fila por lead: cuánto permaneció ese lead en cada
+     * etapa antes de que el asesor lo moviera, con una columna por etapa y el total
+     * como suma de las columnas.
+     *
+     * La permanencia no sale de `leads` (que solo guarda la etapa actual) sino de
+     * reconstruir la línea de tiempo desde el log de actividades, donde cada cambio
+     * deja `additional` = {attribute: "Etapa", old: {value}, new: {value}}. Cada
+     * estadía va desde que el lead entró a la etapa hasta el cambio siguiente,
+     * calculado con LEAD() sobre el log ordenado por lead.
+     *
+     * Tres fuentes se unen para no perder tramos:
+     *
+     *   A. Estadías registradas: entra en `new.value`, sale con el cambio siguiente.
+     *   B. Tramo anterior al primer cambio: el lead estuvo en `old.value` desde que
+     *      se creó. En los leads del bot dura ~0 s (crea y marca "No atendido" en el
+     *      mismo segundo), pero en los cargados a mano es el tramo real.
+     *   C. Leads que nunca cambiaron de etapa: siguen donde nacieron, sin log.
+     *
+     * Reglas de negocio acordadas:
+     *   - El reloj sigue corriendo contra "ahora" mientras el lead no salga de la
+     *     etapa, para que un lead abandonado penalice en vez de desaparecer.
+     *   - Las reaperturas SUMAN: si un lead vuelve a "No atendido", su segunda
+     *     estadía se acumula a la primera. Un lead que además cambia de ciudad pasa
+     *     por dos ids distintos de la misma etapa y también se consolida.
+     *   - Se listan TODAS las etapas como columna. En las terminales (entregados /
+     *     cancelados / sin interés) el número es la antigüedad desde que el lead
+     *     entró, no una demora imputable al asesor -- no se sale de ellas -- así que
+     *     van sin semáforo (`light` = "neutral") para no leerse como un atraso.
+     *
+     * "Ahora" se toma de la app (America/La_Paz) y no de NOW() de MySQL (UTC), que
+     * va 4 h adelantado e inflaría todos los tramos abiertos.
+     *
+     * Viene paginado porque es una tabla de detalle. La permanencia se calcula solo
+     * para los leads de la página, no para todo el período.
+     */
+    public function getStageDwellTimeByLead(int $perPage = 15): array
+    {
+        $pipelineId = is_numeric(request('pipeline_id')) ? (int) request('pipeline_id') : null;
+
+        $encargadoId = is_numeric(request('encargado_id')) ? (int) request('encargado_id') : null;
+
+        $page = max(1, (int) request('page', 1));
+
+        $groups = $this->stageGroups();
+
+        $query = $this->leadRepository
+            ->resetModel()
+            ->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
+            ->leftJoin('users', 'leads.user_id', '=', 'users.id')
+            ->leftJoin('lead_pipeline_stages', 'leads.lead_pipeline_stage_id', '=', 'lead_pipeline_stages.id')
+            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
+            ->when($pipelineId, fn ($q) => $q->where('leads.lead_pipeline_id', $pipelineId))
+            ->when($encargadoId, fn ($q) => $q->where('leads.user_id', $encargadoId));
+
+        $this->applyUserScope($query);
+
+        $total = (clone $query)->count('leads.id');
+
+        /**
+         * Acota la página al máximo disponible: si el filtro global reduce el
+         * universo mientras el usuario está en una página alta, devolver la última
+         * página real es mejor que una tabla vacía con "página 99 de 16".
+         */
+        $lastPage = max(1, (int) ceil($total / $perPage));
+
+        $page = min($page, $lastPage);
+
+        $leads = $query
+            ->select(
+                'leads.id as lead_id',
+                'leads.title as lead_title',
+                'leads.created_at as contact_at',
+                'persons.name as person_name',
+                'users.name as encargado_name',
+                'lead_pipeline_stages.name as current_stage'
+            )
+            ->orderByDesc('leads.created_at')
+            ->forPage($page, $perPage)
+            ->get();
+
+        $dwell = $this->stageDwellSeconds($leads->pluck('lead_id')->all(), $groups);
+
+        $rows = $leads->map(function ($lead) use ($dwell, $groups) {
+            $stages = [];
+
+            $total = 0;
+
+            foreach ($groups as $code => $group) {
+                $seconds = $dwell[$lead->lead_id][$code] ?? null;
+
+                $stages[$code] = [
+                    'seconds' => $seconds,
+                    'human'   => $this->humanizeSeconds($seconds),
+
+                    /**
+                     * En una etapa terminal el reloj mide antigüedad, no demora del
+                     * asesor: se muestra el valor pero sin semáforo, para que no se
+                     * lea como un atraso que alguien debería corregir.
+                     */
+                    'light'   => $group['terminal'] && ! is_null($seconds)
+                        ? 'neutral'
+                        : $this->stageLight($seconds, $code),
+                ];
+
+                $total += $seconds ?? 0;
+            }
+
+            return [
+                'lead_id'        => $lead->lead_id,
+                'person_name'    => $lead->person_name ?: ($lead->lead_title ?: '-'),
+                'encargado_name' => $lead->encargado_name ?: '-',
+                'current_stage'  => $lead->current_stage ?: '-',
+                'contact_at'     => $lead->contact_at ? Carbon::parse($lead->contact_at)->format('d/m/Y H:i') : null,
+                'stages'         => $stages,
+                'total_seconds'  => $total,
+                'total_human'    => $this->humanizeSeconds($total ?: null),
+            ];
+        })->values()->all();
+
+        return [
+            'columns' => array_values(array_map(function ($group) {
+                $thresholds = $this->stageDwellThresholds[$group['code']] ?? $this->stageDwellThresholds['default'];
+
+                return [
+                    'code'     => $group['code'],
+                    'name'     => $group['name'],
+                    'terminal' => $group['terminal'],
+                    'green'    => $group['terminal'] ? null : $this->humanizeSeconds($thresholds['green']),
+                    'red'      => $group['terminal'] ? null : $this->humanizeSeconds($thresholds['red']),
+                ];
+            }, $groups)),
+            'rows'       => $rows,
+            'encargados' => $this->getManagers(),
+            'meta'       => [
+                'total'        => $total,
+                'per_page'     => $perPage,
+                'current_page' => $page,
+                'last_page'    => $lastPage,
+            ],
+        ];
+    }
+
+    /**
+     * Segundos de permanencia por lead y etapa para un puñado de leads concretos
+     * (los de la página). Ver `getStageDwellTimeByLead()` para las reglas.
+     *
+     * @param  array<int>  $leadIds
+     * @return array<int, array<string, int>>  [lead_id => [stage_code => seconds]]
+     */
+    protected function stageDwellSeconds(array $leadIds, array $groups): array
+    {
+        if (! $leadIds) {
+            return [];
+        }
+
+        $prefix = DB::getTablePrefix();
+
+        $ids = implode(',', array_map('intval', $leadIds));
+
+        $now = now()->toDateTimeString();
+
+        $stageAttribute = "JSON_UNQUOTE(JSON_EXTRACT(a.additional, '$.attribute')) = 'Etapa'";
+
+        /**
+         * El pipeline es la ciudad, así que cada etapa está replicada una vez por
+         * ciudad. La columna de la tabla es el code, no el id: se traduce dentro del
+         * SQL para que el GROUP BY trabaje ya sobre la columna final. Agrupar
+         * después en PHP partía en dos la permanencia de un lead que cambia de
+         * ciudad, en vez de sumarla.
+         */
+        $stageCase = 'CASE s.stage_id';
+
+        foreach ($groups as $code => $group) {
+            $stageCase .= ' WHEN '.implode(" THEN '{$code}' WHEN ", array_map('intval', $group['ids']))." THEN '{$code}'";
+        }
+
+        $stageCase .= ' END';
+
+        $sql = "
+            SELECT s.lead_id, {$stageCase} AS stage_code,
+                   SUM(TIMESTAMPDIFF(SECOND, s.entered_at, COALESCE(s.left_at, ?))) AS seconds
+            FROM (
+                SELECT la.lead_id,
+                       CAST(JSON_UNQUOTE(JSON_EXTRACT(a.additional, '$.new.value')) AS UNSIGNED) AS stage_id,
+                       a.created_at AS entered_at,
+                       LEAD(a.created_at) OVER (PARTITION BY la.lead_id ORDER BY a.created_at, a.id) AS left_at
+                FROM {$prefix}activities a
+                JOIN {$prefix}lead_activities la ON la.activity_id = a.id
+                WHERE {$stageAttribute}
+                  AND la.lead_id IN ({$ids})
+
+                UNION ALL
+
+                SELECT la.lead_id,
+                       CAST(JSON_UNQUOTE(JSON_EXTRACT(a.additional, '$.old.value')) AS UNSIGNED) AS stage_id,
+                       l.created_at AS entered_at,
+                       a.created_at AS left_at
+                FROM {$prefix}activities a
+                JOIN {$prefix}lead_activities la ON la.activity_id = a.id
+                JOIN {$prefix}leads l ON l.id = la.lead_id
+                JOIN (
+                    SELECT la2.lead_id, MIN(a2.id) AS first_activity_id
+                    FROM {$prefix}activities a2
+                    JOIN {$prefix}lead_activities la2 ON la2.activity_id = a2.id
+                    WHERE JSON_UNQUOTE(JSON_EXTRACT(a2.additional, '$.attribute')) = 'Etapa'
+                      AND la2.lead_id IN ({$ids})
+                    GROUP BY la2.lead_id
+                ) f ON f.first_activity_id = a.id
+
+                UNION ALL
+
+                SELECT l.id AS lead_id,
+                       l.lead_pipeline_stage_id AS stage_id,
+                       l.created_at AS entered_at,
+                       NULL AS left_at
+                FROM {$prefix}leads l
+                WHERE l.id IN ({$ids})
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM {$prefix}activities a
+                      JOIN {$prefix}lead_activities la ON la.activity_id = a.id
+                      WHERE la.lead_id = l.id AND {$stageAttribute}
+                  )
+            ) s
+            WHERE s.stage_id IS NOT NULL
+            GROUP BY s.lead_id, stage_code
+            HAVING stage_code IS NOT NULL
+        ";
+
+        $dwell = [];
+
+        foreach (DB::select($sql, [$now]) as $row) {
+            $dwell[$row->lead_id][$row->stage_code] = (int) $row->seconds;
+        }
+
+        return $dwell;
+    }
+
+    /**
+     * "Tiempo en responder" detallado, una fila por lead/contacto. Reconstruye la
+     * línea de tiempo desde el log de actividades (`activities` + `lead_activities`),
+     * donde cada cambio de etapa deja `additional` = {attribute: "Etapa",
+     * old: {value}, new: {value}} junto al `user_id` de quien lo hizo:
+     *
+     *   1. contacto  -> leads.created_at (llegada del lead)
+     *   2. agente    -> 1ª actividad de un usuario con rol Sistema
+     *                   (kohlberg@sofopolis.com) que deja la etapa en "No atendido"
+     *   3. encargado -> 1ª salida de "No atendido" hacia cualquier otra etapa,
+     *                   sin filtrar por rol (ver abajo)
+     *
+     * Dos detalles medidos contra la base que condicionan el filtrado:
+     *
+     *   - La transición NO se detecta por el nombre de la etapa sino por su ID
+     *     ($notAttendedStageIds). El log guarda el nombre que la etapa tenía en
+     *     ese momento, y las etapas se renombraron el 9-10/07/2026 ("Prospectos"
+     *     -> "No atendido"): filtrar por nombre pierde todo lo anterior. El ID
+     *     sobrevive a cualquier renombre futuro.
+     *
+     *   - El paso 3 no filtra por rol Encargado. En la operación real el bot
+     *     (rol Sistema) registra la mayoría de los avances de etapa cuando el
+     *     encargado atiende por WhatsApp; exigir rol Encargado marcaba como "sin
+     *     atender" a ~46% de los leads que sí habían sido atendidos.
+     *
+     * Los leads cargados a mano por un encargado no tienen paso 2: ahí el tramo
+     * queda en "sin dato" (gris) en vez de penalizar a nadie. Cuando el evento
+     * todavía no ocurrió, el reloj corre contra "ahora", para que un lead sin
+     * atender hace tres días se vea rojo y no vacío.
+     *
+     * Viene paginado porque es una tabla de detalle, no un gráfico.
+     */
+    public function getResponseTimeDetailByContact(int $perPage = 15): array
+    {
+        $tablePrefix = DB::getTablePrefix();
+        $pipelineId = is_numeric(request('pipeline_id')) ? request('pipeline_id') : null;
+        $encargadoId = is_numeric(request('encargado_id')) ? (int) request('encargado_id') : null;
+        $page = max(1, (int) request('page', 1));
+
+        /**
+         * IDs de la etapa inicial "No atendido" (una por pipeline/ciudad). Se usan
+         * en lugar del nombre porque el log guarda el nombre histórico.
+         */
+        $notAttendedIds = implode(',', $this->notAttendedStageIds ?: [0]);
+
+        /**
+         * Subconsulta correlacionada: primera marca de tiempo del log del lead que
+         * cumple la transición de etapa (y el rol, si se exige uno). MIN() garantiza
+         * que una reapertura posterior (volver a "No atendido" y salir otra vez) no
+         * pise el tiempo de respuesta original. Los literales son constantes de este
+         * método, no entrada del usuario.
+         */
+        $stageActivityAt = function (?string $roleName, string $extraConditions) use ($tablePrefix) {
+            $roleJoin = $roleName
+                ? ' JOIN '.$tablePrefix.'users au ON au.id = a.user_id'
+                    .' JOIN '.$tablePrefix.'roles ar ON ar.id = au.role_id'
+                : '';
+
+            return '(SELECT MIN(a.created_at)'
+                .' FROM '.$tablePrefix.'activities a'
+                .' JOIN '.$tablePrefix.'lead_activities la ON la.activity_id = a.id'
+                .$roleJoin
+                .' WHERE la.lead_id = '.$tablePrefix.'leads.id'
+                .($roleName ? " AND ar.name = '".$roleName."'" : '')
+                .' AND a.additional IS NOT NULL'
+                ." AND JSON_UNQUOTE(JSON_EXTRACT(a.additional, '$.attribute')) = 'Etapa'"
+                .$extraConditions
+                .')';
+        };
+
+        // El bot (rol Sistema) deja el lead en la etapa inicial "No atendido".
+        $agentAt = $stageActivityAt(
+            $this->systemRoleName,
+            " AND JSON_EXTRACT(a.additional, '$.new.value') IN (".$notAttendedIds.')'
+        );
+
+        // Primera salida de "No atendido", la registre quien la registre.
+        $encargadoAt = $stageActivityAt(
+            null,
+            " AND JSON_EXTRACT(a.additional, '$.old.value') IN (".$notAttendedIds.')'
+            ." AND JSON_EXTRACT(a.additional, '$.new.value') NOT IN (".$notAttendedIds.')'
+        );
+
+        $query = $this->leadRepository
+            ->resetModel()
+            ->leftJoin('persons', 'leads.person_id', '=', 'persons.id')
+            ->leftJoin('users', 'leads.user_id', '=', 'users.id')
+            ->whereBetween('leads.created_at', [$this->startDate, $this->endDate])
+            ->when($pipelineId, fn ($q) => $q->where('leads.lead_pipeline_id', $pipelineId))
+            ->when($encargadoId, fn ($q) => $q->where('leads.user_id', $encargadoId));
+
+        $this->applyUserScope($query);
+
+        $total = (clone $query)->count('leads.id');
+
+        /**
+         * Acota la página al máximo disponible: si el filtro global reduce el
+         * universo mientras el usuario está en una página alta, devolver la
+         * última página real es mejor que una tabla vacía con "página 99 de 16".
+         */
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $page = min($page, $lastPage);
+
+        $rows = $query
+            ->select(
+                'leads.id as lead_id',
+                'leads.title as lead_title',
+                'leads.created_at as contact_at',
+                'persons.name as person_name',
+                'users.name as encargado_name'
+            )
+            ->selectRaw($agentAt.' as agent_at')
+            ->selectRaw($encargadoAt.' as encargado_at')
+            ->orderByDesc('leads.created_at')
+            ->forPage($page, $perPage)
+            ->get();
+
+        $now = now();
+
+        $items = $rows->map(function ($row) use ($now) {
+            $contactAt = $row->contact_at ? Carbon::parse($row->contact_at) : null;
+            $agentAt = $row->agent_at ? Carbon::parse($row->agent_at) : null;
+            $encargadoAt = $row->encargado_at ? Carbon::parse($row->encargado_at) : null;
+
+            $agentSeconds = $contactAt && $agentAt ? abs($agentAt->diffInSeconds($contactAt)) : null;
+
+            $encargadoSeconds = $agentAt
+                ? abs(($encargadoAt ?? $now)->diffInSeconds($agentAt))
+                : null;
+
+            $totalSeconds = $contactAt
+                ? abs(($encargadoAt ?? $now)->diffInSeconds($contactAt))
+                : null;
+
+            return [
+                'lead_id'           => $row->lead_id,
+                'person_name'       => $row->person_name ?: ($row->lead_title ?: '-'),
+                'encargado_name'    => $row->encargado_name ?: '-',
+                'contact_at'        => $contactAt?->format('d/m/Y H:i'),
+                'agent_at'          => $agentAt?->format('d/m/Y H:i'),
+                'encargado_at'      => $encargadoAt?->format('d/m/Y H:i'),
+                'agent_human'       => $this->humanizeSeconds($agentSeconds),
+                'encargado_human'   => $this->humanizeSeconds($encargadoSeconds),
+                'total_human'       => $this->humanizeSeconds($totalSeconds),
+                'agent_light'       => $this->responseLight($agentSeconds),
+                'encargado_light'   => $this->responseLight($encargadoSeconds),
+                'total_light'       => $this->responseLight($totalSeconds),
+                'is_pending'        => is_null($encargadoAt),
+                'is_manual'         => is_null($agentAt),
+            ];
+        })->values()->all();
+
+        return [
+            'rows'       => $items,
+            'encargados' => $this->getManagers(),
+            'meta'       => [
+                'total'        => $total,
+                'per_page'     => $perPage,
+                'current_page' => $page,
+                'last_page'    => $lastPage,
+            ],
+        ];
+    }
+
+    /**
+     * Semáforo de un tramo de respuesta.
+     */
+    protected function responseLight(?int $seconds): string
+    {
+        if (is_null($seconds)) {
+            return 'gray';
+        }
+
+        if ($seconds <= self::GREEN_LIMIT_SECONDS) {
+            return 'green';
+        }
+
+        if ($seconds <= self::RED_LIMIT_SECONDS) {
+            return 'yellow';
+        }
+
+        return 'red';
+    }
+
+    /**
+     * Duración legible y compacta para la tabla: "45 s", "12 m", "2 h 05 m", "3 d 14 h".
+     */
+    protected function humanizeSeconds(?int $seconds): ?string
+    {
+        if (is_null($seconds)) {
+            return null;
+        }
+
+        if ($seconds < 60) {
+            return $seconds.' s';
+        }
+
+        if ($seconds < 3600) {
+            return intdiv($seconds, 60).' m';
+        }
+
+        if ($seconds < 86400) {
+            return intdiv($seconds, 3600).' h '.str_pad((string) intdiv($seconds % 3600, 60), 2, '0', STR_PAD_LEFT).' m';
+        }
+
+        return intdiv($seconds, 86400).' d '.intdiv($seconds % 86400, 3600).' h';
+    }
+
+    /**
+     * Alcance de los tableros según el rol de quien mira:
+     *
+     *   - Roles de vista completa (Administrador, Supervisores, Sistema): null, o
+     *     sea sin límite; ven todos los leads y todos los encargados del selector.
+     *   - Encargado (y cualquier otro rol): solo su propio id.
+     *
+     * Se decide por rol y no por `users.view_permission` porque los encargados
+     * están cargados como "global" para poder trabajar el kanban completo, y eso
+     * dejaba el tablero abierto a todos. El bouncer sigue aplicándose encima como
+     * segundo filtro, así que un usuario global-restringido nunca se amplía aquí.
+     */
+    protected function scopedUserIds(): ?array
+    {
+        $user = auth()->guard('user')->user();
+
+        if (! $user) {
+            return [0];
+        }
+
+        if (
+            $user->role?->permission_type === 'all'
+            || in_array($user->role?->name, $this->fullViewRoleNames, true)
+        ) {
+            return null;
+        }
+
+        return [$user->id];
+    }
+
+    /**
+     * Aplica el alcance por rol y el del bouncer a una consulta de leads.
+     */
+    protected function applyUserScope($query, string $column = 'leads.user_id')
+    {
+        if (! is_null($userIds = $this->scopedUserIds())) {
+            $query->whereIn($column, $userIds);
+        }
+
+        if (function_exists('bouncer') && ! is_null($userIds = bouncer()->getAuthorizedUserIds())) {
+            $query->whereIn($column, $userIds);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Usuarios con rol Encargado, para el selector de filtro de la tarjeta. Un
+     * encargado se ve solo a sí mismo; el administrador ve a todos.
+     */
+    protected function getManagers(): array
+    {
+        $query = $this->userRepository
+            ->resetModel()
+            ->join('roles', 'users.role_id', '=', 'roles.id')
+            ->where('roles.name', $this->managerRoleName);
+
+        $this->applyUserScope($query, 'users.id');
+
+        return $query
+            ->orderBy('users.name')
+            ->get(['users.id', 'users.name'])
+            ->map(fn ($user) => ['id' => $user->id, 'name' => $user->name])
+            ->all();
     }
 
     public function getVentasCountByBranches(): array
@@ -1026,7 +1665,7 @@ class Lead extends AbstractReporting
 
     /**
      * Leads "No atendidos" (etapa inicial "No atendido", $notAttendedStageIds)
-     * agrupados por ciudad — cada pipeline representa una ciudad. Alimenta el
+     * agrupados por ciudad - cada pipeline representa una ciudad. Alimenta el
      * card doughnut "No atendidos por Ciudad". Cuenta por created_at y respeta
      * el filtro de pipeline, los roles ignorados y el ACL, igual que el resto
      * de métricas. Solo incluye ciudades con al menos un lead no atendido.
