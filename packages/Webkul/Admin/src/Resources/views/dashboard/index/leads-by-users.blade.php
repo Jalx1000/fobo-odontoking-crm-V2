@@ -105,6 +105,10 @@
             data.statistics.labels = data.statistics.labels.map(l => l === "Jorge Bares" ? "Jorge Bares - CBBA" : l);
             data.statistics.users = data.statistics.users.map(u => u === "Jorge Bares" ? "Jorge Bares - CBBA" : u);
 
+            // Jorge Bares
+            data.statistics.labels = data.statistics.labels.map(l => l === "Gabriel Muñoz" ? "Gabriel Muñoz - CBBA" : l);
+            data.statistics.users = data.statistics.users.map(u => u === "Gabriel Muñoz" ? "Gabriel Muñoz - CBBA" : u);
+
             // Liliana Alarcon
             data.statistics.labels = data.statistics.labels.map(l => l === "Liliana Alarcon" ? "Liliana Alarcon - SCZ" : l);
             data.statistics.users = data.statistics.users.map(u => u === "Liliana Alarcon" ? "Liliana Alarcon - SCZ" : u);

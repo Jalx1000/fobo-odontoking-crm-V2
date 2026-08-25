@@ -37,6 +37,7 @@ return [
         'view'            => 'View',
         'print'           => 'Print',
         'delete'          => 'Delete',
+        'stage-update'    => 'Update stage',
         'export'          => 'Export',
         'mass-delete'     => 'Mass Delete',
         'data-transfer'   => 'Data Transfer',
@@ -1900,6 +1901,7 @@ return [
         'create-success'    => 'Lead created successfully.',
         'update-success'    => 'Leads updated successfully.',
         'update-failed'     => 'Leads can not be deleted.',
+        'stage-permission-denied' => 'You do not have permission to change a lead stage.',
         'destroy-success'   => 'Lead deleted successfully.',
         'destroy-failed'    => 'Lead can not be deleted.',
 
@@ -1963,7 +1965,8 @@ return [
 
                 'toolbar' => [
                     'search' => [
-                        'title' => 'Search by Title',
+                        'title' => 'Name, phone, email or messenger',
+                        'clear' => 'Clear search',
                     ],
 
                     'filters' => [

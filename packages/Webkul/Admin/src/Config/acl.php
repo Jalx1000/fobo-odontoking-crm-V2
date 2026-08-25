@@ -24,13 +24,26 @@ return [
     ], [
         'key'   => 'leads.edit',
         'name'  => 'admin::app.acl.edit',
-        'route' => ['admin.leads.edit', 'admin.leads.update', 'admin.leads.mass_update'],
+        'route' => ['admin.leads.edit', 'admin.leads.update'],
         'sort'  => 3,
     ], [
         'key'   => 'leads.delete',
         'name'  => 'admin::app.acl.delete',
         'route' => ['admin.leads.delete', 'admin.leads.mass_delete'],
         'sort'  => 4,
+    ], [
+        /**
+         * Controla el cambio de etapa por cualquier via: arrastrar en el tablero,
+         * la barra de etapas de la vista del lead y la actualizacion masiva del
+         * datagrid (que solo escribe la etapa).
+         *
+         * La clave no puede contener "activities" ni "tags": el fallback de
+         * Bouncer las aprueba a cualquier rol que tenga algun permiso de leads.
+         */
+        'key'   => 'leads.stage_update',
+        'name'  => 'admin::app.acl.stage-update',
+        'route' => ['admin.leads.stage.update', 'admin.leads.mass_update'],
+        'sort'  => 5,
     ], [
         'key'   => 'quotes',
         'name'  => 'admin::app.acl.quotes',

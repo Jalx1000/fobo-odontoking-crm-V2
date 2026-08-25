@@ -88,6 +88,7 @@
         @if (request('view_type'))
             <a
                 class="flex"
+                data-carries-search
                 href="{{ route('admin.leads.index', array_merge($dateParams, ['pipeline_id' => request('pipeline_id')])) }}"
             >
                 <span class="icon-kanban p-2 text-2xl"></span>
@@ -98,6 +99,7 @@
             <span class="icon-kanban rounded-md bg-white p-2 text-2xl dark:bg-gray-900"></span>
 
             <a
+                data-carries-search
                 href="{{ route('admin.leads.index', array_merge($dateParams, ['view_type' => 'table', 'pipeline_id' => request('pipeline_id')])) }}"
                 class="flex"
             >
@@ -110,3 +112,76 @@
 </div>
 
 {!! view_render_event('admin.leads.index.view_switcher.after') !!}
+
+@pushOnce('scripts')
+    <script type="module">
+        /**
+         * Carries the active search term across the kanban <-> table switch.
+         *
+         * Both views already persist their applied filters to local storage on every
+         * fetch, so reading it at click time always reflects what the user is looking
+         * at — no extra state to keep in sync. The receiving side picks it up from the
+         * "search" param: the shared datagrid component reads it natively, and the
+         * kanban does so in `applySearchFromUrl()`.
+         *
+         * City switches are deliberately left out: filters are stored per pipeline so
+         * they never bleed from one city into another.
+         */
+        (() => {
+            const SOURCES = [
+                // [storage key, entry id]
+                ['kanbans', @json(request('pipeline_id') ?: 'default')],
+                ['datagrids', @json(route('admin.leads.index', ['pipeline_id' => request('pipeline_id')]))],
+            ];
+
+            const activeTerm = () => {
+                for (const [key, src] of SOURCES) {
+                    let entries;
+
+                    try {
+                        entries = JSON.parse(localStorage.getItem(key)) ?? [];
+                    } catch (e) {
+                        continue;
+                    }
+
+                    const term = entries
+                        .find(entry => entry?.src === src)
+                        ?.applied?.filters?.columns
+                        ?.find(column => column.index === 'all')
+                        ?.value?.[0];
+
+                    if (term) {
+                        return term;
+                    }
+                }
+
+                return '';
+            };
+
+            /**
+             * Delegated: both view switchers are rendered by Vue (inside the kanban
+             * and datagrid templates), so the anchors do not exist yet when this runs.
+             * Rewriting the href during the bubble phase still beats the navigation.
+             */
+            document.addEventListener('click', (event) => {
+                const link = event.target.closest?.('a[data-carries-search]');
+
+                if (! link) {
+                    return;
+                }
+
+                const term = activeTerm();
+
+                if (! term) {
+                    return;
+                }
+
+                const url = new URL(link.href, window.location.origin);
+
+                url.searchParams.set('search', term);
+
+                link.href = url.toString();
+            });
+        })();
+    </script>
+@endPushOnce

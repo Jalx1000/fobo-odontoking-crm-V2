@@ -362,6 +362,12 @@
 
                     stageLeads: {},
 
+                    /**
+                     * Origen del ultimo arrastre, para devolver la tarjeta a su
+                     * columna si el backend rechaza el cambio de etapa.
+                     */
+                    lastRemoval: null,
+
                     isLoading: true,
 
                     tagTextColor: {
@@ -411,6 +417,8 @@
                         if (currentKanban) {
                             this.applied.filters = currentKanban.applied.filters;
 
+                            this.applySearchFromUrl();
+
                             this.get()
                                 .then(response => {
                                     for (let [sortOrder, data] of Object.entries(response.data)) {
@@ -422,12 +430,68 @@
                         }
                     }
 
+                    this.applySearchFromUrl();
+
                     this.get()
                         .then(response => {
                             for (let [sortOrder, data] of Object.entries(response.data)) {
                                 this.stageLeads[sortOrder] = data;
                             }
                         });
+                },
+
+                /**
+                 * Seeds the search term from the "search" query param, which is how the
+                 * view switcher hands it over when coming from the table view. The URL
+                 * wins over whatever was left in local storage, since it reflects the
+                 * search the user was actually looking at.
+                 *
+                 * @returns {void}
+                 */
+                applySearchFromUrl() {
+                    const term = new URLSearchParams(window.location.search).get('search');
+
+                    if (term === null) {
+                        return;
+                    }
+
+                    const appliedColumn = this.applied.filters.columns.find(column => column.index === 'all');
+
+                    if (appliedColumn) {
+                        appliedColumn.value = term ? [term] : [];
+                    } else if (term) {
+                        this.applied.filters.columns.push({ index: 'all', value: [term] });
+                    }
+                },
+
+                /**
+                 * Normalizes an applied column's value into a flat array.
+                 *
+                 * The filter drawer stores date quick-filters as a bare string
+                 * ("today") and date ranges as a nested array ([[from, to]]), so
+                 * calling `.join()` on the raw value blows up for the former.
+                 *
+                 * @param {string|Array} value
+                 * @returns {Array}
+                 */
+                toValues(value) {
+                    if (value === undefined || value === null || value === '') {
+                        return [];
+                    }
+
+                    return Array.isArray(value) ? value.flat() : [value];
+                },
+
+                /**
+                 * Strips the characters that delimit the RequestCriteria search
+                 * protocol ("field:value,value;field:value"). Without this, a term
+                 * containing ":" or ";" is silently truncated server side.
+                 *
+                 * @param {string} value
+                 * @returns {string}
+                 */
+                escapeSearchValue(value) {
+                    return String(value).replace(/[;:]/g, ' ').trim();
                 },
 
                 /**
@@ -440,18 +504,31 @@
                     let params = {
                         search: '',
                         searchFields: '',
+                        /**
+                         * RequestCriteria ORs every field of "search" together unless
+                         * told otherwise, which would make each added filter *widen*
+                         * the result set instead of narrowing it.
+                         */
+                        searchJoin: 'and',
                         pipeline_id: "{{ request('pipeline_id') }}",
                         limit: 20,
                     };
 
                     this.applied.filters.columns.forEach((column) => {
                         if (column.index === 'all') {
-                            if (! column.value.length) {
+                            const term = this.toValues(column.value).join(' ').trim();
+
+                            if (! term) {
                                 return;
                             }
 
-                            params['search'] += `title:${column.value.join(',')};`;
-                            params['searchFields'] += `title:like;`;
+                            /**
+                             * Free-text search travels in its own "q" param instead of the
+                             * "field:value;" protocol: the term must match the lead title OR
+                             * the contact (name, email, phone, messenger id) as a single
+                             * grouped condition, which that protocol cannot express.
+                             */
+                            params['q'] = term;
 
                             return;
                         }
@@ -460,17 +537,26 @@
                          * If the column is a searchable dropdown, then we need to append the column value
                          * with the column label. Otherwise, we can directly append the column value.
                          */
-                        params['search'] += column.filterable_type === 'searchable_dropdown'
-                            ? `${column.index}:${column.value.map(option => option.value).join(',')};`
-                            : `${column.index}:${column.value.join(',')};`;
+                        const values = column.filterable_type === 'searchable_dropdown'
+                            ? this.toValues(column.value).map(option => option?.value ?? option)
+                            : this.toValues(column.value);
+
+                        params['search'] += `${column.index}:${values.map(this.escapeSearchValue).join(',')};`;
 
                         params['searchFields'] += `${column.index}:${column.search_field};`;
                     });
 
+                    /**
+                     * Only the params that scope the whole page are carried over from the
+                     * URL. Copying the full query string would let a shared/bookmarked
+                     * link overwrite the search and paging params built above.
+                     */
                     const urlParams = new URLSearchParams(window.location.search);
 
-                    urlParams.forEach((value, key) => {
-                        params[key] = value;
+                    ['pipeline_id', 'date_filter', 'date_from', 'date_to'].forEach((key) => {
+                        if (urlParams.has(key)) {
+                            params[key] = urlParams.get(key);
+                        }
                     });
 
                     return this.$axios
@@ -585,12 +671,27 @@
 
                         this.stageLeads[stage.sort_order].leads.meta.total = this.stageLeads[stage.sort_order].leads.meta.total - 1;
 
+                        /**
+                         * Vuedraggable emite "removed" en la columna de origen antes que
+                         * "added" en la de destino. Guardamos el origen para poder devolver
+                         * la tarjeta si el backend rechaza el cambio de etapa.
+                         */
+                        this.lastRemoval = {
+                            stage:    stage,
+                            element:  event.removed.element,
+                            oldIndex: event.removed.oldIndex,
+                        };
+
                         return;
                     }
 
                     stage.lead_value = parseFloat(stage.lead_value) + parseFloat(event.added.element.lead_value);
 
                     this.stageLeads[stage.sort_order].leads.meta.total = this.stageLeads[stage.sort_order].leads.meta.total + 1;
+
+                    let removal = this.lastRemoval;
+
+                    this.lastRemoval = null;
 
                     this.updateStage('{{ route('admin.leads.stage.update', '__LEAD_ID__') }}'.replace('__LEAD_ID__', event.added.element.id), {
                         'lead_pipeline_stage_id': stage.id
@@ -599,8 +700,60 @@
                             this.$emitter.emit('add-flash', { type: 'success', message: response.data.message });
                         })
                         .catch(error => {
-                            this.$emitter.emit('add-flash', { type: 'error', message: error.response.data.message });
-                        });;
+                            this.revertMove(stage, event.added, removal);
+
+                            this.$emitter.emit('add-flash', {
+                                type:    'error',
+                                message: error.response?.status === 401
+                                    ? "@lang('admin::app.leads.stage-permission-denied')"
+                                    : error.response?.data?.message,
+                            });
+                        });
+                },
+
+                /**
+                 * Devuelve la tarjeta a su columna original cuando el backend rechaza
+                 * el cambio de etapa, para que el tablero no muestre una etapa que la
+                 * base de datos no tiene.
+                 *
+                 * @param {object} target - La etapa de destino.
+                 * @param {object} added - El evento "added" de vuedraggable.
+                 * @param {object|null} removal - El origen capturado en el evento "removed".
+                 *
+                 * @returns {void}
+                 */
+                revertMove(target, added, removal) {
+                    /**
+                     * Sin el origen capturado no podemos deshacer el movimiento a mano,
+                     * asi que recargamos el tablero respetando los filtros aplicados.
+                     */
+                    if (! removal) {
+                        this.get().then(response => {
+                            for (let [sortOrder, data] of Object.entries(response.data)) {
+                                this.stageLeads[sortOrder] = data;
+                            }
+                        });
+
+                        return;
+                    }
+
+                    let value = parseFloat(added.element.lead_value);
+
+                    let targetLeads = this.stageLeads[target.sort_order].leads;
+
+                    targetLeads.data.splice(targetLeads.data.indexOf(added.element), 1);
+
+                    target.lead_value = parseFloat(target.lead_value) - value;
+
+                    targetLeads.meta.total = targetLeads.meta.total - 1;
+
+                    let sourceLeads = this.stageLeads[removal.stage.sort_order].leads;
+
+                    sourceLeads.data.splice(removal.oldIndex, 0, removal.element);
+
+                    removal.stage.lead_value = parseFloat(removal.stage.lead_value) + value;
+
+                    sourceLeads.meta.total = sourceLeads.meta.total + 1;
                 },
 
                 /**
@@ -637,7 +790,23 @@
                             this.$emitter.emit('add-flash', { type: 'success', message: response.data.message });
                         })
                         .catch(error => {
-                            this.$emitter.emit('add-flash', { type: 'error', message: error.response.data.message });
+                            /**
+                             * La tarjeta ya fue movida por el arrastre antes de abrir el
+                             * modal, asi que recargamos el tablero para devolverla a su
+                             * etapa real cuando el backend rechaza el cambio.
+                             */
+                            this.get().then(response => {
+                                for (let [sortOrder, data] of Object.entries(response.data)) {
+                                    this.stageLeads[sortOrder] = data;
+                                }
+                            });
+
+                            this.$emitter.emit('add-flash', {
+                                type:    'error',
+                                message: error.response?.status === 401
+                                    ? "@lang('admin::app.leads.stage-permission-denied')"
+                                    : error.response?.data?.message,
+                            });
                         }).finally(() => {
                             this.finalized.updating = false;
                         });

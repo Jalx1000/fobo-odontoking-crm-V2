@@ -30,6 +30,7 @@
                     :class="{
                         '!bg-green-500 text-white dark:text-gray-900 ltr:after:bg-green-500 rtl:before:bg-green-500': currentStage.sort_order >= stage.sort_order,
                         '!bg-red-500 text-white dark:text-gray-900 ltr:after:bg-red-500 rtl:before:bg-red-500': currentStage.code == 'lost',
+                        '!cursor-default': ! canUpdateStage,
                     }"
                     v-if="! ['won', 'lost'].includes(stage.code)"
                     @click="update(stage)"
@@ -54,6 +55,7 @@
                         :class="{
                             '!bg-green-500 text-white dark:text-gray-900 after:bg-green-500': ['won', 'lost'].includes(currentStage.code) && currentStage.code == 'won',
                             '!bg-red-500 text-white dark:text-gray-900 after:bg-red-500': ['won', 'lost'].includes(currentStage.code) && currentStage.code == 'lost',
+                            '!cursor-default': ! canUpdateStage,
                         }"
                         @click="stageToggler = ! stageToggler"
                     >
@@ -202,11 +204,17 @@
                     stages: @json($stages),
 
                     stageToggler: '',
+
+                    canUpdateStage: @json(bouncer()->hasPermission('leads.stage_update')),
                 }
             },
 
             methods: {
                 openModal(stage) {
+                    if (! this.canUpdateStage) {
+                        return;
+                    }
+
                     if (this.currentStage.code == stage.code) {
                         return;
                     }
@@ -235,6 +243,14 @@
                 },
 
                 update(stage, params = null) {
+                    /**
+                     * Sin permiso la barra de etapas queda de solo lectura: muestra la
+                     * etapa actual pero no dispara ningun cambio.
+                     */
+                    if (! this.canUpdateStage) {
+                        return;
+                    }
+
                     if (this.currentStage.code == stage.code) {
                         return;
                     }

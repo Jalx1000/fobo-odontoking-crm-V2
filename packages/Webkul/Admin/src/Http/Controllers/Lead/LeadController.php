@@ -190,6 +190,102 @@ class LeadController extends Controller
     }
 
     /**
+     * Resolve the value of a `created_at:<value>` part coming from the kanban
+     * filter drawer into an explicit [start, end] range.
+     *
+     * Accepts the quick filters ("today", "week", "month") as well as an
+     * explicit range ("2026-01-01,2026-01-31") and a single day ("2026-01-01").
+     */
+    private function resolveKanbanSearchDateRange(string $value): ?array
+    {
+        switch ($value) {
+            case 'today':
+                return [Carbon::today()->startOfDay(), Carbon::today()->endOfDay()];
+
+            case 'week':
+                return [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()];
+
+            case 'month':
+                return [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()];
+        }
+
+        [$from, $to] = array_pad(array_filter(explode(',', $value), 'strlen'), 2, null);
+
+        if (! $from) {
+            return null;
+        }
+
+        try {
+            $range = [
+                Carbon::parse($from)->startOfDay(),
+                Carbon::parse($to ?? $from)->endOfDay(),
+            ];
+        } catch (\Exception $e) {
+            return null;
+        }
+
+        return $range[0]->gt($range[1]) ? null : $range;
+    }
+
+    /**
+     * Page size for the kanban columns. The board sends its own `limit`, which
+     * used to be ignored in favour of a hardcoded 100; honouring it keeps the
+     * infinite-scroll page math on the client in sync with what is returned.
+     */
+    private function resolveKanbanPageSize(): int
+    {
+        $limit = (int) request()->query('limit', 100);
+
+        return $limit > 0 ? min($limit, 100) : 100;
+    }
+
+    /**
+     * Apply the kanban's free-text search ("q") to a lead query.
+     *
+     * Deliberately kept out of the RequestCriteria `search` protocol: that
+     * protocol ORs every field together, so a text term combined with a column
+     * filter would *widen* the result set. Here the whole thing is one grouped
+     * OR that gets AND-ed against the rest of the query.
+     *
+     * Matches the lead title plus the linked contact's name, email, phone and
+     * messenger id. Emails/phones live as JSON arrays and `unique_id` holds
+     * "<email>|<phone>", so a LIKE over the raw column covers all of them.
+     */
+    private function applyLeadSearch($query, string $term)
+    {
+        $term = trim($term);
+
+        if ($term === '') {
+            return $query;
+        }
+
+        /**
+         * Users type phone numbers with separators ("706-50945", "70 650 945")
+         * while they are stored bare, so a digit-only variant is searched too.
+         * A plain substring match already covers the missing "591" country code.
+         */
+        $digits = preg_replace('/\D/', '', $term);
+
+        $terms = strlen($digits) >= 6 && $digits !== $term
+            ? [$term, $digits]
+            : [$term];
+
+        return $query->where(function ($query) use ($terms) {
+            foreach ($terms as $term) {
+                $query
+                    ->orWhere('leads.title', 'like', '%'.$term.'%')
+                    ->orWhereHas('person', function ($query) use ($term) {
+                        $query
+                            ->where('persons.name', 'like', '%'.$term.'%')
+                            ->orWhere('persons.unique_id', 'like', '%'.$term.'%')
+                            ->orWhere('persons.emails', 'like', '%'.$term.'%')
+                            ->orWhere('persons.contact_numbers', 'like', '%'.$term.'%');
+                    });
+            }
+        });
+    }
+
+    /**
      * Returns a listing of the resource.
      */
     public function get(): JsonResponse
@@ -228,31 +324,29 @@ class LeadController extends Controller
         $dateRange = null;
 
         /**
-         * Here, we're checking if the date filter is present in the search string.
-         * If it is, then we'll extract the date filter and create a date range.
+         * The kanban filter drawer ships its date filter inside the RequestCriteria
+         * "search" string (`created_at:<value>`). We resolve it here and *always*
+         * strip that part out afterwards: RequestCriteria would otherwise apply it
+         * verbatim (`whereIn('created_at', ['2026-01-01', '2026-01-31'])`), which
+         * silently returns zero leads for any custom range.
          */
         if ($search = request()->query('search')) {
-            $searchParts = explode(';', $search);
+            $remaining = [];
 
-            foreach ($searchParts as $part) {
-                if (str_contains($part, 'created_at:')) {
-                    $value = str_replace('created_at:', '', $part);
+            foreach (explode(';', $search) as $part) {
+                if (! str_starts_with($part, 'created_at:')) {
+                    $remaining[] = $part;
 
-                    if ($value === 'today') {
-                        $dateRange = [Carbon::today()->startOfDay(), Carbon::today()->endOfDay()];
-                    } elseif ($value === 'week') {
-                        $dateRange = [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()];
-                    } elseif ($value === 'month') {
-                        $dateRange = [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()];
-                    }
-
-                    // Remove the created_at from search so RequestCriteria doesn't try to filter it as a literal string
-                    if ($dateRange) {
-                        $search = str_replace($part.';', '', $search);
-                        $search = str_replace($part, '', $search);
-                        request()->merge(['search' => $search]);
-                    }
+                    continue;
                 }
+
+                $dateRange = $this->resolveKanbanSearchDateRange(
+                    substr($part, strlen('created_at:'))
+                ) ?: $dateRange;
+            }
+
+            if (count($remaining) !== count(explode(';', $search))) {
+                request()->merge(['search' => implode(';', $remaining)]);
             }
         }
 
@@ -328,6 +422,10 @@ class LeadController extends Controller
                 $query->whereBetween('leads.created_at', $dateRange);
             }
 
+            if ($term = request()->query('q')) {
+                $query = $this->applyLeadSearch($query, $term);
+            }
+
             /**
              * Deterministic ordering so infinite-scroll pagination never duplicates
              * or drops leads across pages (especially in "all pipelines" mode where
@@ -360,7 +458,7 @@ class LeadController extends Controller
                     'pipeline.stages',
                     'stage',
                     'attribute_values',
-                ])->paginate(100)),
+                ])->paginate($this->resolveKanbanPageSize())),
 
                 'meta' => [
                     'current_page' => $paginator->currentPage(),
@@ -487,7 +585,19 @@ class LeadController extends Controller
 
         $data = $request->all();
 
-        if (isset($data['lead_pipeline_stage_id'])) {
+        /**
+         * El formulario de edicion manda lead_pipeline_stage_id en un input oculto
+         * en cada guardado, aunque nadie haya tocado la etapa. Sin el permiso de
+         * cambio de etapa se ignora lo que llegue y se conserva la etapa actual:
+         * rechazar el request romperia la edicion normal del pedido.
+         */
+        if (! bouncer()->hasPermission('leads.stage_update')) {
+            $lead = $this->leadRepository->findOrFail($id);
+
+            $data['lead_pipeline_id'] = $lead->lead_pipeline_id;
+
+            $data['lead_pipeline_stage_id'] = $lead->lead_pipeline_stage_id;
+        } elseif (isset($data['lead_pipeline_stage_id'])) {
             $stage = $this->stageRepository->findOrFail($data['lead_pipeline_stage_id']);
 
             $data['lead_pipeline_id'] = $stage->lead_pipeline_id;

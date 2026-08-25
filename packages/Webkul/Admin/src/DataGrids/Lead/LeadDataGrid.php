@@ -4,6 +4,7 @@ namespace Webkul\Admin\DataGrids\Lead;
 
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
+use Webkul\Admin\DataGrids\Concerns\NormalizesContactSearch;
 use Webkul\Admin\Helpers\CustomAttributeValueResolver;
 use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\DataGrid\DataGrid;
@@ -17,6 +18,8 @@ use Webkul\User\Repositories\UserRepository;
 
 class LeadDataGrid extends DataGrid
 {
+    use NormalizesContactSearch;
+
     /**
      * Pipeline instance.
      *
@@ -157,6 +160,7 @@ class LeadDataGrid extends DataGrid
         $this->addFilter('lead_source_name', 'lead_sources.id');
         // $this->addFilter('lead_type_name', 'lead_types.id');
         $this->addFilter('person_name', 'persons.name');
+        $this->addFilter('person_contact', DB::raw("CONCAT_WS(' ', {$tablePrefix}persons.unique_id, {$tablePrefix}persons.emails, {$tablePrefix}persons.contact_numbers)"));
         // $this->addFilter('type', 'lead_pipeline_stages.code');
         $this->addFilter('stage', 'lead_pipeline_stages.id');
         $this->addFilter('tag_name', 'tags.name');
@@ -248,7 +252,7 @@ class LeadDataGrid extends DataGrid
             'index'              => 'person_name',
             'label'              => trans('admin::app.leads.index.datagrid.contact-person'),
             'type'               => 'string',
-            'searchable'         => false,
+            'searchable'         => true,
             'sortable'           => true,
             'filterable'         => true,
             'filterable_type'    => 'searchable_dropdown',
@@ -264,6 +268,24 @@ class LeadDataGrid extends DataGrid
 
                 return "<a class=\"text-brandColor transition-all hover:underline\" href='".$route."'>".$row->person_name.'</a>';
             },
+        ]);
+
+        /**
+         * Hidden helper column: it exists only so the grid's free-text search also
+         * matches the contact's email, phone and messenger id. Those live as JSON
+         * arrays in `persons` (plus `unique_id`, which holds "<email>|<phone>"), so
+         * there is nothing meaningful to render — hence not visible, not exportable
+         * and not filterable.
+         */
+        $this->addColumn([
+            'index'      => 'person_contact',
+            'label'      => trans('admin::app.leads.index.datagrid.contact-person'),
+            'type'       => 'string',
+            'searchable' => true,
+            'sortable'   => false,
+            'filterable' => false,
+            'visibility' => false,
+            'exportable' => false,
         ]);
 
         $this->addColumn([

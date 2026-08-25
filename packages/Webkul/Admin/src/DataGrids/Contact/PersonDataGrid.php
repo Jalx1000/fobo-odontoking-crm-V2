@@ -5,6 +5,7 @@ namespace Webkul\Admin\DataGrids\Contact;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Webkul\Admin\DataGrids\Concerns\NormalizesContactSearch;
 use Webkul\Admin\Helpers\CustomAttributeValueResolver;
 use Webkul\Attribute\Repositories\AttributeRepository;
 use Webkul\Contact\Repositories\OrganizationRepository;
@@ -13,6 +14,8 @@ use Webkul\DataGrid\DataGrid;
 
 class PersonDataGrid extends DataGrid
 {
+    use NormalizesContactSearch;
+
     /**
      * Custom-attribute codes kept out of the Excel/CSV download.
      *
@@ -176,6 +179,7 @@ class PersonDataGrid extends DataGrid
         $this->addFilter('id', 'persons.id');
         $this->addFilter('person_name', 'persons.name');
         $this->addFilter('organization', 'organizations.name');
+        $this->addFilter('person_contact', 'persons.unique_id');
 
         /**
          * Qualified because the left-joined "organizations" table also has a
@@ -262,6 +266,23 @@ class PersonDataGrid extends DataGrid
                     'value' => 'name',
                 ],
             ],
+        ]);
+
+        /**
+         * Hidden helper column: it exists only so the free-text search also matches
+         * `unique_id` ("<email>|<phone>"), which is where a prospect imported from
+         * WhatsApp/Messenger keeps its messenger id. Nothing to render — hence not
+         * visible, not exportable and not filterable.
+         */
+        $this->addColumn([
+            'index'      => 'person_contact',
+            'label'      => trans('admin::app.contacts.persons.index.datagrid.contact-numbers'),
+            'type'       => 'string',
+            'searchable' => true,
+            'sortable'   => false,
+            'filterable' => false,
+            'visibility' => false,
+            'exportable' => false,
         ]);
 
         $this->prepareCustomAttributeColumns();

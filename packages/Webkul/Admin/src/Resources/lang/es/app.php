@@ -37,6 +37,7 @@ return [
         'view'            => 'Ver',
         'print'           => 'Imprimir',
         'delete'          => 'Eliminar',
+        'stage-update'    => 'Mover etapa',
         'export'          => 'Exportar',
         'mass-delete'     => 'Eliminar en masa',
         'data-transfer'   => 'Transferencia de Datos',
@@ -1749,6 +1750,7 @@ return [
         'create-success'  => 'Creado exitosamente.',
         'update-success'  => 'Actualizado exitosamente.',
         'update-failed'   => 'No se pueden eliminar los pedidos.',
+        'stage-permission-denied' => 'No tenés permiso para cambiar la etapa de un pedido.',
         'destroy-success' => 'Eliminado exitosamente.',
         'destroy-failed'  => 'No se puede eliminar el pedido.',
         'file'            => [
@@ -1807,7 +1809,8 @@ return [
                 ],
                 'toolbar' => [
                     'search' => [
-                        'title' => 'Buscar por título',
+                        'title' => 'Nombre, teléfono, correo o messenger',
+                        'clear' => 'Limpiar búsqueda',
                     ],
                     'filters' => [
                         'apply-filters' => 'Aplicar Filtros',
